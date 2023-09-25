@@ -1,0 +1,17 @@
+name: gws_qc
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10.12
+  - pip
+  - numpy
+  - matplotlib
+  - pandas
+  - jupyter
+  - pip:
+    - dash
+    - dash-bootstrap-components
+    - flask-caching
+    - tqdm
+    - waitress
+    - traval
