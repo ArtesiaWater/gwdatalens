@@ -2,9 +2,10 @@ import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html
 
 from . import ids, tabs
+from ..data.source import DataSource
 
 
-def create_layout(app: Dash) -> html.Div:
+def create_layout(app: Dash, data: DataSource) -> html.Div:
     """Create app layout.
 
     Parameters

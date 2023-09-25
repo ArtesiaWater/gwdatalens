@@ -7,9 +7,11 @@ from waitress import serve
 try:
     from .src.cache import cache
     from .src.components.layout import create_layout
+    from .src.data.source import DataSource
 except ImportError:  # if running app.py directly
     from src.cache import cache
     from src.components.layout import create_layout
+    from src.data.source import DataSource
 
 logger = logging.getLogger("waitress")
 logger.setLevel(logging.ERROR)
@@ -28,7 +30,7 @@ external_stylesheets = [
 
 def main():
     # load the data
-    # data = DataSource()
+    data = DataSource()
 
     # create app
     app = Dash(
@@ -37,7 +39,7 @@ def main():
         suppress_callback_exceptions=True,
     )
     app.title = "QC Grondwaterstanden"
-    app.layout = create_layout(app)
+    app.layout = create_layout(app, data)
 
     # initialize cache
     cache.init_app(
