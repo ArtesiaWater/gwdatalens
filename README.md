@@ -1,2 +1,3 @@
-# gws_qc
-Tool voor kwaliteitscontrole op grondwaterstanden
+# GWS_QC: Tool voor kwaliteitscontrole op grondwaterstanden 
+
+
