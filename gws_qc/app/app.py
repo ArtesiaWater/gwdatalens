@@ -54,7 +54,7 @@ def run(debug=False):
         app.run_server(debug=debug)
     else:
         print(
-            "\nRunning PyGolf Dashboard on http://127.0.0.1:8050/\nPress Ctrl+C to quit."
+            "\nRunning QC Grondwaterstanden on http://127.0.0.1:8050/\nPress Ctrl+C to quit."
         )
         serve(app.server, host="127.0.0.1", port=8050)
     cache.clear()

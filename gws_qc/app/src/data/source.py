@@ -3,7 +3,7 @@ import pandas as pd
 import geopandas as gpd
 import psycopg2
 import logging
-import config
+from . import config
 
 logger = logger = logging.getLogger(__name__)
 
