@@ -1,5 +1,6 @@
-from typing import List
+from typing import List, Tuple
 import pandas as pd
+import geopandas as gpd
 import psycopg2
 import logging
 import config
@@ -25,9 +26,30 @@ class DataSource:
         except:
             logger.error("Database not connected successfully")
 
-    def list_locations(self) -> List:
-        """Return a list of locations, where each location is defines by a tuple of
-        length 2: bro-id and tube_id"""
+    def gmw_to_gdf(self):
+        """Return all groundwater monitoring wells (gmw) as a GeoDataFrame"""
+        # get a DataFrame with the properties of all wells
+        df = self._get_table_df("gmw.groundwater_monitoring_wells")
+
+        # get a GeoDataFrame with locations
+        table_name = "gmw.delivered_locations"
+        query = f"select *  FROM {table_name}"
+        locs = gpd.GeoDataFrame.from_postgis(
+            query, self.connection, geom_col="coordinates"
+        )
+        mask = locs["groundwater_monitoring_well_id"].duplicated()
+        if mask.any():
+            logger.info(f"Dropping {mask.sum()} duplicate delivered_locations")
+            locs = locs[~mask]
+
+        # add locations to properties of wells
+        df = df.merge(locs, how="left", on="groundwater_monitoring_well_id")
+        gdf = gpd.GeoDataFrame(df, geometry="coordinates")
+        return gdf
+
+    def list_locations(self) -> List[Tuple[str, int]]:
+        """Return a list of locations that contain groundwater level dossiers, where
+        each location is defines by a tuple of length 2: bro-id and tube_id"""
         # table_name = "gmw.groundwater_monitoring_wells"
         # get all grundwater level dossiers
         df = self.get_table("gld.groundwater_level_dossier")
