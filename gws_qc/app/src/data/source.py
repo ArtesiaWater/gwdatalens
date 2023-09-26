@@ -37,6 +37,10 @@ class DataSource:
         locs = gpd.GeoDataFrame.from_postgis(
             query, self.connection, geom_col="coordinates"
         )
+        # make sure all locations are in EPSG:28992
+        msg = "Other coordinate reference systems than RD not supported yet"
+        assert (locs["referencesystem"].str.lower() == "rd").all, msg
+        # drop duplicate location entries (TODO: find out why they are there)
         mask = locs["groundwater_monitoring_well_id"].duplicated()
         if mask.any():
             logger.info(f"Dropping {mask.sum()} duplicate delivered_locations")
@@ -60,7 +64,7 @@ class DataSource:
 
     def get_timeseries(self, gmw_id: str, tube_id: int) -> pd.Series:
         """Retrun a Pandas Series for the measurements at the requested bro-id and
-        tube-id"""
+        tube-id, im m. Return None when there are no measurements."""
         # get groundwater_level_dossier_id
         table_name = "gld.groundwater_level_dossier"
         query = f"select groundwater_level_dossier_id FROM {table_name} WHERE gmw_bro_id = '{gmw_id}' AND groundwater_monitoring_tube_id = {tube_id}"
@@ -97,9 +101,11 @@ class DataSource:
         )
         query = f"select * FROM {table_name} WHERE measurement_time_series_id in ({measurement_time_series_ids_str})"
         df = self._query_to_df(query).set_index("measurement_time")
-
-        # do we get field_value, calculated_value or corrected_value
-        s = pd.to_numeric(df["field_value"]).sort_index()
+        # make sure all measurements are in cm
+        msg = "Other units than cm not supported yet"
+        assert (df["field_value_unit"] == "cm").all(), msg
+        # TODO: do we get field_value, calculated_value or corrected_value?
+        s = pd.to_numeric(df["field_value"]).sort_index() / 100.0
         return s
 
     def _get_all_tables(self):
