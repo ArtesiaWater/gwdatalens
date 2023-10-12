@@ -34,6 +34,7 @@ class DataSource:
         # get a GeoDataFrame with locations
         table_name = "gmw.delivered_locations"
         query = f"select *  FROM {table_name}"
+        # TODO: fix warning: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
         locs = gpd.GeoDataFrame.from_postgis(
             query, self.connection, geom_col="coordinates"
         )
@@ -54,16 +55,17 @@ class DataSource:
     def list_locations(self) -> List[Tuple[str, int]]:
         """Return a list of locations that contain groundwater level dossiers, where
         each location is defines by a tuple of length 2: bro-id and tube_id"""
-        # table_name = "gmw.groundwater_monitoring_wells"
         # get all grundwater level dossiers
-        df = self.get_table("gld.groundwater_level_dossier")
+        df = self._get_table_df("gld.groundwater_level_dossier")
         # get unique combinations of gmw id and tube id
         loc_df = df[["gmw_bro_id", "groundwater_monitoring_tube_id"]].drop_duplicates()
         locations = list(loc_df.itertuples(index=False, name=None))
         return locations
 
-    def get_timeseries(self, gmw_id: str, tube_id: int) -> pd.Series:
-        """Retrun a Pandas Series for the measurements at the requested bro-id and
+    def get_timeseries(
+        self, gmw_id: str, tube_id: int, column="field_value"
+    ) -> pd.Series:
+        """Return a Pandas Series for the measurements at the requested bro-id and
         tube-id, im m. Return None when there are no measurements."""
         # get groundwater_level_dossier_id
         table_name = "gld.groundwater_level_dossier"
@@ -105,7 +107,7 @@ class DataSource:
         msg = "Other units than cm not supported yet"
         assert (df["field_value_unit"] == "cm").all(), msg
         # TODO: do we get field_value, calculated_value or corrected_value?
-        s = pd.to_numeric(df["field_value"]).sort_index() / 100.0
+        s = pd.to_numeric(df[column]).sort_index() / 100.0
         return s
 
     def _get_all_tables(self):
