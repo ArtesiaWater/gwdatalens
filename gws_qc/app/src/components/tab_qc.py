@@ -5,7 +5,7 @@ from dash import Dash, Input, Output, State, dcc, html
 from dash.exceptions import PreventUpdate
 
 from . import ids, qc_chart, qc_rules, qc_table
-
+from ..data.source import DataSource
 
 def render(app: Dash):
     return dcc.Tab(
@@ -16,7 +16,7 @@ def render(app: Dash):
     )
 
 
-def render_content(app: Dash):
+def render_content(app: Dash, data: DataSource):
     return dbc.Container(
         [
             dbc.Row(
