@@ -30,7 +30,7 @@ def create_layout(app: Dash, data: DataSource) -> html.Div:
                     # button_help_modal.render(app),
                 ],
             ),
-            tabs.render(app),
+            tabs.render(app, data),
             html.Div(id=ids.TAB_CONTENT),
         ],
     )
