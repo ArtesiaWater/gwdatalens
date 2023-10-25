@@ -1,9 +1,9 @@
 from typing import List, Tuple
 import pandas as pd
 import geopandas as gpd
-import psycopg2
 import logging
 import sqlalchemy as sa
+
 try:
     from . import config
 except:
@@ -17,20 +17,10 @@ class DataSource:
         # init connection to database OR just read in some data from somewhere
         # Connect to database using psycopg2
         try:
-            # self.connection = psycopg2.connect(
-            #     database=config.database,
-            #     user=config.user,
-            #     password=config.password,
-            #     host=config.host,
-            #     port=config.port,
-            # )
-            # self.cursor = self.connection.cursor()
-            self.connection = sa.create_engine(
+            self.engine = sa.create_engine(
                 f"postgresql+psycopg2://{config.user}:{config.password}@"
                 f"{config.host}:{config.port}/{config.database}"
             )
-            connection = self.connection.raw_connection()
-            self.cursor = connection.cursor()
 
             logger.info("Database connected successfully")
         except Exception as e:
@@ -45,12 +35,10 @@ class DataSource:
         # get a GeoDataFrame with locations
         table_name = "gmw.delivered_locations"
         query = sa.text(f"select *  FROM {table_name}")
-        # TODO: fix warning: UserWarning: pandas only supports SQLAlchemy connectable
-        # (engine/connection) or database string URI or sqlite3 DBAPI2 connection.
-        # Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
-        locs = gpd.GeoDataFrame.from_postgis(
-            query, self.connection, geom_col="coordinates"
-        )
+        with self.engine.connect() as connection:
+            locs = gpd.GeoDataFrame.from_postgis(
+                query, connection, geom_col="coordinates"
+            )
         # make sure all locations are in EPSG:28992
         msg = "Other coordinate reference systems than RD not supported yet"
         assert (locs["referencesystem"].str.lower() == "rd").all, msg
@@ -76,15 +64,15 @@ class DataSource:
         return locations
 
     def get_timeseries(
-        self, gmw_id: str, tube_id: int, column="field_value"
+        self, gmw_id: str, tube_id: int, column="calculated_value"
     ) -> pd.Series:
         """Return a Pandas Series for the measurements at the requested bro-id and
         tube-id, im m. Return None when there are no measurements."""
         # get groundwater_level_dossier_id
         table_name = "gld.groundwater_level_dossier"
         query = f"select groundwater_level_dossier_id FROM {table_name} WHERE gmw_bro_id = '{gmw_id}' AND groundwater_monitoring_tube_id = {tube_id}"
-        self._execute_query(query)
-        gld_ids = [x[0] for x in self.cursor.fetchall()]
+        cursor = self._execute_query(query)
+        gld_ids = [x[0] for x in cursor.fetchall()]
         if len(gld_ids) == 0:
             logger.info(f"No data found for {gmw_id}, {tube_id}")
             return None
@@ -93,8 +81,8 @@ class DataSource:
         table_name = "gld.observation"
         gld_ids_str = str(gld_ids).replace("[", "").replace("]", "")
         query = f"select observation_id FROM {table_name} WHERE groundwater_level_dossier_id in ({gld_ids_str})"
-        self._execute_query(query)
-        observation_ids = [x[0] for x in self.cursor.fetchall()]
+        cursor = self._execute_query(query)
+        observation_ids = [x[0] for x in cursor.fetchall()]
         if len(observation_ids) == 0:
             logger.info(f"No data found for {gmw_id}, {tube_id}")
             return None
@@ -103,8 +91,8 @@ class DataSource:
         table_name = "gld.measurement_time_series"
         observation_ids_str = str(observation_ids).replace("[", "").replace("]", "")
         query = f"select measurement_time_series_id FROM {table_name} WHERE observation_id in ({observation_ids_str})"
-        self._execute_query(query)
-        measurement_time_series_ids = [x[0] for x in self.cursor.fetchall()]
+        cursor = self._execute_query(query)
+        measurement_time_series_ids = [x[0] for x in cursor.fetchall()]
         if len(measurement_time_series_ids) == 0:
             logger.info(f"No data found for {gmw_id}, {tube_id}")
             return None
@@ -124,38 +112,35 @@ class DataSource:
         return s
 
     def _get_all_tables(self):
-        self.cursor.execute("SELECT table_name FROM information_schema.tables")
-        tables = [x for x in self.cursor.fetchall()]
+        cursor = self._execute_query("SELECT table_name FROM information_schema.tables")
+        tables = [x for x in cursor.fetchall()]
+        # tables = sa.inspect(self.engine).get_table_names()
         return tables
 
-    def _get_tables(self, schema):
-        self.cursor.execute(
+    def _get_tables_in_schema(self, schema):
+        cursor = self._execute_query(
             f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}'"
         )
-        tables = [x[0] for x in self.cursor.fetchall()]
+        tables = [x[0] for x in cursor.fetchall()]
         return tables
 
     def _exists_table(self, table):
-        self.cursor.execute(
+        cursor = self._execute_query(
             f"select exists(select * FROM information_schema.tables where table_name={table})"
         )
-        return self.cursor.fetchone()[0]
+        return cursor.fetchone()[0]
+        # return self.engine.dialect.has_table(self.engine.connect(), table)
 
     def _get_table_df(self, table_name):
         query = f"select * FROM {table_name}"
         return self._query_to_df(query)
 
     def _execute_query(self, query):
-        try:
-            self.cursor.execute(query)
-        except Exception as e:
-            self.cursor.execute("rollback")
-            raise (Exception(e))
+        with self.engine.connect() as connection:
+            result = connection.execute(sa.text(query))
+        return result
 
     def _query_to_df(self, query):
-        self._execute_query(query)
-        colnames = [desc[0] for desc in self.cursor.description]
-        records = self.cursor.fetchall()
-        df = pd.DataFrame(records, columns=colnames)
-
+        with self.engine.connect() as connection:
+            df = pd.read_sql_query(sa.text(query), con=connection)
         return df

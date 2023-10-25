@@ -8,6 +8,8 @@ dependencies:
   - matplotlib
   - pandas
   - jupyter
+  - sqlalchemy
+  - psycopg2
   - pip:
     - dash
     - dash-bootstrap-components
