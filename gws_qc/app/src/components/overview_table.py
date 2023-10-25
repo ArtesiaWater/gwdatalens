@@ -5,74 +5,90 @@ from dash.dash_table.Format import Format
 from dash.exceptions import PreventUpdate
 
 from . import ids
+from ..data.source import DataSource
 
 # DATA_TABLE_HEADER_BGCOLOR = "rgb(245, 245, 245)"
 # DATA_TABLE_ODD_ROW_BGCOLOR = "rgb(250, 250, 250)"
 # DATA_TABLE_FALSE_BGCOLOR = "rgb(255, 238, 238)"
 # DATA_TABLE_TRUE_BGCOLOR = "rgb(231, 255, 239)"
-import pandas as pd
 
-data = pd.DataFrame(
-    index=["test1", "test2", "test3"],
-    columns=["x", "y"],
-    data=999.0,
-)
-data.index.name = "name"
-data = data.reset_index()
 
-def render(app: Dash):
+def render(app: Dash, data: DataSource):
+    df = data.gmw_to_gdf()
+
+    # has observations
+    hasobs = [i for i, _ in data.list_locations()]
+    mask = df.bro_id.isin(hasobs)
+    df["metingen"] = ""
+    df.loc[mask, "metingen"] = "ja"
+
+    df.sort_values("metingen", ascending=False, inplace=True)
+
+    df["x"] = df["coordinates"].apply(lambda p: p.xy[0][0])
+    df["y"] = df["coordinates"].apply(lambda p: p.xy[1][0])
+    usecols = ["bro_id", "x", "y", "metingen"]
+
     return html.Div(
         id="table-div",
         children=[
             dash_table.DataTable(
                 id=ids.OVERVIEW_TABLE,
-                data=data.to_dict("records"),
+                data=df.loc[:, usecols].to_dict("records"),
                 columns=[
                     {
-                        "id": "name",
+                        "id": "bro_id",
                         "name": "Naam",
                         "type": "text",
                     },
                     {
                         "id": "x",
-                        "name": "X",
+                        "name": "X [m RD]",
                         "type": "numeric",
                         "format": Format(scheme="r", precision=5),
                     },
                     {
                         "id": "y",
-                        "name": "Y",
+                        "name": "Y [m RD]",
                         "type": "numeric",
                         "format": Format(scheme="r", precision=5),
+                    },
+                    {
+                        "id": "metingen",
+                        "name": "Metingen",
+                        "type": "text",
                     },
                 ],
                 fixed_rows={"headers": True},
                 page_action="none",
-                # style_table={
-                #     # "height": "70vh",
-                #     # "overflowY": "auto",
-                #     # "margin-top": 15,
-                #     # "maxHeight": "70vh",
-                # },
+                style_table={
+                    # "height": "70vh",
+                    # "overflowY": "auto",
+                    "margin-top": 15,
+                    # "maxHeight": "70vh",
+                },
                 # row_selectable="multi",
-                # style_cell={"whiteSpace": "pre-line"},
-                # style_cell_conditional=[
-                #     {
-                #         "if": {"column_id": c},
-                #         "textAlign": "left",
-                #     }
-                #     for c in ["date", "gumbel"]
-                # ]
-                # + [
-                #     {"if": {"column_id": "date"}, "width": "30%"},
-                #     {"if": {"column_id": "T"}, "width": "25%"},
-                #     {"if": {"column_id": "gumbel"}, "width": "35%"},
-                # ],
+                style_cell={
+                    "whiteSpace": "pre-line",
+                    "fontSize": 12,
+                },
+                style_cell_conditional=[
+                    {
+                        "if": {"column_id": c},
+                        "textAlign": "left",
+                    }
+                    for c in ["bro_id", "metingen"]
+                ]
+                + [
+                    {"if": {"column_id": "bro_id"}, "width": "25%"},
+                    {"if": {"column_id": "x"}, "width": "25%"},
+                    {"if": {"column_id": "y"}, "width": "25%"},
+                    {"if": {"column_id": "metingen"}, "width": "25%"},
+                ],
                 # style_data_conditional=style_data_conditional,
-                # style_header={
-                #     "backgroundColor": DATA_TABLE_HEADER_BGCOLOR,
-                #     "fontWeight": "bold",
-                # },
+                style_header={
+                    # "backgroundColor": DATA_TABLE_HEADER_BGCOLOR,
+                    "fontWeight": "bold",
+                },
             ),
         ],
         className="dbc dbc-row-selectable",
