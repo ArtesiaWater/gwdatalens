@@ -3,7 +3,11 @@ import pandas as pd
 import geopandas as gpd
 import psycopg2
 import logging
-from . import config
+import sqlalchemy as sa
+try:
+    from . import config
+except:
+    import config
 
 logger = logger = logging.getLogger(__name__)
 
@@ -13,17 +17,24 @@ class DataSource:
         # init connection to database OR just read in some data from somewhere
         # Connect to database using psycopg2
         try:
-            self.connection = psycopg2.connect(
-                database=config.database,
-                user=config.user,
-                password=config.password,
-                host=config.host,
-                port=config.port,
+            # self.connection = psycopg2.connect(
+            #     database=config.database,
+            #     user=config.user,
+            #     password=config.password,
+            #     host=config.host,
+            #     port=config.port,
+            # )
+            # self.cursor = self.connection.cursor()
+            self.connection = sa.create_engine(
+                f"postgresql+psycopg2://{config.user}:{config.password}@"
+                f"{config.host}:{config.port}/{config.database}"
             )
+            connection = self.connection.raw_connection()
+            self.cursor = connection.cursor()
 
-            self.cursor = self.connection.cursor()
             logger.info("Database connected successfully")
-        except:
+        except Exception as e:
+            print(e)
             logger.error("Database not connected successfully")
 
     def gmw_to_gdf(self):
@@ -33,8 +44,10 @@ class DataSource:
 
         # get a GeoDataFrame with locations
         table_name = "gmw.delivered_locations"
-        query = f"select *  FROM {table_name}"
-        # TODO: fix warning: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+        query = sa.text(f"select *  FROM {table_name}")
+        # TODO: fix warning: UserWarning: pandas only supports SQLAlchemy connectable
+        # (engine/connection) or database string URI or sqlite3 DBAPI2 connection.
+        # Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
         locs = gpd.GeoDataFrame.from_postgis(
             query, self.connection, geom_col="coordinates"
         )
