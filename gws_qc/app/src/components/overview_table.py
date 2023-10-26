@@ -16,17 +16,28 @@ from ..data.source import DataSource
 def render(app: Dash, data: DataSource):
     df = data.gmw_to_gdf()
 
-    # has observations
-    hasobs = [i for i, _ in data.list_locations()]
-    mask = df.bro_id.isin(hasobs)
+    # addd column "metingen"
     df["metingen"] = ""
+    locs_with_obs = data.list_locations()
+    mask = [tuple(x) in locs_with_obs for x in df[["bro_id", "tube_number"]].values]
     df.loc[mask, "metingen"] = "ja"
 
-    df.sort_values("metingen", ascending=False, inplace=True)
+    df.sort_values(
+        ["metingen", "nitg_code", "tube_number"], ascending=False, inplace=True
+    )
 
-    df["x"] = df["coordinates"].apply(lambda p: p.xy[0][0])
-    df["y"] = df["coordinates"].apply(lambda p: p.xy[1][0])
-    usecols = ["bro_id", "x", "y", "metingen"]
+    df["x"] = df.geometry.x
+    df["y"] = df.geometry.y
+    usecols = [
+        "bro_id",
+        "nitg_code",
+        "tube_number",
+        "screen_top",
+        "screen_bot",
+        "x",
+        "y",
+        "metingen",
+    ]
 
     return html.Div(
         id="table-div",
@@ -39,6 +50,29 @@ def render(app: Dash, data: DataSource):
                         "id": "bro_id",
                         "name": "Naam",
                         "type": "text",
+                    },
+                    {
+                        "id": "nitg_code",
+                        "name": "NITG-code",
+                        "type": "text",
+                    },
+                    {
+                        "id": "tube_number",
+                        "name": "Filternummer",
+                        "type": "numeric",
+                        # "format": Format(scheme="r", precision=1),
+                    },
+                    {
+                        "id": "screen_top",
+                        "name": "Bovenzijde filter [m NAP]",
+                        "type": "numeric",
+                        "format": {"specifier": ".2f"},
+                    },
+                    {
+                        "id": "screen_bot",
+                        "name": "Onderzijde filter [m NAP]",
+                        "type": "numeric",
+                        "format": {"specifier": ".2f"},
                     },
                     {
                         "id": "x",
@@ -79,10 +113,14 @@ def render(app: Dash, data: DataSource):
                     for c in ["bro_id", "metingen"]
                 ]
                 + [
-                    {"if": {"column_id": "bro_id"}, "width": "25%"},
-                    {"if": {"column_id": "x"}, "width": "25%"},
-                    {"if": {"column_id": "y"}, "width": "25%"},
-                    {"if": {"column_id": "metingen"}, "width": "25%"},
+                    {"if": {"column_id": "bro_id"}, "width": "15%"},
+                    {"if": {"column_id": "nitg_code"}, "width": "10%"},
+                    {"if": {"column_id": "tube_number"}, "width": "10%"},
+                    {"if": {"column_id": "screen_top"}, "width": "15%"},
+                    {"if": {"column_id": "screen_bot"}, "width": "15%"},
+                    {"if": {"column_id": "x"}, "width": "10%"},
+                    {"if": {"column_id": "y"}, "width": "10%"},
+                    {"if": {"column_id": "metingen"}, "width": "15%"},
                 ],
                 # style_data_conditional=style_data_conditional,
                 style_header={

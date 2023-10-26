@@ -30,7 +30,7 @@ class DataSource:
     def gmw_to_gdf(self):
         """Return all groundwater monitoring wells (gmw) as a GeoDataFrame"""
         # get a DataFrame with the properties of all wells
-        df = self._get_table_df("gmw.groundwater_monitoring_wells")
+        wells = self._get_table_df("gmw.groundwater_monitoring_wells")
 
         # get a GeoDataFrame with locations
         table_name = "gmw.delivered_locations"
@@ -48,9 +48,18 @@ class DataSource:
             logger.info(f"Dropping {mask.sum()} duplicate delivered_locations")
             locs = locs[~mask]
 
-        # add locations to properties of wells
-        df = df.merge(locs, how="left", on="groundwater_monitoring_well_id")
-        gdf = gpd.GeoDataFrame(df, geometry="coordinates")
+        # add information from locations wells
+        wells = wells.merge(locs, how="left", on="groundwater_monitoring_well_id")
+
+        # add information from wells to tubes
+        tubes = self._get_table_df("gmw.groundwater_monitoring_tubes")
+        tubes = tubes.merge(wells, how="left", on="groundwater_monitoring_well_id")
+
+        gdf = gpd.GeoDataFrame(tubes, geometry="coordinates")
+
+        # calculate top filter and bottom filter
+        gdf["screen_top"] = gdf["tube_top_position"] - gdf["plain_tube_part_length"]
+        gdf["screen_bot"] = gdf["screen_top"] - gdf["screen_length"]
         return gdf
 
     def list_locations(self) -> List[Tuple[str, int]]:
