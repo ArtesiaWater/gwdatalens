@@ -38,8 +38,8 @@ def render(app, data: DataSource):
     df["metingen"] = ""
     df.loc[mask, "metingen"] = "ja"
 
-    df["x"] = df["coordinates"].apply(lambda p: p.xy[0][0])
-    df["y"] = df["coordinates"].apply(lambda p: p.xy[1][0])
+    df["x"] = df.geometry.x
+    df["y"] = df.geometry.y
 
     transformer = Transformer.from_proj(EPSG_28992, WGS84, always_xy=False)
     df.loc[:, ["lon", "lat"]] = np.vstack(

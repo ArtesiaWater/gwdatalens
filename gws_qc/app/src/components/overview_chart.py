@@ -21,7 +21,6 @@ def render(app: Dash, data: DataSource):
         # print("point=", selectedData)
 
         if selectedData is not None:
-            
             pts = pd.DataFrame(selectedData["points"])
 
             # get selected points
@@ -67,7 +66,6 @@ def render(app: Dash, data: DataSource):
 
 
 def plot_obs(names, data):
-    
     hasobs = [i for i, _ in data.list_locations()]
 
     if names is None:
@@ -79,21 +77,45 @@ def plot_obs(names, data):
         if name not in hasobs:
             print("no data", name)
             return {"layout": {"title": "No series to plot"}}
-        
-        ts = data.get_timeseries(gmw_id=name, tube_id=1, column="field_value")
+
+        df = data.get_timeseries(gmw_id=name, tube_id=1)
         print("time series", name)
-        if ts is None:
+        if df is None:
             continue
-        trace_i = go.Scattergl(
-            x=ts.index,
-            y=ts.values,
-            mode="markers",
-            marker={"color": "blue", "size": 3},
-            name=name,
-            legendgroup="0",
-            showlegend=True,
-        )
-        traces.append(trace_i)
+        if len(names) == 1:
+            # plot different qualifiers
+            for qualifier in df[data.qualifier_column].unique():
+                if qualifier == "goedgekeurd":
+                    color = "green"
+                elif qualifier == "nogNietBeoordeeld":
+                    color = "orange"
+                else:
+                    color = "blue"
+                mask = df[data.qualifier_column] == qualifier
+                ts = df.loc[mask, data.value_column]
+                trace_i = go.Scattergl(
+                    x=ts.index,
+                    y=ts.values,
+                    mode="markers",
+                    marker={"color": color, "size": 3},
+                    name=qualifier,
+                    legendgroup="0",
+                    showlegend=True,
+                )
+                traces.append(trace_i)
+        else:
+            # TODO: plot each series with its own color
+            ts = df[data.value_column]
+            trace_i = go.Scattergl(
+                x=ts.index,
+                y=ts.values,
+                mode="markers",
+                marker={"color": "blue", "size": 3},
+                name=name,
+                legendgroup="0",
+                showlegend=True,
+            )
+            traces.append(trace_i)
     layout = {
         # "xaxis": {"range": [sim.index[0], sim.index[-1]]},
         "yaxis": {"title": "(m NAP)"},

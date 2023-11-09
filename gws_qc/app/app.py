@@ -8,10 +8,12 @@ try:
     from .src.cache import cache
     from .src.components.layout import create_layout
     from .src.data.source import DataSource
+    from .src.data.source_hpd import DataSourceHydropandas
 except ImportError:  # if running app.py directly
     from src.cache import cache
     from src.components.layout import create_layout
     from src.data.source import DataSource
+    from src.data.source_hpd import DataSourceHydropandas
 
 logger = logging.getLogger("waitress")
 logger.setLevel(logging.ERROR)
@@ -30,7 +32,8 @@ external_stylesheets = [
 
 def main():
     # load the data
-    data = DataSource()
+    # data = DataSource()
+    data = DataSourceHydropandas()
 
     # create app
     app = Dash(

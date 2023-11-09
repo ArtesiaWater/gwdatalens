@@ -27,6 +27,9 @@ class DataSource:
             print(e)
             logger.error("Database not connected successfully")
 
+        self.value_column = "calculated_value"
+        self.qualifier_column = "qualifier"
+
     def gmw_to_gdf(self):
         """Return all groundwater monitoring wells (gmw) as a GeoDataFrame"""
         # get a DataFrame with the properties of all wells
@@ -72,9 +75,7 @@ class DataSource:
         locations = list(loc_df.itertuples(index=False, name=None))
         return locations
 
-    def get_timeseries(
-        self, gmw_id: str, tube_id: int, column="calculated_value"
-    ) -> pd.Series:
+    def get_timeseries(self, gmw_id: str, tube_id: int) -> pd.Series:
         """Return a Pandas Series for the measurements at the requested bro-id and
         tube-id, im m. Return None when there are no measurements."""
         # get groundwater_level_dossier_id
@@ -112,13 +113,38 @@ class DataSource:
             str(measurement_time_series_ids).replace("[", "").replace("]", "")
         )
         query = f"select * FROM {table_name} WHERE measurement_time_series_id in ({measurement_time_series_ids_str})"
-        df = self._query_to_df(query).set_index("measurement_time")
+        mtvp = self._query_to_df(query).set_index("measurement_time")
         # make sure all measurements are in cm
         msg = "Other units than cm not supported yet"
-        assert (df["field_value_unit"] == "cm").all(), msg
-        # TODO: do we get field_value, calculated_value or corrected_value?
-        s = pd.to_numeric(df[column]).sort_index() / 100.0
-        return s
+        assert (mtvp["field_value_unit"] == "cm").all(), msg
+        s = pd.to_numeric(mtvp[self.value_column]).sort_index() / 100.0
+
+        df = pd.DataFrame(s)
+
+        # get measurement_point_metadata_id
+        table_name = "gld.measurement_point_metadata"
+        mpm_id = mtvp["measurement_point_metadata_id"]
+        measurement_point_metadata_ids_str = (
+            str(list(mpm_id.unique())).replace("[", "").replace("]", "")
+        )
+        query = f"select * FROM {table_name} WHERE measurement_point_metadata_id in ({measurement_point_metadata_ids_str})"
+        mpm = self._query_to_df(query).set_index("measurement_point_metadata_id")
+
+        # get qualifier-value
+        table_name = "gld.type_status_quality_control"
+        qbc_id = mpm["qualifier_by_category_id"]
+        qualifier_by_category_ids_str = (
+            str(list(qbc_id.unique())).replace("[", "").replace("]", "")
+        )
+        query = (
+            f"select * FROM {table_name} WHERE id in ({qualifier_by_category_ids_str})"
+        )
+        qbc = self._query_to_df(query).set_index("id")
+
+        # add a qualifier to df
+        qbc_id = mpm.loc[mpm_id, "qualifier_by_category_id"]
+        df[self.qualifier_column] = qbc.loc[qbc_id, "value"].values
+        return df
 
     def _get_all_tables(self):
         cursor = self._execute_query("SELECT table_name FROM information_schema.tables")
