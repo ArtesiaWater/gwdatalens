@@ -3,8 +3,10 @@ import pandas as pd
 from dash import Dash, Input, Output, Patch, State, dash_table, html, no_update
 from dash.dash_table.Format import Format
 from dash.exceptions import PreventUpdate
+from ..data.source import DataSource
 
 from . import ids
+from ..data.source import DataSource
 
 # DATA_TABLE_HEADER_BGCOLOR = "rgb(245, 245, 245)"
 # DATA_TABLE_ODD_ROW_BGCOLOR = "rgb(250, 250, 250)"
@@ -12,17 +14,17 @@ from . import ids
 # DATA_TABLE_TRUE_BGCOLOR = "rgb(231, 255, 239)"
 import pandas as pd
 
-data = pd.DataFrame(
-    index=["meting1", "meting2", "meting3"],
-    columns=["value"],
-    data=999.0,
-)
-data["comment"] = "ok"
-data.loc["meting3", "comment"] = "suspect"
-data.index.name = "index"
-data = data.reset_index()
 
-def render(app: Dash):
+def render(app: Dash, data: DataSource):
+    data = pd.DataFrame(
+        index=["meting1", "meting2", "meting3"],
+        columns=["value"],
+        data=999.0,
+    )
+    data["comment"] = "ok"
+    data.loc["meting3", "comment"] = "suspect"
+    data.index.name = "index"
+    data = data.reset_index()
     return html.Div(
         id="qc-table-div",
         children=[

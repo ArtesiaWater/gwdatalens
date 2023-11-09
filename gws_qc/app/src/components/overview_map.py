@@ -32,6 +32,43 @@ WGS84 = "proj=longlat datum=WGS84 no_defs ellps=WGS84 towgs84=0,0,0"
 def render(app, data: DataSource):
     df = data.gmw_to_gdf()
 
+    @app.callback(
+        Output(ids.OVERVIEW_MAP, "selectedData"),
+        [
+            Input(ids.OVERVIEW_TABLE, "active_cell"),
+        ],
+        # prevent_initial_call=True,
+        allow_duplicate=True,
+    )
+    def select_point_on_map(active_cell):
+        if active_cell is None:
+            return None
+        loc = df.iloc[active_cell["row"]]
+        return {
+            "points": [
+                {
+                    "curveNumber": 0,
+                    "pointNumber": active_cell["row"],
+                    "pointIndex": active_cell["row"],
+                    "lon": loc["lon"],
+                    "lat": loc["lat"],
+                    "text": loc["bro_id"],
+                }
+            ]
+        }
+
+    # @app.callback(
+    #     Output(ids.OVERVIEW_MAP, "selectedpoints"),
+    #     [Input(ids.OVERVIEW_TABLE, "active_cell")],
+    #     # prevent_initial_call=True,
+    #     allow_duplicate=True,
+    # )
+    # def select_points(active_cell):
+    #     if active_cell is None:
+    #         return None
+    #     selectedpoints = active_cell["row"]
+    #     print(f"selectedpoints = {selectedpoints}")
+
     # has observations
     hasobs = [i for i, _ in data.list_locations()]
     mask = df.bro_id.isin(hasobs)

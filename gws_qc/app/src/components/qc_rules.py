@@ -5,6 +5,7 @@ from dash.dash_table.Format import Format
 from dash.exceptions import PreventUpdate
 
 from . import ids
+from ..data.source import DataSource
 
 import traval.rulelib as rules
 
@@ -18,7 +19,7 @@ rule_table["apply_to"] = 0
 rule_table.index.name = "id"
 
 
-def render(app: Dash):
+def render(app: Dash, data: DataSource):
     return html.Div(
         id="qc-rules-div",
         children=[

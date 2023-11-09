@@ -21,6 +21,7 @@ def render(app: Dash, data: DataSource):
         # print("point=", selectedData)
 
         if selectedData is not None:
+            print(selectedData)
             pts = pd.DataFrame(selectedData["points"])
 
             # get selected points
@@ -83,6 +84,7 @@ def plot_obs(names, data):
         if df is None:
             continue
         if len(names) == 1:
+            data.df = df
             # plot different qualifiers
             for qualifier in df[data.qualifier_column].unique():
                 if qualifier == "goedgekeurd":
@@ -104,13 +106,14 @@ def plot_obs(names, data):
                 )
                 traces.append(trace_i)
         else:
+            data.df = None
             # TODO: plot each series with its own color
             ts = df[data.value_column]
             trace_i = go.Scattergl(
                 x=ts.index,
                 y=ts.values,
                 mode="markers",
-                marker={"color": "blue", "size": 3},
+                marker={"size": 3},
                 name=name,
                 legendgroup="0",
                 showlegend=True,
