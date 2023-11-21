@@ -12,16 +12,14 @@ from ..data.source import DataSource
 
 def render(app: Dash, data: DataSource):
     @app.callback(
-        Output(ids.SERIES_CHART, "figure"),
+        Output(ids.SERIES_CHART, "figure", allow_duplicate=True),
         [Input(ids.OVERVIEW_MAP, "selectedData")],
-        # prevent_initial_call=True,
-        allow_duplicate=True,
+        prevent_initial_call="initial_duplicate",
     )
     def plot_series(selectedData):
         # print("point=", selectedData)
 
         if selectedData is not None:
-            print(selectedData)
             pts = pd.DataFrame(selectedData["points"])
 
             # get selected points
@@ -79,7 +77,7 @@ def plot_obs(names, data):
             print("no data", name)
             return {"layout": {"title": "No series to plot"}}
 
-        df = data.get_timeseries(gmw_id=name, tube_id=1)
+        ts = data.get_timeseries(gmw_id=name, tube_id=1, column="field_value")
         print("time series", name)
         if df is None:
             continue
