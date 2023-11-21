@@ -154,4 +154,7 @@ cython_debug/
 
 # custom
 .mapbox_access_token
-
+traval_scripts/oseries/
+traval_scripts/pastasdb/
+db/
+data/
