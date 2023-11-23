@@ -7,12 +7,10 @@ import pastastore as pst
 try:
     from .src.cache import cache
     from .src.components.layout import create_layout
-    from .src.data.source import DataSource
     from .src.data.source_hpd import DataSourceHydropandas
 except ImportError:  # if running app.py directly
     from src.cache import cache
     from src.components.layout import create_layout
-    from src.data.source import DataSource
     from src.data.source_hpd import DataSourceHydropandas
 
 logger = logging.getLogger("waitress")
@@ -36,6 +34,9 @@ conn = pst.ArcticDBConnector(
 )
 pstore = pst.PastaStore(conn)
 data.attach_pastastore(pstore)
+
+# load ruleset now that pastastore has been added
+data.load_ruleset()
 
 
 # create app
