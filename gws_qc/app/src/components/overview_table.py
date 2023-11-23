@@ -1,8 +1,5 @@
-import numpy as np
-import pandas as pd
-from dash import Dash, Input, Output, Patch, State, dash_table, html, no_update
+from dash import dash_table, html
 from dash.dash_table.Format import Format
-from dash.exceptions import PreventUpdate
 
 from . import ids
 from ..data.source import DataSource
@@ -14,19 +11,21 @@ def render(data: DataSource):
 
     # addd column "metingen"
     df["metingen"] = ""
-    locs_with_obs = data.list_locations()
-    mask = [tuple(x) in locs_with_obs for x in df[["bro_id", "tube_number"]].values]
-    df.loc[mask, "metingen"] = "ja"
+    # locs_with_obs = data.list_locations()
+    # mask = [tuple(x) in locs_with_obs for x in df[["bro_id", "tube_number"]].values]
+    df.loc[:, "metingen"] = data.oc.stats.n_observations
 
     df.sort_values(
         ["metingen", "nitg_code", "tube_number"], ascending=False, inplace=True
     )
 
+    df["bro_id"] = df.index.tolist()
+
     df["x"] = df.geometry.x
     df["y"] = df.geometry.y
     usecols = [
         "bro_id",
-        "nitg_code",
+        # "nitg_code",
         "tube_number",
         "screen_top",
         "screen_bot",
@@ -47,11 +46,11 @@ def render(data: DataSource):
                         "name": "Naam",
                         "type": "text",
                     },
-                    {
-                        "id": "nitg_code",
-                        "name": "NITG-code",
-                        "type": "text",
-                    },
+                    # {
+                    #     "id": "nitg_code",
+                    #     "name": "NITG-code",
+                    #     "type": "text",
+                    # },
                     {
                         "id": "tube_number",
                         "name": "Filternummer",
@@ -60,32 +59,33 @@ def render(data: DataSource):
                     },
                     {
                         "id": "screen_top",
-                        "name": "Bovenzijde filter [m NAP]",
+                        "name": "Bovenzijde filter\n[m NAP]",
                         "type": "numeric",
                         "format": {"specifier": ".2f"},
                     },
                     {
                         "id": "screen_bot",
-                        "name": "Onderzijde filter [m NAP]",
+                        "name": "Onderzijde filter\n[m NAP]",
                         "type": "numeric",
                         "format": {"specifier": ".2f"},
                     },
                     {
                         "id": "x",
-                        "name": "X [m RD]",
+                        "name": "X\n[m RD]",
                         "type": "numeric",
                         "format": Format(scheme="r", precision=5),
                     },
                     {
                         "id": "y",
-                        "name": "Y [m RD]",
+                        "name": "Y\n[m RD]",
                         "type": "numeric",
                         "format": Format(scheme="r", precision=5),
                     },
                     {
                         "id": "metingen",
                         "name": "Metingen",
-                        "type": "text",
+                        "type": "numeric",
+                        "format": {"specifier": ".0f"},
                     },
                 ],
                 fixed_rows={"headers": True},
@@ -103,7 +103,7 @@ def render(data: DataSource):
                         "if": {"column_id": c},
                         "textAlign": "left",
                     }
-                    for c in ["bro_id", "metingen"]
+                    for c in ["bro_id"]
                 ]
                 + [
                     {"if": {"column_id": "bro_id"}, "width": "15%"},
