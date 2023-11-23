@@ -6,14 +6,10 @@ from dash.exceptions import PreventUpdate
 
 from . import ids
 from ..data.source import DataSource
-
-# DATA_TABLE_HEADER_BGCOLOR = "rgb(245, 245, 245)"
-# DATA_TABLE_ODD_ROW_BGCOLOR = "rgb(250, 250, 250)"
-# DATA_TABLE_FALSE_BGCOLOR = "rgb(255, 238, 238)"
-# DATA_TABLE_TRUE_BGCOLOR = "rgb(231, 255, 239)"
+from .styling import DATA_TABLE_HEADER_BGCOLOR
 
 
-def render(app: Dash, data: DataSource):
+def render(data: DataSource):
     df = data.gmw_to_gdf()
 
     # addd column "metingen"
@@ -101,10 +97,7 @@ def render(app: Dash, data: DataSource):
                     # "maxHeight": "70vh",
                 },
                 # row_selectable="multi",
-                style_cell={
-                    "whiteSpace": "pre-line",
-                    "fontSize": 12,
-                },
+                style_cell={"whiteSpace": "pre-line", "fontSize": 12},
                 style_cell_conditional=[
                     {
                         "if": {"column_id": c},
@@ -124,7 +117,7 @@ def render(app: Dash, data: DataSource):
                 ],
                 # style_data_conditional=style_data_conditional,
                 style_header={
-                    # "backgroundColor": DATA_TABLE_HEADER_BGCOLOR,
+                    "backgroundColor": DATA_TABLE_HEADER_BGCOLOR,
                     "fontWeight": "bold",
                 },
             ),
