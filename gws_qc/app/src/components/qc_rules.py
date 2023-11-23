@@ -1,18 +1,14 @@
-import numpy as np
-import pandas as pd
-import traval
-import traval.rulelib as rules
-from dash import Dash, Input, Output, Patch, State, dash_table, html, no_update
+from dash import dash_table, html
 from dash.dash_table.Format import Format
-from dash.exceptions import PreventUpdate
-from icecream import ic
 
-from ..data.source import DataSource
 from . import ids
 from .styling import DATA_TABLE_HEADER_BGCOLOR
 
 
-def render():
+def render(data):
+    rule_table = data.ruleset.to_dataframe().loc[:, ["name", "apply_to", "kwargs"]]
+    rule_table = rule_table.reset_index().astype(str)
+
     return html.Div(
         id="qc-rules-div",
         children=[
@@ -22,20 +18,20 @@ def render():
                 columns=[
                     {
                         "id": "step",
-                        "name": "Rule",
+                        "name": "Step",
                         "type": "numeric",
                         "format": Format(scheme="r", precision=1),
                         "editable": False,
                     },
                     {
                         "id": "name",
-                        "name": "Regel",
+                        "name": "Rule",
                         "type": "text",
                         "editable": False,
                     },
                     {
                         "id": "apply_to",
-                        "name": "Toepassen op",
+                        "name": "Apply to",
                         "type": "numeric",
                         "format": Format(scheme="r", precision=1),
                         "editable": True,
@@ -59,10 +55,10 @@ def render():
                 row_selectable="multi",
                 style_cell={"whiteSpace": "pre-line", "fontSize": 12},
                 style_cell_conditional=[
-                    {"if": {"column_id": "step"}, "width": "10%"},
-                    {"if": {"column_id": "name"}, "width": "20%"},
-                    {"if": {"column_id": "apply_to"}, "width": "20%"},
-                    {"if": {"column_id": "kwargs"}, "width": "50%"},
+                    {"if": {"column_id": "step"}, "width": "5%"},
+                    {"if": {"column_id": "name"}, "width": "10%"},
+                    {"if": {"column_id": "apply_to"}, "width": "10%"},
+                    {"if": {"column_id": "kwargs"}, "width": "75%"},
                 ]
                 + [
                     {
@@ -80,8 +76,3 @@ def render():
         ],
         className="dbc dbc-row-selectable",
     )
-
-data.
-rule_table = rset.to_dataframe().loc[:, ["name", "apply_to", "kwargs"]]
-rule_table = rule_table.reset_index().astype(str)
-# ic(rule_table)
