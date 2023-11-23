@@ -1,3 +1,32 @@
+/* HEADER */
+
+#header {
+    display: flex;
+    align-items: center;
+    /* Vertical align the elements to the center */
+    justify-content: space-between;
+    margin-right: 10px;
+}
+
+#help-title {
+    font-weight: 500;
+}
+
+#button-open-help {
+    background-color: #006f92;
+    margin-left: auto;
+    font-size: medium;
+    /* Push this element to the right */
+}
+
+#button-close-help {
+    background-color: #006f92;
+    font-size: medium;
+    /* Push this element to the right */
+}
+
+/* TABS */
+
 .custom-tabs-container {
     width: 85%;
 }
