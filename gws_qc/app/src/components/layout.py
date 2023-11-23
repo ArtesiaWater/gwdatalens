@@ -30,42 +30,7 @@ def create_layout(app: Dash, data: DataSource) -> html.Div:
                     # button_help_modal.render(app),
                 ],
             ),
-            tabs.render(app, data),
+            tabs.render(),
             html.Div(id=ids.TAB_CONTENT),
         ],
     )
-
-
-# %%
-# html.Div(
-#                 id="div-body",
-#                 children=[
-#                     dbc.Container(
-#                         [
-#                             dbc.Row(
-#                                 children=[
-#                                     # Column 1:
-#                                     dbc.Col(
-#                                         children=[
-#                                         ],
-#                                         width=2,
-#                                     ),
-#                                     # Column 2:
-#                                     dbc.Col(
-#                                         children=[
-#                                         ],
-#                                         width=5,
-#                                     ),
-#                                     # Column 3:
-#                                     dbc.Col(
-#                                         children=[
-#                                         ],
-#                                         width=5,
-#                                     ),
-#                                 ]
-#                             )
-#                         ],
-#                         fluid=True,
-#                     ),
-#                 ],
-#             )
