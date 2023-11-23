@@ -1,11 +1,10 @@
-from functools import partial
+from typing import List
 
 import dash_bootstrap_components as dbc
-from dash import Dash, Input, Output, State, dcc, html
-from dash.exceptions import PreventUpdate
+from dash import dcc
 
-from . import ids, qc_chart, qc_dropdowns, qc_rules, qc_table, qc_traval_button
 from ..data.source import DataSource
+from . import ids, qc_chart, qc_dropdowns, qc_rules, qc_table, qc_traval_button
 
 
 def render():
@@ -17,13 +16,13 @@ def render():
     )
 
 
-def render_content(data: DataSource):
+def render_content(data: DataSource, selected_data: List):
     return dbc.Container(
         [
             dbc.Row(
                 [
                     dbc.Col(
-                        [qc_dropdowns.render_selection_series_dropdown(data)],
+                        [qc_dropdowns.render_selection_series_dropdown(data, selected_data)],
                         width=4,
                     ),
                     dbc.Col(
@@ -39,7 +38,7 @@ def render_content(data: DataSource):
             ),
             dbc.Row(
                 [
-                    dbc.Col([qc_rules.render()], width=6),
+                    dbc.Col([qc_rules.render(data)], width=6),
                     dbc.Col([qc_table.render()], width=6),
                 ]
             ),
