@@ -1,11 +1,9 @@
-from functools import partial
-
 import dash_bootstrap_components as dbc
-from dash import Dash, Input, Output, State, dcc, html
-from dash.exceptions import PreventUpdate
+from dash import dcc
 
 from . import ids, overview_chart, overview_map, overview_table
 from ..data.source import DataSource
+from ..cache import cache, TIMEOUT
 
 
 def render():
@@ -16,6 +14,8 @@ def render():
         selected_className="custom-tab--selected",
     )
 
+
+@cache.memoize(timeout=TIMEOUT)
 def render_content(data: DataSource):
     return dbc.Container(
         [
