@@ -11,7 +11,10 @@ LOADING_SERIES_CHART = "loading-series_chart"
 SERIES_CHART = "series-chart"
 
 # QC TAB
+QC_DROPDOWN_SELECTION = "qc-dropdown-selection"
+QC_DROPDOWN_ADDITIONAL = "qc-dropdown-additional"
 LOADING_QC_CHART = "loading-qc-chart"
 QC_CHART = "qc-chart"
-QC_TABLE = "qc-table"
-QC_RULES = "qc-rules"
+QC_RESULT_TABLE = "qc-table"
+QC_RULES_TABLE = "qc-rules"
+QC_TRAVAL_BUTTON = "qc-traval-button"
