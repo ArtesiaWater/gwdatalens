@@ -2,7 +2,7 @@ import logging
 
 import dash_bootstrap_components as dbc
 from dash import Dash
-from waitress import serve
+import pastastore as pst
 
 try:
     from .src.cache import cache
@@ -18,9 +18,6 @@ except ImportError:  # if running app.py directly
 logger = logging.getLogger("waitress")
 logger.setLevel(logging.ERROR)
 
-# set to True to run app in debug mode
-DEBUG = True
-
 # %% set some variables
 external_stylesheets = [
     dbc.themes.FLATLY,
@@ -29,49 +26,26 @@ external_stylesheets = [
 
 # %% main app
 
+# load the data
+# data = DataSource()
+data = DataSourceHydropandas(fname="obs_collection_dino.pickle")
 
-def main():
-    # load the data
-    # data = DataSource()
-    data = DataSourceHydropandas()
-
-    # create app
-    app = Dash(
-        __name__,
-        external_stylesheets=external_stylesheets,
-        suppress_callback_exceptions=True,
-    )
-    app.title = "QC Grondwaterstanden"
-    app.layout = create_layout(app, data)
-
-    # initialize cache
-    cache.init_app(
-        app.server, config={"CACHE_TYPE": "filesystem", "CACHE_DIR": ".cache"}
-    )
-    return app
+# load pastastore
+conn = pst.ArcticDBConnector(
+    name="zeeland", uri="lmdb://../../traval_scripts/pastasdb/"
+)
+pstore = pst.PastaStore(conn)
+data.attach_pastastore(pstore)
 
 
-def run(debug=False):
-    app = main()
-    if debug:
-        app.run_server(debug=debug)
-    else:
-        print(
-            "\nRunning QC Grondwaterstanden on http://127.0.0.1:8050/\nPress Ctrl+C to quit."
-        )
-        serve(app.server, host="127.0.0.1", port=8050)
-    cache.clear()
+# create app
+app = Dash(
+    __name__,
+    external_stylesheets=external_stylesheets,
+    suppress_callback_exceptions=True,
+)
+app.title = "QC Grondwaterstanden"
+app.layout = create_layout(app, data)
 
-
-# define alias
-run_dashboard = run
-
-
-# %% Run app
-
-if __name__ == "__main__":
-    if DEBUG:
-        app = main()
-        app.run_server(debug=True)
-    else:
-        run()
+# initialize cache
+cache.init_app(app.server, config={"CACHE_TYPE": "filesystem", "CACHE_DIR": ".cache"})
