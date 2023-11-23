@@ -1,37 +1,11 @@
-from functools import partial
-
-import dash_bootstrap_components as dbc
-from dash import Dash, Input, Output, State, dcc, html
-from dash.exceptions import PreventUpdate
 import plotly.graph_objs as go
-import pandas as pd
+from dash import dcc, html
+from icecream import ic
 
 from . import ids
-from ..data.source import DataSource
 
 
-def render(app: Dash, data: DataSource):
-    @app.callback(
-        Output(ids.SERIES_CHART, "figure", allow_duplicate=True),
-        [Input(ids.OVERVIEW_MAP, "selectedData")],
-        prevent_initial_call="initial_duplicate",
-    )
-    def plot_series(selectedData):
-        # print("point=", selectedData)
-
-        if selectedData is not None:
-            pts = pd.DataFrame(selectedData["points"])
-
-            # get selected points
-            if not pts.empty:
-                names = pts["text"].tolist()
-            else:
-                names = None
-            return plot_obs(names, data)
-        else:
-            # print("no update")
-            return {"layout": {"title": "No series selected."}}
-
+def render():
     return html.Div(
         id="series-chart-div",
         children=[
@@ -65,6 +39,7 @@ def render(app: Dash, data: DataSource):
 
 
 def plot_obs(names, data):
+    # ic(names)
     hasobs = [i for i, _ in data.list_locations()]
 
     if names is None:
@@ -72,35 +47,51 @@ def plot_obs(names, data):
 
     traces = []
     for name in names:
+        # split into monitoringwell and tub_id
+        if data.source == "dino":
+            monitoring_well, tube_nr = name.split("-")
+        else:
+            monitoring_well = name
+            tube_nr = 1
+
         # no obs
-        if name not in hasobs:
-            print("no data", name)
+        if monitoring_well not in hasobs:
+            ic("no data", monitoring_well)
             return {"layout": {"title": "No series to plot"}}
 
-        ts = data.get_timeseries(gmw_id=name, tube_id=1, column="field_value")
-        print("time series", name)
+        df = data.get_timeseries(gmw_id=monitoring_well, tube_id=tube_nr)
+        df.loc[:, data.qualifier_column] = df.loc[:, data.qualifier_column].fillna("")
+
+        # ic("time series", monitoring_well, tube_nr)
         if df is None:
             continue
         if len(names) == 1:
             data.df = df
             # plot different qualifiers
             for qualifier in df[data.qualifier_column].unique():
+                mask = df[data.qualifier_column] == qualifier
+                ts = df.loc[mask, data.value_column]
+                legendrank = 1000
                 if qualifier == "goedgekeurd":
                     color = "green"
                 elif qualifier == "nogNietBeoordeeld":
                     color = "orange"
+                elif qualifier == "":
+                    color = None
+                    qualifier = f"{name}-{tube_nr}"
+                    legendrank = 999
                 else:
-                    color = "blue"
-                mask = df[data.qualifier_column] == qualifier
-                ts = df.loc[mask, data.value_column]
+                    color = None
                 trace_i = go.Scattergl(
                     x=ts.index,
                     y=ts.values,
-                    mode="markers",
+                    mode="markers+lines",
+                    line={"width": 1},
                     marker={"color": color, "size": 3},
                     name=qualifier,
-                    legendgroup="0",
+                    legendgroup=qualifier,
                     showlegend=True,
+                    legendrank=legendrank,
                 )
                 traces.append(trace_i)
         else:
@@ -110,10 +101,11 @@ def plot_obs(names, data):
             trace_i = go.Scattergl(
                 x=ts.index,
                 y=ts.values,
-                mode="markers",
+                mode="markers+lines",
+                line={"width": 1},
                 marker={"size": 3},
                 name=name,
-                legendgroup="0",
+                legendgroup=f"{name}-{tube_nr}",
                 showlegend=True,
             )
             traces.append(trace_i)
