@@ -17,3 +17,7 @@ dependencies:
     - tqdm
     - waitress
     - traval
+    - pastas
+    - pastastore
+    - hydropandas
+    - icecream
