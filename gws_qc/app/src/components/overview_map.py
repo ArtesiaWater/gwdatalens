@@ -1,17 +1,10 @@
-from functools import partial
-
-import dash_bootstrap_components as dbc
-from dash import Dash, Input, Output, State, dcc, html
-from dash.exceptions import PreventUpdate
-
-from . import ids, tab_overview, tab_qc
-from ..data.source import DataSource
-
-import plotly.express as px
-import plotly.graph_objs as go
-import pandas as pd
 import numpy as np
+import plotly.graph_objs as go
+from dash import dcc
 from pyproj import Transformer
+
+from ..data.source import DataSource
+from . import ids
 
 try:
     mapbox_access_token = open("./assets/.mapbox_access_token", "r").read()

@@ -1,13 +1,7 @@
-from functools import partial
 
-import dash_bootstrap_components as dbc
-from dash import Dash, Input, Output, State, dcc, html
-from dash.exceptions import PreventUpdate
-import plotly.graph_objs as go
+from dash import dcc, html
 
-from .overview_chart import plot_obs
 from . import ids
-from ..data.source import DataSource
 
 
 def render():

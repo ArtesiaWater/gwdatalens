@@ -1,10 +1,7 @@
-import numpy as np
 import pandas as pd
-from dash import Dash, Input, Output, Patch, State, dash_table, html, no_update
+from dash import dash_table, html
 from dash.dash_table.Format import Format
-from dash.exceptions import PreventUpdate
 
-from ..data.source import DataSource
 from . import ids
 from .styling import DATA_TABLE_HEADER_BGCOLOR
 
