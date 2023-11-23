@@ -1,3 +1,12 @@
+# HEADER
+HELP_BUTTON_OPEN = "help-button-open"
+HELP_BUTTON_CLOSE = "help-button-close"
+HELP_MODAL = "help-modal"
+HELP_TITLE = "help-title"
+
+# STORE
+SELECTED_OSERIES_STORE = "selected-oseries-store"
+
 # TABS
 TAB_CONTAINER = "tab-container"
 TAB_OVERVIEW = "tab-overview"
