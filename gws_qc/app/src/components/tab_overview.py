@@ -8,7 +8,7 @@ from . import ids, overview_chart, overview_map, overview_table
 from ..data.source import DataSource
 
 
-def render(app: Dash):
+def render():
     return dcc.Tab(
         label="Overview",
         value=ids.TAB_OVERVIEW,
@@ -16,20 +16,20 @@ def render(app: Dash):
         selected_className="custom-tab--selected",
     )
 
-def render_content(app: Dash, data: DataSource):
+def render_content(data: DataSource):
     return dbc.Container(
         [
             dbc.Row(
                 [
                     dbc.Col(
                         [
-                            overview_map.render(app, data),
+                            overview_map.render(data),
                         ],
                         width=6,
                     ),
                     dbc.Col(
                         [
-                            overview_table.render(app, data),
+                            overview_table.render(data),
                         ],
                         width=6,
                     ),
@@ -38,7 +38,7 @@ def render_content(app: Dash, data: DataSource):
             ),
             dbc.Row(
                 [
-                    overview_chart.render(app, data),
+                    overview_chart.render(),
                 ],
             ),
         ],
