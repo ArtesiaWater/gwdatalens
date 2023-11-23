@@ -113,6 +113,34 @@ class DataSourceHydropandas:
         ic(f"Running traval for {name}...")
         ts = self.get_timeseries(gmw_id, tube_id)
 
+        series = ts.loc[:, self.value_column]
+        series.name = f"{gmw_id}-{tube_id}"
+        detector = traval.Detector(series)
+        detector.apply_ruleset(self.ruleset)
+
+        comments = detector.get_comment_series()
+
+        df = detector.series.to_frame().loc[comments.index]
+        df.columns = ["values"]
+        df["comment"] = ""
+        df.loc[comments.index, "comment"] = comments
+
+        df.index.name = "datetime"
+        table = df.reset_index().to_dict("records")
+
+        # self.
+        try:
+            ml = self.pstore.get_models(series.name)
+        except Exception as e:
+            ic(e)
+            ml = None
+        figure = plot_traval_result(detector, ml)
+        return table, figure
+
+    def attach_pastastore(self, pstore):
+        self.pstore = pstore
+
+    def load_ruleset(self):
         # ruleset
         # initialize RuleSet object
         rset = traval.RuleSet(name="basic")
@@ -156,7 +184,7 @@ class DataSourceHydropandas:
             traval.rulelib.rule_pastas_outside_pi,
             apply_to=0,
             kwargs={
-                "ml": self.pstore.models[name],
+                "ml": lambda name: self.pstore.models[name],
                 "ci": ci,
                 "min_ci": 0.1,
                 "smoothfreq": "30D",
@@ -167,32 +195,8 @@ class DataSourceHydropandas:
             "combine_results", traval.rulelib.rule_combine_nan_or, apply_to=(1, 2, 3, 4)
         )
 
-        series = ts.loc[:, self.value_column]
-        series.name = f"{gmw_id}-{tube_id}"
-        detector = traval.Detector(series)
-        detector.apply_ruleset(rset)
-
-        comments = detector.get_comment_series()
-
-        df = detector.series.to_frame().loc[comments.index]
-        df.columns = ["values"]
-        df["comment"] = ""
-        df.loc[comments.index, "comment"] = comments
-
-        df.index.name = "datetime"
-        table = df.reset_index().to_dict("records")
-
-        # self.
-        try:
-            ml = self.pstore.get_models(series.name)
-        except Exception as e:
-            ic(e)
-            ml = None
-        figure = plot_traval_result(detector, ml)
-        return table, figure
-
-    def attach_pastastore(self, pstore):
-        self.pstore = pstore
+        # set ruleset in data object
+        self.ruleset = rset
 
 
 def plot_traval_result(detector, model=None):
