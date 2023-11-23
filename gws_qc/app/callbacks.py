@@ -3,7 +3,6 @@ import pandas as pd
 from app import app, data
 from dash import Input, Output, State, no_update
 from dash.exceptions import PreventUpdate
-from icecream import ic
 from pyproj import Transformer
 
 try:
@@ -17,16 +16,71 @@ except ImportError:
 
 
 @app.callback(
+    Output(ids.HELP_MODAL, "is_open"),
+    Input(ids.HELP_BUTTON_OPEN, "n_clicks"),
+    Input(ids.HELP_BUTTON_CLOSE, "n_clicks"),
+    State(ids.HELP_MODAL, "is_open"),
+)
+def toggle_modal(n1, n2, is_open):
+    """Toggle help modal window.
+
+    Parameters
+    ----------
+    n1 : int
+        button open help n_clicks
+    n2 : int
+        button close help n_clicks
+    is_open : bool
+        remember state of modal
+
+    Returns
+    -------
+    bool
+        whether window is open or closed
+    """
+    if n1 or n2:
+        return not is_open
+    return is_open
+
+
+@app.callback(
     Output(ids.TAB_CONTENT, "children"),
     Input(ids.TAB_CONTAINER, "value"),
+    State(ids.SELECTED_OSERIES_STORE, "data"),
 )
-def render_tab_content(tab):
+def render_tab_content(tab, selected_data):
     if tab == ids.TAB_OVERVIEW:
         return tab_overview.render_content(data)
     elif tab == ids.TAB_QC:
-        return tab_qc.render_content(data)
+        return tab_qc.render_content(data, selected_data)
     else:
         raise PreventUpdate
+
+
+@app.callback(
+    Output(ids.SELECTED_OSERIES_STORE, "data"),
+    Input(ids.OVERVIEW_MAP, "selectedData"),
+)
+def store_modeldetails_dropdown_value(selected_data):
+    """Store model results tab dropdown value.
+
+    Parameters
+    ----------
+    selected_data : list of dict
+        selected data points from map
+
+    Returns
+    -------
+    names : list of str
+        list of selected names
+    """
+    if selected_data is not None:
+        pts = pd.DataFrame(selected_data["points"])
+        if not pts.empty:
+            names = pts["text"].tolist()
+        return names
+    else:
+        return None
 
 
 @app.callback(
