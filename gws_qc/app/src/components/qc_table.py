@@ -3,43 +3,33 @@ import pandas as pd
 from dash import Dash, Input, Output, Patch, State, dash_table, html, no_update
 from dash.dash_table.Format import Format
 from dash.exceptions import PreventUpdate
-from ..data.source import DataSource
 
+from ..data.source import DataSource
 from . import ids
-from ..data.source import DataSource
-
-# DATA_TABLE_HEADER_BGCOLOR = "rgb(245, 245, 245)"
-# DATA_TABLE_ODD_ROW_BGCOLOR = "rgb(250, 250, 250)"
-# DATA_TABLE_FALSE_BGCOLOR = "rgb(255, 238, 238)"
-# DATA_TABLE_TRUE_BGCOLOR = "rgb(231, 255, 239)"
-import pandas as pd
+from .styling import DATA_TABLE_HEADER_BGCOLOR
 
 
-def render(app: Dash, data: DataSource):
-    data = pd.DataFrame(
-        index=["meting1", "meting2", "meting3"],
-        columns=["value"],
-        data=999.0,
+def render():
+    df = pd.DataFrame(
+        columns=["value", "comment"],
     )
-    data["comment"] = "ok"
-    data.loc["meting3", "comment"] = "suspect"
-    data.index.name = "index"
-    data = data.reset_index()
+    df.index.name = "datetime"
+    df = df.reset_index()
     return html.Div(
         id="qc-table-div",
         children=[
             dash_table.DataTable(
-                id=ids.QC_TABLE,
-                data=data.to_dict("records"),
+                id=ids.QC_RESULT_TABLE,
+                data=df.to_dict("records"),
                 columns=[
                     {
-                        "id": "index",
-                        "name": "Datum",
+                        "id": "datetime",
+                        "name": "Date",
                         "type": "text",
                         "editable": False,
                     },
                     {
-                        "id": "value",
+                        "id": "values",
                         "name": "Meting",
                         "type": "numeric",
                         "format": Format(scheme="r", precision=5),
@@ -47,7 +37,7 @@ def render(app: Dash, data: DataSource):
                     },
                     {
                         "id": "comment",
-                        "name": "opmerking",
+                        "name": "Comment",
                         "type": "text",
                         "editable": True,
                     },
@@ -62,24 +52,24 @@ def render(app: Dash, data: DataSource):
                 #     # "maxHeight": "70vh",
                 # },
                 # row_selectable="multi",
-                # style_cell={"whiteSpace": "pre-line"},
-                # style_cell_conditional=[
-                #     {
-                #         "if": {"column_id": c},
-                #         "textAlign": "left",
-                #     }
-                #     for c in ["date", "gumbel"]
-                # ]
-                # + [
-                #     {"if": {"column_id": "date"}, "width": "30%"},
-                #     {"if": {"column_id": "T"}, "width": "25%"},
-                #     {"if": {"column_id": "gumbel"}, "width": "35%"},
-                # ],
+                style_cell={"whiteSpace": "pre-line", "fontSize": 12},
+                style_cell_conditional=[
+                    {
+                        "if": {"column_id": c},
+                        "textAlign": "left",
+                    }
+                    for c in ["datetime", "comment"]
+                ]
+                + [
+                    {"if": {"column_id": "datetime"}, "width": "25%"},
+                    {"if": {"column_id": "values"}, "width": "25%"},
+                    {"if": {"column_id": "comment"}, "width": "50%"},
+                ],
                 # style_data_conditional=style_data_conditional,
-                # style_header={
-                #     "backgroundColor": DATA_TABLE_HEADER_BGCOLOR,
-                #     "fontWeight": "bold",
-                # },
+                style_header={
+                    "backgroundColor": DATA_TABLE_HEADER_BGCOLOR,
+                    "fontWeight": "bold",
+                },
             ),
         ],
         className="dbc dbc-row-selectable",
