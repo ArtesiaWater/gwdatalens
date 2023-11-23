@@ -1,8 +1,7 @@
-import dash_bootstrap_components as dbc
-from dash import Dash, dcc, html
+from dash import Dash, html, dcc
 
-from . import ids, tabs
 from ..data.source import DataSource
+from . import button_help_modal, ids, tabs
 
 
 def create_layout(app: Dash, data: DataSource) -> html.Div:
@@ -23,11 +22,12 @@ def create_layout(app: Dash, data: DataSource) -> html.Div:
     return html.Div(
         id="main",
         children=[
+            dcc.Store(id=ids.SELECTED_OSERIES_STORE),
             html.Div(
                 id="header",
                 children=[
                     html.H1(app.title, id="app_title"),
-                    # button_help_modal.render(app),
+                    button_help_modal.render(),
                 ],
             ),
             tabs.render(),
