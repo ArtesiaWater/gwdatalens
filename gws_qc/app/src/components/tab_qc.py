@@ -22,7 +22,11 @@ def render_content(data: DataSource, selected_data: List):
             dbc.Row(
                 [
                     dbc.Col(
-                        [qc_dropdowns.render_selection_series_dropdown(data, selected_data)],
+                        [
+                            qc_dropdowns.render_selection_series_dropdown(
+                                data, selected_data
+                            )
+                        ],
                         width=4,
                     ),
                     dbc.Col(
