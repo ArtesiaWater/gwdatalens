@@ -1,7 +1,7 @@
 from dash import Dash, html, dcc
 
 from ..data.source import DataSource
-from . import button_help_modal, ids, tabs
+from . import button_help_modal, ids, tabs, alert
 
 
 def create_layout(app: Dash, data: DataSource) -> html.Div:
@@ -23,10 +23,12 @@ def create_layout(app: Dash, data: DataSource) -> html.Div:
         id="main",
         children=[
             dcc.Store(id=ids.SELECTED_OSERIES_STORE),
+            dcc.Store(ids.PASTAS_MODEL_STORE),
             html.Div(
                 id="header",
                 children=[
                     html.H1(app.title, id="app_title"),
+                    alert.render(),
                     button_help_modal.render(),
                 ],
             ),
