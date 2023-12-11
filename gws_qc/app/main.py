@@ -27,7 +27,7 @@ def run(app, debug=False):
 run_dashboard = run
 
 # set to True to run app in debug mode
-DEBUG = False
+DEBUG = True
 
 # %% Run app
 
