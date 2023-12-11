@@ -1,18 +1,26 @@
+import json
+
 import numpy as np
 import pandas as pd
+import pastas as ps
 from app import app, data
-from dash import Input, Output, State, no_update
+from dash import Input, Output, State, no_update, ctx, ALL
 from dash.exceptions import PreventUpdate
+from icecream import ic
+from pastas.extensions import register_plotly
+from pastas.io.pas import PastasEncoder
 from pyproj import Transformer
 
 try:
-    from .src.components import ids, tab_overview, tab_qc
+    from .src.components import ids, tab_model, tab_overview, tab_qc, tab_traval
     from .src.components.overview_chart import plot_obs
     from .src.components.overview_map import EPSG_28992, WGS84
 except ImportError:
-    from src.components import ids, tab_overview, tab_qc
+    from src.components import ids, tab_model, tab_overview, tab_qc, tab_traval
     from src.components.overview_chart import plot_obs
     from src.components.overview_map import EPSG_28992, WGS84
+
+register_plotly()
 
 
 @app.callback(
@@ -53,6 +61,10 @@ def render_tab_content(tab, selected_data):
         return tab_overview.render_content(data)
     elif tab == ids.TAB_QC:
         return tab_qc.render_content(data, selected_data)
+    elif tab == ids.TAB_MODEL:
+        return tab_model.render_content(data, selected_data)
+    elif tab == ids.TAB_TRAVAL:
+        return tab_traval.render_content(data)
     else:
         raise PreventUpdate
 
@@ -197,3 +209,87 @@ def run_traval(n_clicks, name):
         return result, figure
     else:
         raise PreventUpdate
+
+
+# %% MODEL TAB
+@app.callback(
+    Output(ids.MODEL_RESULTS_CHART, "figure"),
+    Output(ids.MODEL_DIAGNOSTICS_CHART, "figure"),
+    Output(ids.PASTAS_MODEL_STORE, "data"),
+    Output(ids.MODEL_SAVE_BUTTON, "disabled"),
+    Output(ids.ALERT, "is_open", allow_duplicate=True),
+    Output(ids.ALERT, "color", allow_duplicate=True),
+    Output(ids.ALERT_BODY, "children", allow_duplicate=True),
+    Input(ids.MODEL_GENERATE_BUTTON, "n_clicks"),
+    State(ids.MODEL_DROPDOWN_SELECTION, "value"),
+    prevent_initial_call=True,
+)
+def generate_model(_, value):
+    if value is not None:
+        try:
+            ml = data.pstore.create_model(value, add_recharge=True)
+            ml.solve(freq="D", report=False, noise=False)
+            ml.solve(freq="D", noise=True, report=False, initial=False)
+            mljson = json.dumps(ml.to_dict(), cls=PastasEncoder)
+            return (
+                ml.plotly.results(),
+                ml.plotly.diagnostics(),
+                mljson,
+                False,  # enable save button
+                False,  # show alert
+                "danger",  # alert color
+                "",  # empty alert message
+            )
+        except Exception as e:
+            return (
+                no_update,
+                no_update,
+                None,
+                True,  # disable save button
+                True,  # show alert
+                "danger"  # alert color
+                f"Error {e}",  # empty alert message
+            )
+    else:
+        raise PreventUpdate
+
+
+@app.callback(
+    Output(ids.ALERT, "is_open", allow_duplicate=True),
+    Output(ids.ALERT, "color", allow_duplicate=True),
+    Output(ids.ALERT_BODY, "children", allow_duplicate=True),
+    Input(ids.MODEL_SAVE_BUTTON, "n_clicks"),
+    State(ids.PASTAS_MODEL_STORE, "data"),
+    prevent_initial_call=True,
+)
+def save_model(n_clicks, mljson):
+    if n_clicks is None:
+        raise PreventUpdate
+    if mljson is not None:
+        with open("temp.pas", "w") as f:
+            f.write(mljson)
+        ml = ps.io.load("temp.pas")
+        # data.pstore.add_model(ml)
+        ic(f"Pretending to save {ml}!")
+        return (
+            True,
+            "success",
+            f"Success! I pretend-saved the model for {ml.oseries.name}!",
+        )
+    else:
+        raise PreventUpdate
+
+
+# %% TRAVAL TAB
+@app.callback(
+    Output(ids.TRAVAL_OUTPUT, "children"),
+    Input({"type": "rule_input", "index": ALL}, "value"),
+    # prevent_initial_call=True,
+)
+def update_ruleset(val):
+    if val and ctx.triggered_id is not None:
+        (idx, rule, param) = ctx.triggered_id["index"].split("-")
+        ruledict = data.ruleset.get_rule(stepname=rule)
+        ruledict["kwargs"][param] = val[int(idx)]
+        data.ruleset.update_rule(**ruledict)
+    return data.ruleset.to_json()
