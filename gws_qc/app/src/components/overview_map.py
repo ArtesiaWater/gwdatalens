@@ -26,10 +26,7 @@ def render(data: DataSource):
     df = data.gmw_to_gdf()
 
     # has observations
-    hasobs = [i for i, _ in data.list_locations()]
-    mask = df["bro_id"].isin(hasobs)
-    df["metingen"] = ""
-    df.loc[mask, "metingen"] = "ja"
+    df["metingen"] = data.oc.stats.n_observations
 
     df["x"] = df.geometry.x
     df["y"] = df.geometry.y
@@ -83,7 +80,7 @@ def draw_map(
     # )
     # msize.fillna(30, inplace=True)
 
-    mask = df["metingen"] == "ja"
+    mask = df["metingen"] > 0
 
     # oseries data for map
     pb_data = dict(

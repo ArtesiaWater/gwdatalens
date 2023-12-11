@@ -6,7 +6,7 @@ import sqlalchemy as sa
 
 try:
     from . import config
-except:
+except ImportError:
     import config
 
 logger = logger = logging.getLogger(__name__)

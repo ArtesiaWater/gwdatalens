@@ -40,7 +40,7 @@ def render_additional_series_dropdown(data: DataSource):
                 options=options,
                 clearable=True,
                 searchable=True,
-                placeholder="Select additional time series to plot...",
+                placeholder="Select additional time series to plot ...",
                 id=ids.QC_DROPDOWN_ADDITIONAL,
                 disabled=True,
                 multi=True,
