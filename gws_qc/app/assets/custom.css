@@ -25,6 +25,14 @@
     /* Push this element to the right */
 }
 
+#traval-load-ruleset-button {
+    /* background-color: #006f92;
+    background-clip: "border-box"; */
+    font-size: medium;
+    display: inline-block;
+    cursor: pointer;
+}
+
 /* TABS */
 
 .custom-tabs-container {
