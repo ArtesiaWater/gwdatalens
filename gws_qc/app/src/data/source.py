@@ -1,7 +1,8 @@
-from typing import List, Tuple
-import pandas as pd
-import geopandas as gpd
 import logging
+from typing import List, Tuple
+
+import geopandas as gpd
+import pandas as pd
 import sqlalchemy as sa
 
 try:
