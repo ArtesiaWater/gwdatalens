@@ -1,8 +1,8 @@
 import logging
 
 import dash_bootstrap_components as dbc
-from dash import Dash
 import pastastore as pst
+from dash import Dash
 
 try:
     from .src.cache import cache
@@ -19,7 +19,7 @@ logger.setLevel(logging.ERROR)
 # %% set some variables
 external_stylesheets = [
     dbc.themes.FLATLY,
-    "https://use.fontawesome.com/releases/v6.2.1/css/all.css",
+    "https://use.fontawesome.com/releases/v6.5.1/css/all.css",
 ]
 
 # %% main app

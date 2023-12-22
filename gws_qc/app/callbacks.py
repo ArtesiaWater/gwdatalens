@@ -1,22 +1,31 @@
+import base64
+import io
 import json
+import pickle
 
 import numpy as np
 import pandas as pd
 import pastas as ps
+import traval
 from app import app, data
-from dash import Input, Output, State, no_update, ctx, ALL
+from dash import ALL, Input, Output, Patch, State, ctx, no_update
 from dash.exceptions import PreventUpdate
 from icecream import ic
 from pastas.extensions import register_plotly
 from pastas.io.pas import PastasEncoder
 from pyproj import Transformer
+from src.components.qc_rules_form import (
+    generate_kwargs_from_func,
+    generate_traval_rule_components,
+)
+from traval import rulelib
 
 try:
-    from .src.components import ids, tab_model, tab_overview, tab_qc, tab_traval
+    from .src.components import ids, tab_model, tab_overview, tab_qc, tab_qc_result
     from .src.components.overview_chart import plot_obs
     from .src.components.overview_map import EPSG_28992, WGS84
 except ImportError:
-    from src.components import ids, tab_model, tab_overview, tab_qc, tab_traval
+    from src.components import ids, tab_model, tab_overview, tab_qc, tab_qc_result
     from src.components.overview_chart import plot_obs
     from src.components.overview_map import EPSG_28992, WGS84
 
@@ -63,8 +72,8 @@ def render_tab_content(tab, selected_data):
         return tab_qc.render_content(data, selected_data)
     elif tab == ids.TAB_MODEL:
         return tab_model.render_content(data, selected_data)
-    elif tab == ids.TAB_TRAVAL:
-        return tab_traval.render_content(data)
+    elif tab == ids.TAB_QC_RESULT:
+        return tab_qc_result.render_content(data)
     else:
         raise PreventUpdate
 
@@ -196,9 +205,9 @@ def enable_additional_dropdown(value):
 
 
 @app.callback(
-    Output(ids.QC_RESULT_TABLE, "data"),
+    # Output(ids.QC_RESULT_TABLE, "data"),
     Output(ids.QC_CHART, "figure", allow_duplicate=True),
-    Input(ids.QC_TRAVAL_BUTTON, "n_clicks"),
+    Input(ids.QC_RUN_TRAVAL_BUTTON, "n_clicks"),
     State(ids.QC_DROPDOWN_SELECTION, "value"),
     prevent_initial_call=True,
 )
@@ -206,7 +215,9 @@ def run_traval(n_clicks, name):
     if n_clicks:
         gmw_id, tube_id = name.split("-")
         result, figure = data.run_traval(gmw_id, tube_id)
-        return result, figure
+        data.traval_result = result
+        # return result, figure
+        return figure
     else:
         raise PreventUpdate
 
@@ -286,10 +297,134 @@ def save_model(n_clicks, mljson):
     Input({"type": "rule_input", "index": ALL}, "value"),
     # prevent_initial_call=True,
 )
-def update_ruleset(val):
+def update_ruleset_values(val):
     if val and ctx.triggered_id is not None:
+        for i in range(len(val)):
+            if ctx.inputs_list[0][i]["id"] == ctx.triggered_id:
+                break
         (idx, rule, param) = ctx.triggered_id["index"].split("-")
         ruledict = data.ruleset.get_rule(stepname=rule)
-        ruledict["kwargs"][param] = val[int(idx)]
+        ruledict["kwargs"][param] = val[i]
         data.ruleset.update_rule(**ruledict)
     return data.ruleset.to_json()
+
+
+# @app.callback(
+#     Output(ids.TRAVAL_OUTPUT, "children", allow_duplicate=True),
+#     Input(ids.TRAVAL_RULES_FORM, "children"),
+#     prevent_initial_call=True,
+# )
+# def update_ruleset(rules):
+#     return data.ruleset.to_json()
+
+
+@app.callback(
+    Output(ids.TRAVAL_RULES_FORM, "children", allow_duplicate=True),
+    Input({"type": "clear-button", "index": ALL}, "n_clicks"),
+    State(ids.TRAVAL_RULES_FORM, "children"),
+    prevent_initial_call=True,
+)
+def delete_rule(n_clicks, rules):
+    if all(v is None for v in n_clicks):
+        raise PreventUpdate
+    keep = []
+    for rule in rules:
+        if rule["props"]["id"]["index"] != ctx.triggered_id["index"]:
+            keep.append(rule)
+        else:
+            data.ruleset.del_rule(ctx.triggered_id["index"].split("-")[0])
+
+        data.ruleset.del_rule("combine_results")
+        data.ruleset.add_rule(
+            "combine_results",
+            rulelib.rule_combine_nan_or,
+            apply_to=tuple(range(1, len(keep) + 1)),
+        )
+    return keep
+
+
+@app.callback(
+    Output(ids.TRAVAL_RULES_FORM, "children", allow_duplicate=True),
+    Input(ids.TRAVAL_ADD_RULE_BUTTON, "n_clicks"),
+    State(ids.TRAVAL_ADD_RULE_DROPDOWN, "value"),
+    State(ids.TRAVAL_RULES_FORM, "children"),
+    prevent_initial_call=True,
+)
+def display_rules(n_clicks, rule_to_add, current_rules):
+    try:
+        rule_number = int(current_rules[-1]["props"]["id"]["index"].split("-")[-1]) + 1
+    except IndexError:
+        rule_number = 0
+    func = getattr(rulelib, rule_to_add)
+    rule = {"name": rule_to_add, "kwargs": generate_kwargs_from_func(func)}
+    irow = generate_traval_rule_components(rule, rule_number)
+
+    # add to ruleset
+    data.ruleset.del_rule("combine_results")
+    data.ruleset.add_rule(rule["name"], func, apply_to=0, kwargs=rule["kwargs"])
+    data.ruleset.add_rule(
+        "combine_results",
+        rulelib.rule_combine_nan_or,
+        apply_to=tuple(range(1, len(current_rules) + 1)),
+    )
+
+    patched_children = Patch()
+    patched_children.append(irow)
+    return patched_children
+
+
+@app.callback(
+    Output(ids.TRAVAL_ADD_RULE_BUTTON, "disabled"),
+    Input(ids.TRAVAL_ADD_RULE_DROPDOWN, "value"),
+)
+def activate_add_rule_button(value):
+    if value is not None:
+        return False
+    return True
+
+
+@app.callback(
+    Output(ids.TRAVAL_RULES_FORM, "children", allow_duplicate=True),
+    Output(ids.ALERT, "is_open", allow_duplicate=True),
+    Output(ids.ALERT, "color", allow_duplicate=True),
+    Output(ids.ALERT_BODY, "children", allow_duplicate=True),
+    Input(ids.TRAVAL_LOAD_RULESET_BUTTON, "contents"),
+    prevent_initial_call=True,
+)
+def load_ruleset(contents):
+    """Get input timeseries data.
+
+    Parameters
+    ----------
+    contents : str
+        64bit encoded input data
+
+    Returns
+    -------
+    series : pandas.Series
+        input series data
+    """
+    if contents is not None:
+        try:
+            content_type, content_string = contents.split(",")
+            decoded = base64.b64decode(content_string)
+            rules = pickle.load(io.BytesIO(decoded))
+
+            ruleset = traval.RuleSet(name=rules.pop("name"))
+            ruleset.rules.update(rules)
+
+            data.ruleset = ruleset
+            nrules = len(data.ruleset.rules) - 1
+            form_components = []
+            idx = 0
+            for i in range(1, nrules + 1):
+                irule = data.ruleset.get_rule(istep=i)
+                irow = generate_traval_rule_components(irule, idx)
+                form_components.append(irow)
+                idx += 1
+
+            return form_components, True, "success", "Loaded ruleset"
+        except Exception as e:
+            return no_update, True, "warning", f"Could not load ruleset: {e}"
+    elif contents is None:
+        raise PreventUpdate
