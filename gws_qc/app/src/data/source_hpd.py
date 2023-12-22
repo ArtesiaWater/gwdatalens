@@ -11,6 +11,7 @@ import plotly.express as px
 import plotly.graph_objs as go
 import traval
 from icecream import ic
+
 from .util import get_model_sim_pi
 
 logger = logger = logging.getLogger(__name__)
@@ -51,6 +52,7 @@ class DataSourceHydropandas:
         #     ]
         # ]
         self.oc = oc
+        self.traval_result = None
 
     @lru_cache
     def gmw_to_gdf(self):
@@ -126,7 +128,7 @@ class DataSourceHydropandas:
         df.loc[comments.index, "comment"] = comments
 
         df.index.name = "datetime"
-        table = df.reset_index().to_dict("records")
+        # table = df.reset_index().to_dict("records")
 
         # self.
         try:
@@ -135,7 +137,7 @@ class DataSourceHydropandas:
             ic(e)
             ml = None
         figure = plot_traval_result(detector, ml)
-        return table, figure
+        return df, figure
 
     def attach_pastastore(self, pstore):
         self.pstore = pstore
@@ -246,7 +248,10 @@ def plot_traval_result(detector, model=None):
         traces.append(trace_i)
 
     if model is not None:
-        ci = 0.99
+        try:
+            ci = detector.ruleset.get_rule(stepname="pastas")["kwargs"]["ci"]
+        except KeyError:
+            ci = 0.95
         sim, pi = get_model_sim_pi(model, ts0, ci=ci, smoothfreq="30D")
         trace_sim = go.Scattergl(
             x=sim.index,
