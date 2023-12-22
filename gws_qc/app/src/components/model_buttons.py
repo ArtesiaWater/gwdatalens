@@ -30,7 +30,7 @@ def render_save_button():
         Button(
             html.Span(
                 [
-                    html.I(className="fa-solid fa-gear"),  # , style={"color: #006f92"}
+                    html.I(className="fa-solid fa-floppy-disk"),  # , style={"color: #006f92"}
                     " Save model",
                 ],
                 id="span-recalculate",

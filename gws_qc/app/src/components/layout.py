@@ -1,7 +1,7 @@
-from dash import Dash, html, dcc
+from dash import Dash, dcc, html
 
 from ..data.source import DataSource
-from . import button_help_modal, ids, tabs, alert
+from . import alert, button_help_modal, ids, tabs
 
 
 def create_layout(app: Dash, data: DataSource) -> html.Div:

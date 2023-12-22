@@ -1,9 +1,9 @@
 import dash_bootstrap_components as dbc
 from dash import dcc
 
-from . import ids, overview_chart, overview_map, overview_table
+from ..cache import TIMEOUT, cache
 from ..data.source import DataSource
-from ..cache import cache, TIMEOUT
+from . import ids, overview_chart, overview_map, overview_table
 
 
 def render():

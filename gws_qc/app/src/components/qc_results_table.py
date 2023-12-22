@@ -1,3 +1,5 @@
+import numpy as np
+import pandas as pd
 from dash import dash_table, html
 from dash.dash_table.Format import Format
 
@@ -6,40 +8,48 @@ from .styling import DATA_TABLE_HEADER_BGCOLOR
 
 
 def render(data):
-    rule_table = data.ruleset.to_dataframe().loc[:, ["name", "apply_to", "kwargs"]]
-    rule_table = rule_table.reset_index().astype(str)
+    if data.traval_result is None:
+        df = pd.DataFrame(
+            columns=["value", "comment", "manual_check"],
+        )
+        df.index.name = "datetime"
+        df = df.reset_index()
+        df_records = df.to_dict("records")
+    else:
+        df = data.traval_result.copy()
+        df["manual_check"] = np.nan
+        df_records = df.reset_index().to_dict("records")
 
     return html.Div(
-        id="qc-rules-div",
+        id="qc-table-div",
         children=[
             dash_table.DataTable(
-                id=ids.QC_RULES_TABLE,
-                data=rule_table.to_dict("records"),
+                id=ids.QC_RESULT_TABLE,
+                data=df_records,
                 columns=[
                     {
-                        "id": "step",
-                        "name": "Step",
-                        "type": "numeric",
-                        "format": Format(scheme="r", precision=1),
-                        "editable": False,
-                    },
-                    {
-                        "id": "name",
-                        "name": "Rule",
+                        "id": "datetime",
+                        "name": "Date",
                         "type": "text",
                         "editable": False,
                     },
                     {
-                        "id": "apply_to",
-                        "name": "Apply to",
+                        "id": "values",
+                        "name": "Meting",
                         "type": "numeric",
-                        "format": Format(scheme="r", precision=1),
-                        "editable": True,
+                        "format": Format(scheme="r", precision=5),
+                        "editable": False,
                     },
                     {
-                        "id": "kwargs",
-                        "name": "Parameters",
+                        "id": "comment",
+                        "name": "Comment",
                         "type": "text",
+                        "editable": False,
+                    },
+                    {
+                        "id": "manual_check",
+                        "name": "Manual check",
+                        "type": "numeric",
                         "editable": True,
                     },
                 ],
@@ -52,20 +62,20 @@ def render(data):
                 #     # "margin-top": 15,
                 #     # "maxHeight": "70vh",
                 # },
-                row_selectable="multi",
+                # row_selectable="multi",
                 style_cell={"whiteSpace": "pre-line", "fontSize": 12},
                 style_cell_conditional=[
-                    {"if": {"column_id": "step"}, "width": "5%"},
-                    {"if": {"column_id": "name"}, "width": "10%"},
-                    {"if": {"column_id": "apply_to"}, "width": "10%"},
-                    {"if": {"column_id": "kwargs"}, "width": "75%"},
-                ]
-                + [
                     {
                         "if": {"column_id": c},
                         "textAlign": "left",
                     }
-                    for c in ["name", "kwargs"]
+                    for c in ["datetime", "comment"]
+                ]
+                + [
+                    {"if": {"column_id": "datetime"}, "width": "20%"},
+                    {"if": {"column_id": "values"}, "width": "20%"},
+                    {"if": {"column_id": "comment"}, "width": "40%"},
+                    {"if": {"column_id": "manual_check"}, "width": "20%"},
                 ],
                 # style_data_conditional=style_data_conditional,
                 style_header={

@@ -1,8 +1,10 @@
 from typing import List, Optional
-from dash import html, dcc
 
-from . import ids
+from dash import dcc, html
+from traval import rulelib
+
 from ..data.source import DataSource
+from . import ids
 
 
 def render_selection_series_dropdown(data: DataSource, selected_data: Optional[List]):
@@ -44,6 +46,28 @@ def render_additional_series_dropdown(data: DataSource):
                 id=ids.QC_DROPDOWN_ADDITIONAL,
                 disabled=True,
                 multi=True,
+            )
+        ]
+    )
+
+
+def render_add_rule_dropdown():
+    options = [
+        {"value": i, "label": i}
+        for i in [rule for rule in dir(rulelib) if rule.startswith("rule_")]
+    ]
+
+    return html.Div(
+        [
+            dcc.Dropdown(
+                id=ids.TRAVAL_ADD_RULE_DROPDOWN,
+                clearable=True,
+                placeholder="Select a rule to add",
+                value=None,
+                multi=False,
+                searchable=True,
+                disabled=False,
+                options=options,
             )
         ]
     )
