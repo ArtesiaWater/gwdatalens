@@ -158,3 +158,5 @@ traval_scripts/oseries/
 traval_scripts/pastasdb/
 db/
 data/20231109_dinoloket.zip
+*.pkl
+*.pas
