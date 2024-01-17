@@ -28,7 +28,7 @@ class DataSource:
             print(e)
             logger.error("Database not connected successfully")
 
-        self.value_column = "calculated_value"
+        self.value_column = "field_value"
         self.qualifier_column = "qualifier"
 
     def gmw_to_gdf(self):
@@ -55,8 +55,18 @@ class DataSource:
         # add information from locations wells
         wells = wells.merge(locs, how="left", on="groundwater_monitoring_well_id")
 
+        # combine static and dynamic tube-info
+        tube_dyn = self._get_table_df("gmw.groundwater_monitoring_tubes_dynamic")
+        tube_dyn = tube_dyn[
+            ~tube_dyn["groundwater_monitoring_tube_static_id"].duplicated(keep="last")
+        ]
+
+        tubes = self._get_table_df("gmw.groundwater_monitoring_tubes_static")
+        tubes = tubes.merge(
+            tube_dyn, how="left", on="groundwater_monitoring_tube_static_id"
+        )
+
         # add information from wells to tubes
-        tubes = self._get_table_df("gmw.groundwater_monitoring_tubes")
         tubes = tubes.merge(wells, how="left", on="groundwater_monitoring_well_id")
 
         gdf = gpd.GeoDataFrame(tubes, geometry="coordinates")
@@ -72,7 +82,7 @@ class DataSource:
         # get all grundwater level dossiers
         df = self._get_table_df("gld.groundwater_level_dossier")
         # get unique combinations of gmw id and tube id
-        loc_df = df[["gmw_bro_id", "groundwater_monitoring_tube_id"]].drop_duplicates()
+        loc_df = df[["gmw_bro_id", "tube_number"]].drop_duplicates()
         locations = list(loc_df.itertuples(index=False, name=None))
         return locations
 
@@ -81,7 +91,7 @@ class DataSource:
         tube-id, im m. Return None when there are no measurements."""
         # get groundwater_level_dossier_id
         table_name = "gld.groundwater_level_dossier"
-        query = f"select groundwater_level_dossier_id FROM {table_name} WHERE gmw_bro_id = '{gmw_id}' AND groundwater_monitoring_tube_id = {tube_id}"
+        query = f"select groundwater_level_dossier_id FROM {table_name} WHERE gmw_bro_id = '{gmw_id}' AND tube_number = {tube_id}"
         cursor = self._execute_query(query)
         gld_ids = [x[0] for x in cursor.fetchall()]
         if len(gld_ids) == 0:
@@ -98,29 +108,19 @@ class DataSource:
             logger.info(f"No data found for {gmw_id}, {tube_id}")
             return None
 
-        # get measurement_time_series_id
-        table_name = "gld.measurement_time_series"
-        observation_ids_str = str(observation_ids).replace("[", "").replace("]", "")
-        query = f"select measurement_time_series_id FROM {table_name} WHERE observation_id in ({observation_ids_str})"
-        cursor = self._execute_query(query)
-        measurement_time_series_ids = [x[0] for x in cursor.fetchall()]
-        if len(measurement_time_series_ids) == 0:
-            logger.info(f"No data found for {gmw_id}, {tube_id}")
-            return None
-
         # get measurements from table gld.measurement_tvp
         table_name = "gld.measurement_tvp"
-        measurement_time_series_ids_str = (
-            str(measurement_time_series_ids).replace("[", "").replace("]", "")
-        )
-        query = f"select * FROM {table_name} WHERE measurement_time_series_id in ({measurement_time_series_ids_str})"
+        observation_ids_str = str(observation_ids).replace("[", "").replace("]", "")
+        query = f"select * FROM {table_name} WHERE observation_id in ({observation_ids_str})"
         mtvp = self._query_to_df(query).set_index("measurement_time")
         # make sure all measurements are in cm
-        msg = "Other units than cm not supported yet"
-        assert (mtvp["field_value_unit"] == "cm").all(), msg
-        s = pd.to_numeric(mtvp[self.value_column]).sort_index() / 100.0
-
-        df = pd.DataFrame(s)
+        mask = mtvp["field_value_unit"] == "cm"
+        if mask.any():
+            mtvp.loc[mask, self.value_column] /= 100
+            mtvp.loc[mask, "field_value_unit"] = "m"
+        msg = "Other units than m or cm not supported yet"
+        assert (mtvp["field_value_unit"] == "m").all(), msg
+        mtvp[self.value_column] = pd.to_numeric(mtvp[self.value_column])
 
         # get measurement_point_metadata_id
         table_name = "gld.measurement_point_metadata"
@@ -131,21 +131,22 @@ class DataSource:
         query = f"select * FROM {table_name} WHERE measurement_point_metadata_id in ({measurement_point_metadata_ids_str})"
         mpm = self._query_to_df(query).set_index("measurement_point_metadata_id")
 
-        # get qualifier-value
-        table_name = "gld.type_status_quality_control"
-        qbc_id = mpm["qualifier_by_category_id"]
-        qualifier_by_category_ids_str = (
-            str(list(qbc_id.unique())).replace("[", "").replace("]", "")
-        )
-        query = (
-            f"select * FROM {table_name} WHERE id in ({qualifier_by_category_ids_str})"
-        )
-        qbc = self._query_to_df(query).set_index("id")
+        # add qualifier to time-value-pairs
+        mtvp[self.qualifier_column] = mpm.loc[
+            mtvp["measurement_point_metadata_id"], "qualifier_by_category"
+        ].values
 
-        # add a qualifier to df
-        qbc_id = mpm.loc[mpm_id, "qualifier_by_category_id"]
-        df[self.qualifier_column] = qbc.loc[qbc_id, "value"].values
+        # only keep value and qualifier, and sort index
+        df = mtvp[[self.value_column, self.qualifier_column]].sort_index()
         return df
+
+    # def set_qualifier(self, df, qualifier="goedgekeurd"):
+    #    table_name = "gld.type_status_quality_control"
+    #    query = f"select qualifier_by_category_id FROM {table_name} WHERE value = '{qualifier}'"
+    #    cursor = self._execute_query(query)
+    #    gld_ids = [x[0] for x in cursor.fetchall()]
+    #    if len(gld_ids) == 0:
+    #        raise (Exception(f"Unknown qualifier: {qualifier}"))
 
     def _get_all_tables(self):
         cursor = self._execute_query("SELECT table_name FROM information_schema.tables")
