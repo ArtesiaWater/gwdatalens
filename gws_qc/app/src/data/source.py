@@ -74,6 +74,13 @@ class DataSource:
         # calculate top filter and bottom filter
         gdf["screen_top"] = gdf["tube_top_position"] - gdf["plain_tube_part_length"]
         gdf["screen_bot"] = gdf["screen_top"] - gdf["screen_length"]
+
+        # add number of measurements
+        hasobs = [i for i, _ in self.list_locations()]
+        mask = gdf["bro_id"].isin(hasobs)
+        gdf["metingen"] = 0
+        gdf.loc[mask, "metingen"] = 1
+
         return gdf
 
     def list_locations(self) -> List[Tuple[str, int]]:

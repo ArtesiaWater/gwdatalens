@@ -25,9 +25,6 @@ WGS84 = "proj=longlat datum=WGS84 no_defs ellps=WGS84 towgs84=0,0,0"
 def render(data: DataSource):
     df = data.gmw_to_gdf()
 
-    # has observations
-    df["metingen"] = data.oc.stats.n_observations
-
     df["x"] = df.geometry.x
     df["y"] = df.geometry.y
 

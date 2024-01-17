@@ -9,12 +9,6 @@ from .styling import DATA_TABLE_HEADER_BGCOLOR
 def render(data: DataSource):
     df = data.gmw_to_gdf()
 
-    # addd column "metingen"
-    df["metingen"] = ""
-    # locs_with_obs = data.list_locations()
-    # mask = [tuple(x) in locs_with_obs for x in df[["bro_id", "tube_number"]].values]
-    df.loc[:, "metingen"] = data.oc.stats.n_observations
-
     df.sort_values(
         ["metingen", "nitg_code", "tube_number"], ascending=False, inplace=True
     )

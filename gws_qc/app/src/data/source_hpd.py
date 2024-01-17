@@ -66,6 +66,10 @@ class DataSourceHydropandas:
         }
         gdf = gdf.rename(columns=columns)
         gdf["nitg_code"] = ""
+
+        # add number of measurements
+        gdf["metingen"] = self.oc.stats.n_observations
+
         return gdf
 
     @lru_cache
