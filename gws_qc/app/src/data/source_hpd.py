@@ -70,6 +70,8 @@ class DataSourceHydropandas:
         # add number of measurements
         gdf["metingen"] = self.oc.stats.n_observations
 
+        gdf["bro_id"] = gdf.index.tolist()
+
         return gdf
 
     @lru_cache

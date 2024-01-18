@@ -30,6 +30,7 @@ class DataSource:
 
         self.value_column = "field_value"
         self.qualifier_column = "qualifier"
+        self.source = "zeeland"
 
     def gmw_to_gdf(self):
         """Return all groundwater monitoring wells (gmw) as a GeoDataFrame"""
@@ -66,6 +67,12 @@ class DataSource:
             tube_dyn, how="left", on="groundwater_monitoring_tube_static_id"
         )
 
+        # only keep wells with a gmw
+        tubes = tubes[
+            tubes["groundwater_monitoring_well_id"].isin(
+                wells["groundwater_monitoring_well_id"]
+            )
+        ]
         # add information from wells to tubes
         tubes = tubes.merge(wells, how="left", on="groundwater_monitoring_well_id")
 
@@ -75,11 +82,15 @@ class DataSource:
         gdf["screen_top"] = gdf["tube_top_position"] - gdf["plain_tube_part_length"]
         gdf["screen_bot"] = gdf["screen_top"] - gdf["screen_length"]
 
+        # set bro_id and tube_number as index
+        gdf = gdf.set_index(["bro_id", "tube_number"])
+
         # add number of measurements
-        hasobs = [i for i, _ in self.list_locations()]
-        mask = gdf["bro_id"].isin(hasobs)
         gdf["metingen"] = 0
-        gdf.loc[mask, "metingen"] = 1
+        hasobs = [x for x in self.list_locations() if x in gdf.index]
+        gdf.loc[hasobs, "metingen"] = 1
+
+        gdf = gdf.reset_index()
 
         return gdf
 

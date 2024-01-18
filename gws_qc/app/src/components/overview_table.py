@@ -13,8 +13,6 @@ def render(data: DataSource):
         ["metingen", "nitg_code", "tube_number"], ascending=False, inplace=True
     )
 
-    df["bro_id"] = df.index.tolist()
-
     df["x"] = df.geometry.x
     df["y"] = df.geometry.y
     usecols = [
