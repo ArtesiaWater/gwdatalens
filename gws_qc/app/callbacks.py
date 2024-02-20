@@ -120,10 +120,37 @@ def plot_overview_time_series(selectedData):
             names = pts["text"].tolist()
         else:
             names = None
-        return plot_obs(names, data)
+        try:
+            chart = plot_obs(names, data)
+            if chart is not None:
+                return (
+                    chart,
+                    False,
+                    None,
+                    None,
+                )
+            else:
+                return (
+                    {"layout": {"title": "No series selected."}},
+                    True,
+                    "warning",
+                    f"No data to plot for: {names}.",
+                )
+        except Exception as e:
+            return (
+                {"layout": {"title": "No series selected."}},
+                True,  # show alert
+                "danger",  # alert color
+                f"Error! Something went wrong: {e}",  # alert message
+            )
     else:
         # ic("no update")
-        return {"layout": {"title": "No series selected."}}
+        return (
+            {"layout": {"title": "No series selected."}},
+            False,
+            None,
+            None,
+        )
 
 
 @app.callback(
