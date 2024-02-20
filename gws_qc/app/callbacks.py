@@ -243,6 +243,18 @@ def run_traval(n_clicks, name):
         raise PreventUpdate
 
 
+@app.callback(
+    Output(ids.QC_RESULT_CHART, "figure"),
+    Input(ids.TAB_CONTAINER, "value"),
+    State(ids.SELECTED_OSERIES_STORE, "value"),
+)
+def qc_result_traval_figure(tab, value):
+    if tab == ids.TAB_QC_RESULT:
+        return data.traval.figure
+    else:
+        raise PreventUpdate
+
+
 # %% MODEL TAB
 @app.callback(
     Output(ids.MODEL_RESULTS_CHART, "figure"),
