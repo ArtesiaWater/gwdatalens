@@ -163,22 +163,12 @@ def select_point_on_map(active_cell):
     if active_cell is None:
         return None
 
-    df = data.gmw_to_gdf()
-
-    # has observations
-    hasobs = [f"{i}-{j}" for i, j in data.list_locations()]
-    mask = df.index.isin(hasobs)
-    df["metingen"] = ""
-    df.loc[mask, "metingen"] = "ja"
-
-    df["x"] = df.geometry.x
-    df["y"] = df.geometry.y
-
-    transformer = Transformer.from_proj(EPSG_28992, WGS84, always_xy=False)
-    df.loc[:, ["lon", "lat"]] = np.vstack(
-        transformer.transform(df["x"].values, df["y"].values)
-    ).T
-    loc = df.iloc[active_cell["row"]]
+    df = data.db.gmw_gdf.reset_index()
+    loc = df.loc[active_cell["row"]]
+    ic(
+        active_cell["row"],
+        loc.bro_id,
+    )
     return {
         "points": [
             {
@@ -187,7 +177,7 @@ def select_point_on_map(active_cell):
                 "pointIndex": active_cell["row"],
                 "lon": loc["lon"],
                 "lat": loc["lat"],
-                "text": loc.name,
+                "text": f"{loc.bro_id}-{loc.tube_number}",
             }
         ]
     }
