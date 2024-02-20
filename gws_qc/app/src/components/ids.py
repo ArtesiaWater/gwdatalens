@@ -48,3 +48,6 @@ QC_RUN_TRAVAL_BUTTON = "qc-run-traval-button"
 # QC RESULT TAB
 # QC_RULES_TABLE = "qc-rules"
 QC_RESULT_TABLE = "qc-table"
+QC_RESULT_EXPORT_CSV = "qc-result-export-csv"
+QC_RESULT_EXPORT_DB = "qc-result-export-db"
+QC_RESULT_CHART = "qc-result-chart"
