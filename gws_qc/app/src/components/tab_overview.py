@@ -2,7 +2,7 @@ import dash_bootstrap_components as dbc
 from dash import dcc
 
 from ..cache import TIMEOUT, cache
-from ..data.source import DataSource
+from ..data.source import DataInterface
 from . import ids, overview_chart, overview_map, overview_table
 
 
@@ -16,7 +16,7 @@ def render():
 
 
 @cache.memoize(timeout=TIMEOUT)
-def render_content(data: DataSource):
+def render_content(data: DataInterface):
     return dbc.Container(
         [
             dbc.Row(

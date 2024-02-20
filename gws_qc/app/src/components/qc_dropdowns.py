@@ -3,12 +3,12 @@ from typing import List, Optional
 from dash import dcc, html
 from traval import rulelib
 
-from ..data.source import DataSource
+from ..data.source import DataInterface
 from . import ids
 
 
-def render_selection_series_dropdown(data: DataSource, selected_data: Optional[List]):
-    locs = data.list_locations()
+def render_selection_series_dropdown(data: DataInterface, selected_data: Optional[List]):
+    locs = data.db.list_locations()
     locs = [f"{iloc[0]}-{iloc[1]:03g}" for iloc in locs]
     options = [{"label": i, "value": i} for i in locs]
 
@@ -32,8 +32,8 @@ def render_selection_series_dropdown(data: DataSource, selected_data: Optional[L
     )
 
 
-def render_additional_series_dropdown(data: DataSource):
-    locs = data.list_locations()
+def render_additional_series_dropdown(data: DataInterface):
+    locs = data.db.list_locations()
     locs = [f"{iloc[0]}-{iloc[1]:03g}" for iloc in locs]
     options = [{"label": i, "value": i} for i in locs]
     return html.Div(

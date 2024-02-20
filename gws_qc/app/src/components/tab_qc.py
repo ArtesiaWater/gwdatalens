@@ -3,7 +3,7 @@ from typing import List
 import dash_bootstrap_components as dbc
 from dash import dcc
 
-from ..data.source import DataSource
+from ..data.source import DataInterface
 from . import ids, qc_chart, qc_dropdowns, qc_rules_form, qc_traval_buttons
 
 
@@ -16,7 +16,7 @@ def render():
     )
 
 
-def render_content(data: DataSource, selected_data: List):
+def render_content(data: DataInterface, selected_data: List):
     return dbc.Container(
         [
             dbc.Row(

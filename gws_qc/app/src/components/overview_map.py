@@ -3,7 +3,7 @@ import plotly.graph_objs as go
 from dash import dcc
 from pyproj import Transformer
 
-from ..data.source import DataSource
+from ..data.source import DataInterface
 from . import ids
 
 try:
@@ -11,31 +11,8 @@ try:
 except FileNotFoundError:
     mapbox_access_token = None
 
-# NOTE: this is the correct epsg:28992 definition for plotting backgroundmaps in RD
-EPSG_28992 = (
-    "+proj=sterea +lat_0=52.15616055555555 +lon_0=5.38763888888889 +k=0.9999079 "
-    "+x_0=155000 +y_0=463000 +ellps=bessel "
-    "+towgs84=565.417,50.3319,465.552,-0.398957,0.343988,-1.8774,4.0725 +units=m "
-    "+no_defs"
-)
-
-WGS84 = "proj=longlat datum=WGS84 no_defs ellps=WGS84 towgs84=0,0,0"
-
-
-def render(data: DataSource):
-    df = data.gmw_to_gdf()
-
-    df["x"] = df.geometry.x
-    df["y"] = df.geometry.y
-
-    transformer = Transformer.from_proj(EPSG_28992, WGS84, always_xy=False)
-    df.loc[:, ["lon", "lat"]] = np.vstack(
-        transformer.transform(df["x"].values, df["y"].values)
-    ).T
-
-    # ic(df.columns)
-    # ic(df.head())
-
+def render(data: DataInterface):
+    df = data.db.gmw_gdf.reset_index()
     return dcc.Graph(
         id=ids.OVERVIEW_MAP,
         figure=draw_map(

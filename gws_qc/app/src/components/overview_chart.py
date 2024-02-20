@@ -40,7 +40,7 @@ def render():
 
 def plot_obs(names, data):
     # ic(names)
-    hasobs = [i for i, _ in data.list_locations()]
+    hasobs = [i for i, _ in data.db.list_locations()]
 
     if names is None:
         return {"layout": {"title": "No series to plot"}}
@@ -59,18 +59,21 @@ def plot_obs(names, data):
             ic("no data", monitoring_well)
             return {"layout": {"title": "No series to plot"}}
 
-        df = data.get_timeseries(gmw_id=monitoring_well, tube_id=tube_nr)
-        df.loc[:, data.qualifier_column] = df.loc[:, data.qualifier_column].fillna("")
+        df = data.db.get_timeseries(gmw_id=monitoring_well, tube_id=tube_nr)
 
-        # ic("time series", monitoring_well, tube_nr)
         if df is None:
             continue
+
+        df.loc[:, data.db.qualifier_column] = df.loc[
+            :, data.db.qualifier_column
+        ].fillna("")
+
         if len(names) == 1:
-            data.df = df
+            data.db.df = df
             # plot different qualifiers
-            for qualifier in df[data.qualifier_column].unique():
-                mask = df[data.qualifier_column] == qualifier
-                ts = df.loc[mask, data.value_column]
+            for qualifier in df[data.db.qualifier_column].unique():
+                mask = df[data.db.qualifier_column] == qualifier
+                ts = df.loc[mask, data.db.value_column]
                 legendrank = 1000
                 if qualifier == "goedgekeurd":
                     color = "green"
@@ -95,9 +98,9 @@ def plot_obs(names, data):
                 )
                 traces.append(trace_i)
         else:
-            data.df = None
+            data.db.df = None
             # TODO: plot each series with its own color
-            ts = df[data.value_column]
+            ts = df[data.db.value_column]
             trace_i = go.Scattergl(
                 x=ts.index,
                 y=ts.values,

@@ -1,17 +1,17 @@
 from dash import Dash, dcc, html
 
-from ..data.source import DataSource
+from ..data.source import DataInterface
 from . import alert, button_help_modal, ids, tabs
 
 
-def create_layout(app: Dash, data: DataSource) -> html.Div:
+def create_layout(app: Dash, data: DataInterface) -> html.Div:
     """Create app layout.
 
     Parameters
     ----------
     app : Dash
         dash app object
-    data : DataSource
+    data : DataInterface
         data class
 
     Returns

@@ -5,7 +5,7 @@ import numpy as np
 from dash import dash_table, html
 from dash.dash_table.Format import Format
 
-from ..data.source import DataSource
+from ..data.source import DataInterface
 from . import ids
 from .styling import DATA_TABLE_HEADER_BGCOLOR
 
@@ -91,7 +91,7 @@ def generate_traval_rule_components(rule, rule_number):
 
 
 def render_rules_table(data):
-    rule_table = data.ruleset.to_dataframe().loc[:, ["name", "apply_to", "kwargs"]]
+    rule_table = data.traval.to_dataframe().loc[:, ["name", "apply_to", "kwargs"]]
     rule_table = rule_table.reset_index().astype(str)
 
     return html.Div(
@@ -163,13 +163,13 @@ def render_rules_table(data):
     )
 
 
-def render_traval_form(data: DataSource):
+def render_traval_form(data: DataInterface):
     form_components = []
-    nrules = len(data.ruleset.rules) - 1
+    nrules = len(data.traval.ruleset.rules) - 1
 
     idx = 0
     for i in range(1, nrules + 1):
-        irule = data.ruleset.get_rule(istep=i)
+        irule = data.traval.ruleset.get_rule(istep=i)
         irow = generate_traval_rule_components(irule, idx)
         form_components.append(irow)
         idx += 1
