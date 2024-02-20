@@ -214,21 +214,24 @@ def plot_qc_time_series(value, additional_values):
         return plot_obs([name] + additional, data)
 
 
-@app.callback(
-    Output(ids.QC_DROPDOWN_ADDITIONAL, "disabled"),
-    Output(ids.QC_DROPDOWN_ADDITIONAL, "options"),
-    Input(ids.QC_DROPDOWN_SELECTION, "value"),
-)
-def enable_additional_dropdown(value):
-    if value is not None:
-        locs = data.list_locations_sorted_by_distance(value)
-        options = [
-            {"label": i + f" ({row.distance / 1e3:.1f} km)", "value": i}
-            for i, row in locs.iterrows()
-        ]
-        return False, options
-    else:
-        return True, no_update
+# @app.callback(
+#     Output(ids.QC_DROPDOWN_ADDITIONAL, "disabled"),
+#     Output(ids.QC_DROPDOWN_ADDITIONAL, "options"),
+#     Input(ids.QC_DROPDOWN_SELECTION, "value"),
+# )
+# def enable_additional_dropdown(value):
+#     if value is not None:
+#         ic(value)
+#         # value = value.split("-")
+#         # value[1] = int(value[1])
+#         locs = data.db.list_locations_sorted_by_distance(value)
+#         options = [
+#             {"label": i + f" ({row.distance / 1e3:.1f} km)", "value": i}
+#             for i, row in locs.iterrows()
+#         ]
+#         return False, options
+#     else:
+#         return True, no_update
 
 
 @app.callback(
