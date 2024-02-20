@@ -203,7 +203,7 @@ def plot_qc_time_series(value, additional_values):
     if value is None:
         return {"layout": {"title": "No series selected."}}
     else:
-        if data.source == "bro":
+        if data.db.source == "bro":
             name = value.split("-")[0]
         else:
             name = value
@@ -244,8 +244,9 @@ def plot_qc_time_series(value, additional_values):
 def run_traval(n_clicks, name):
     if n_clicks:
         gmw_id, tube_id = name.split("-")
-        result, figure = data.run_traval(gmw_id, tube_id)
-        data.traval_result = result
+        result, figure = data.traval.run_traval(gmw_id, tube_id)
+        data.traval.traval_result = result
+        data.traval.figure = figure
         # return result, figure
         return figure
     else:
