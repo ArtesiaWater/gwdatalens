@@ -13,7 +13,6 @@ from dash.exceptions import PreventUpdate
 from icecream import ic
 from pastas.extensions import register_plotly
 from pastas.io.pas import PastasEncoder
-from pyproj import Transformer
 from src.components.qc_rules_form import (
     generate_kwargs_from_func,
     generate_traval_rule_components,
@@ -23,11 +22,10 @@ from traval import rulelib
 try:
     from .src.components import ids, tab_model, tab_overview, tab_qc, tab_qc_result
     from .src.components.overview_chart import plot_obs
-    from .src.components.overview_map import EPSG_28992, WGS84
 except ImportError:
     from src.components import ids, tab_model, tab_overview, tab_qc, tab_qc_result
     from src.components.overview_chart import plot_obs
-    from src.components.overview_map import EPSG_28992, WGS84
+
 
 register_plotly()
 
@@ -106,6 +104,9 @@ def store_modeldetails_dropdown_value(selected_data):
 
 @app.callback(
     Output(ids.SERIES_CHART, "figure", allow_duplicate=True),
+    Output(ids.ALERT, "is_open", allow_duplicate=True),
+    Output(ids.ALERT, "color", allow_duplicate=True),
+    Output(ids.ALERT_BODY, "children", allow_duplicate=True),
     Input(ids.OVERVIEW_MAP, "selectedData"),
     prevent_initial_call="initial_duplicate",
 )
@@ -292,7 +293,7 @@ def generate_model(_, value):
                 True,  # disable save button
                 True,  # show alert
                 "danger"  # alert color
-                f"Error {e}",  # empty alert message
+                f"Error {e}",  # alert message
             )
     else:
         raise PreventUpdate
@@ -336,10 +337,10 @@ def update_ruleset_values(val):
             if ctx.inputs_list[0][i]["id"] == ctx.triggered_id:
                 break
         (idx, rule, param) = ctx.triggered_id["index"].split("-")
-        ruledict = data.ruleset.get_rule(stepname=rule)
+        ruledict = data.traval.ruleset.get_rule(stepname=rule)
         ruledict["kwargs"][param] = val[i]
-        data.ruleset.update_rule(**ruledict)
-    return data.ruleset.to_json()
+        data.traval.update_rule(**ruledict)
+    return data.traval.to_json()
 
 
 # @app.callback(
@@ -348,7 +349,7 @@ def update_ruleset_values(val):
 #     prevent_initial_call=True,
 # )
 # def update_ruleset(rules):
-#     return data.ruleset.to_json()
+#     return data.traval.to_json()
 
 
 @app.callback(
@@ -365,10 +366,10 @@ def delete_rule(n_clicks, rules):
         if rule["props"]["id"]["index"] != ctx.triggered_id["index"]:
             keep.append(rule)
         else:
-            data.ruleset.del_rule(ctx.triggered_id["index"].split("-")[0])
+            data.traval.del_rule(ctx.triggered_id["index"].split("-")[0])
 
-        data.ruleset.del_rule("combine_results")
-        data.ruleset.add_rule(
+        data.traval.del_rule("combine_results")
+        data.traval.add_rule(
             "combine_results",
             rulelib.rule_combine_nan_or,
             apply_to=tuple(range(1, len(keep) + 1)),
@@ -393,9 +394,9 @@ def display_rules(n_clicks, rule_to_add, current_rules):
     irow = generate_traval_rule_components(rule, rule_number)
 
     # add to ruleset
-    data.ruleset.del_rule("combine_results")
-    data.ruleset.add_rule(rule["name"], func, apply_to=0, kwargs=rule["kwargs"])
-    data.ruleset.add_rule(
+    data.traval.del_rule("combine_results")
+    data.traval.add_rule(rule["name"], func, apply_to=0, kwargs=rule["kwargs"])
+    data.traval.add_rule(
         "combine_results",
         rulelib.rule_combine_nan_or,
         apply_to=tuple(range(1, len(current_rules) + 1)),
@@ -446,12 +447,12 @@ def load_ruleset(contents):
             ruleset = traval.RuleSet(name=rules.pop("name"))
             ruleset.rules.update(rules)
 
-            data.ruleset = ruleset
-            nrules = len(data.ruleset.rules) - 1
+            data.traval.ruleset = ruleset
+            nrules = len(data.traval.ruleset.rules) - 1
             form_components = []
             idx = 0
             for i in range(1, nrules + 1):
-                irule = data.ruleset.get_rule(istep=i)
+                irule = data.traval.ruleset.get_rule(istep=i)
                 irow = generate_traval_rule_components(irule, idx)
                 form_components.append(irow)
                 idx += 1
