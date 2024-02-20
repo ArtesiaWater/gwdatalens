@@ -1,8 +1,8 @@
 import numpy as np
 import plotly.graph_objs as go
 from dash import dcc
-from pyproj import Transformer
 
+from ..cache import cache
 from ..data.source import DataInterface
 from . import ids
 
@@ -11,6 +11,8 @@ try:
 except FileNotFoundError:
     mapbox_access_token = None
 
+
+@cache.memoize()
 def render(data: DataInterface):
     df = data.db.gmw_gdf.reset_index()
     return dcc.Graph(
@@ -63,7 +65,7 @@ def draw_map(
         name="peilbuizen",
         # customdata=df.loc[mask, "z"],
         type="scattermapbox",
-        text=df.loc[mask].index.tolist(),
+        text=df.loc[mask, "name"].tolist(),
         textposition="top center" if mapbox_access_token else None,
         textfont=dict(size=12, color="black") if mapbox_access_token else None,
         mode="markers" if mapbox_access_token else "markers",
@@ -100,7 +102,7 @@ def draw_map(
         name="peilbuizen",
         # customdata=df.loc[~mask, "z"],
         type="scattermapbox",
-        text=df.loc[~mask, "bro_id"].tolist(),
+        text=df.loc[~mask, "name"].tolist(),
         textposition="top center" if mapbox_access_token else None,
         textfont=dict(size=12, color="black") if mapbox_access_token else None,
         mode="markers" if mapbox_access_token else "markers",

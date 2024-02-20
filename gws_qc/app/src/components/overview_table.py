@@ -1,20 +1,13 @@
 from dash import dash_table, html
 from dash.dash_table.Format import Format
 
-from ..data.source import DataSource
+from ..data.source import DataInterface
 from . import ids
 from .styling import DATA_TABLE_HEADER_BGCOLOR
 
 
-def render(data: DataSource):
-    df = data.gmw_to_gdf()
-
-    df.sort_values(
-        ["metingen", "nitg_code", "tube_number"], ascending=False, inplace=True
-    )
-
-    df["x"] = df.geometry.x
-    df["y"] = df.geometry.y
+def render(data: DataInterface):
+    df = data.db.gmw_gdf.reset_index()
     usecols = [
         "bro_id",
         # "nitg_code",
@@ -89,6 +82,7 @@ def render(data: DataSource):
                     # "maxHeight": "70vh",
                 },
                 # row_selectable="multi",
+                virtualization=True,
                 style_cell={"whiteSpace": "pre-line", "fontSize": 12},
                 style_cell_conditional=[
                     {

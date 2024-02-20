@@ -47,12 +47,9 @@ def plot_obs(names, data):
 
     traces = []
     for name in names:
-        # split into monitoringwell and tub_id
-        if data.source == "dino":
-            monitoring_well, tube_nr = name.split("-")
-        else:
-            monitoring_well = name
-            tube_nr = 1
+        # split into monitoringwell and tube_number
+        monitoring_well, tube_nr = name.split("-")
+        tube_nr = int(tube_nr)
 
         # no obs
         if monitoring_well not in hasobs:

@@ -1,8 +1,10 @@
 from dash import dcc, html
 
 from . import ids
+from ..cache import cache
 
 
+@cache.memoize()
 def render():
     return html.Div(
         id="series-chart-div",
