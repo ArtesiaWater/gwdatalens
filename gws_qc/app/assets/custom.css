@@ -69,3 +69,9 @@
     border-right: 1px solid lightgrey !important;
     border-top: 4px solid #006f92 !important;
 }
+
+/*DATA TABLE*/
+
+.Select-menu-outer {
+    display: block !important;
+}
