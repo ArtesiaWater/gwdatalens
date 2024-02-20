@@ -7,10 +7,12 @@ from dash import Dash
 try:
     from .src.cache import cache
     from .src.components.layout import create_layout
+    from .src.data.source import DataInterface
     from .src.data.source_hpd import DataSourceHydropandas
 except ImportError:  # if running app.py directly
     from src.cache import cache
     from src.components.layout import create_layout
+    from src.data.source import DataInterface, DataSource, TravalInterface
     from src.data.source_hpd import DataSourceHydropandas
 
 logger = logging.getLogger("waitress")
@@ -24,20 +26,22 @@ external_stylesheets = [
 
 # %% main app
 
-# load the data
-# data = DataSource()
-data = DataSourceHydropandas(fname="obs_collection_dino.pickle")
+# connect to the database
+db = DataSource()
+# data = DataSourceHydropandas(fname="obs_collection_dino.pickle")
 
 # load pastastore
-conn = pst.ArcticDBConnector(
-    name="zeeland", uri="lmdb://../../traval_scripts/pastasdb/"
-)
+# name = "zeeland"
+name = "zeeland_bro"
+conn = pst.ArcticDBConnector(name=name, uri="lmdb://../../traval_scripts/pastasdb/")
 pstore = pst.PastaStore(conn)
-data.attach_pastastore(pstore)
 
-# load ruleset now that pastastore has been added
-data.load_ruleset()
+# load ruleset
+traval_interface = TravalInterface(db, pstore)
+traval_interface.load_ruleset()
 
+# add all components to our data interface object
+data = DataInterface(db=db, pstore=pstore, traval=traval_interface)
 
 # create app
 app = Dash(
@@ -49,4 +53,10 @@ app.title = "QC Grondwaterstanden"
 app.layout = create_layout(app, data)
 
 # initialize cache
-cache.init_app(app.server, config={"CACHE_TYPE": "filesystem", "CACHE_DIR": ".cache"})
+cache.init_app(
+    app.server,
+    config={
+        "CACHE_TYPE": "filesystem",
+        "CACHE_DIR": ".cache",
+    },
+)
