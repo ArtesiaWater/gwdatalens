@@ -42,7 +42,7 @@ class TravalInterface:
         self.db = db
         self.pstore = pstore
         self.ruleset = None
-        
+
         self.traval_result = None
         self.traval_figure = None
 
@@ -65,7 +65,9 @@ class TravalInterface:
             apply_to=0,
             kwargs={
                 "ufunc": (np.greater,),
-                "threshold": lambda name: self.db.gmw_gdf.loc[name, "screen_top"],
+                "threshold": lambda name: self.db.gmw_gdf.loc[
+                    name, "tube_top_position"
+                ],
             },
         )
         ruleset.add_rule(
