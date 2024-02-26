@@ -292,7 +292,7 @@ def generate_model(_, value):
                 None,
                 True,  # disable save button
                 True,  # show alert
-                "danger"  # alert color
+                "danger",  # alert color
                 f"Error {e}",  # alert message
             )
     else:
