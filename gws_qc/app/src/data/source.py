@@ -49,17 +49,17 @@ class TravalInterface:
     def load_ruleset(self):
         # ruleset
         # initialize RuleSet object
-        rset = traval.RuleSet(name="basic")
+        ruleset = traval.RuleSet(name="basic")
 
         # add rules
-        rset.add_rule(
+        ruleset.add_rule(
             "spikes",
             traval.rulelib.rule_spike_detection,
             apply_to=0,
             kwargs={"threshold": 0.15, "spike_tol": 0.15, "max_gap": "7D"},
         )
         ic(self.db.gmw_gdf.index)
-        rset.add_rule(
+        ruleset.add_rule(
             "hardmax",
             traval.rulelib.rule_ufunc_threshold,
             apply_to=0,
@@ -68,13 +68,13 @@ class TravalInterface:
                 "threshold": lambda name: self.db.gmw_gdf.loc[name, "screen_top"],
             },
         )
-        rset.add_rule(
+        ruleset.add_rule(
             "flat_signal",
             traval.rulelib.rule_flat_signal,
             apply_to=0,
             kwargs={"window": 100, "min_obs": 5, "std_threshold": 2e-2},
         )
-        rset.add_rule(
+        ruleset.add_rule(
             "offsets",
             traval.rulelib.rule_offset_detection,
             apply_to=0,
@@ -86,7 +86,7 @@ class TravalInterface:
             },
         )
         ci = 0.99
-        rset.add_rule(
+        ruleset.add_rule(
             "pastas",
             traval.rulelib.rule_pastas_outside_pi,
             apply_to=0,
@@ -98,14 +98,14 @@ class TravalInterface:
                 "verbose": True,
             },
         )
-        rset.add_rule(
+        ruleset.add_rule(
             "combine_results",
             traval.rulelib.rule_combine_nan_or,
             apply_to=(1, 2, 3, 4),
         )
 
         # set ruleset in data object
-        self.ruleset = rset
+        self.ruleset = ruleset
 
     def run_traval(self, gmw_id, tube_id):
         name = f"{gmw_id}-{int(tube_id):03g}"

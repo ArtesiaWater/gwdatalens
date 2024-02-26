@@ -366,10 +366,10 @@ def delete_rule(n_clicks, rules):
         if rule["props"]["id"]["index"] != ctx.triggered_id["index"]:
             keep.append(rule)
         else:
-            data.traval.del_rule(ctx.triggered_id["index"].split("-")[0])
+            data.traval.ruleset.del_rule(ctx.triggered_id["index"].split("-")[0])
 
-        data.traval.del_rule("combine_results")
-        data.traval.add_rule(
+        data.traval.ruleset.del_rule("combine_results")
+        data.traval.ruleset.add_rule(
             "combine_results",
             rulelib.rule_combine_nan_or,
             apply_to=tuple(range(1, len(keep) + 1)),
@@ -394,9 +394,9 @@ def display_rules(n_clicks, rule_to_add, current_rules):
     irow = generate_traval_rule_components(rule, rule_number)
 
     # add to ruleset
-    data.traval.del_rule("combine_results")
-    data.traval.add_rule(rule["name"], func, apply_to=0, kwargs=rule["kwargs"])
-    data.traval.add_rule(
+    data.traval.ruleset.del_rule("combine_results")
+    data.traval.ruleset.add_rule(rule["name"], func, apply_to=0, kwargs=rule["kwargs"])
+    data.traval.ruleset.add_rule(
         "combine_results",
         rulelib.rule_combine_nan_or,
         apply_to=tuple(range(1, len(current_rules) + 1)),
