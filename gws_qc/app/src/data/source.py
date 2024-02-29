@@ -271,7 +271,20 @@ class DataSource:
         return self._gmw_to_gdf()
 
     def _gmw_to_gdf(self):
-        """Return all groundwater monitoring wells (gmw) as a GeoDataFrame"""
+        """
+        Return all unique piezometers as a (Geo)DataFrame.
+
+        Returns
+        -------
+        gdf : a (Geo)Pandas(Geo)DataFrame
+            a (Geo)DataFrame with a unique index, describing the well-name and the tube-
+            number, and at least the following columns:
+                screen_top
+                screen_bot
+                lat
+                lon
+        """
+
         # get a DataFrame with the properties of all wells
         wells = self._get_table_df("gmw.groundwater_monitoring_wells")
 
@@ -325,13 +338,14 @@ class DataSource:
         )
 
         # set bro_id and tube_number as index
-        # gdf = gdf.set_index(["bro_id", "tube_number"])
-        gdf = gdf.set_index("name")
+        gdf = gdf.set_index(["bro_id", "tube_number"])
 
         # add number of measurements
         gdf["metingen"] = 0
         hasobs = [x for x in self.list_locations() if x in gdf.index]
         gdf.loc[hasobs, "metingen"] = 1
+
+        gdf = gdf.reset_index().set_index("name")
 
         # add location data in RD and lat/lon in WGS84
         gdf["x"] = gdf.geometry.x
@@ -347,7 +361,6 @@ class DataSource:
             ["metingen", "nitg_code", "tube_number"], ascending=False, inplace=True
         )
 
-        # gdf = gdf.reset_index()
         return gdf
 
     @lru_cache
