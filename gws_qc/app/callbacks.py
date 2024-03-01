@@ -111,10 +111,11 @@ def store_modeldetails_dropdown_value(selected_data, current_value):
     Output(ids.ALERT, "color", allow_duplicate=True),
     Output(ids.ALERT_BODY, "children", allow_duplicate=True),
     Input(ids.OVERVIEW_MAP, "selectedData"),
+    State(ids.SELECTED_OSERIES_STORE, "data"),
     prevent_initial_call="initial_duplicate",
 )
-def plot_overview_time_series(selectedData):
-    # ic("point=", selectedData)
+def plot_overview_time_series(selectedData, selected_oseries):
+    # ic(selectedData)
 
     if selectedData is not None:
         pts = pd.DataFrame(selectedData["points"])
@@ -141,12 +142,21 @@ def plot_overview_time_series(selectedData):
                     f"No data to plot for: {names}.",
                 )
         except Exception as e:
+            raise e
             return (
                 {"layout": {"title": "No series selected."}},
                 True,  # show alert
                 "danger",  # alert color
                 f"Error! Something went wrong: {e}",  # alert message
             )
+    elif selected_oseries is not None:
+        chart = plot_obs(selected_oseries, data)
+        return (
+            chart,
+            False,
+            None,
+            None,
+        )
     else:
         # ic("no update")
         return (
