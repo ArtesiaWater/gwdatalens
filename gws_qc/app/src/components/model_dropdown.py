@@ -5,7 +5,6 @@ from . import ids
 
 def render(data, selected_data):
     locs = data.db.list_locations()
-    locs = [f"{iloc[0]}-{iloc[1]:03g}" for iloc in locs]
     options = [{"label": i, "value": i} for i in locs]
 
     if selected_data is not None and len(selected_data) == 1:

@@ -7,9 +7,10 @@ from ..data.source import DataInterface
 from . import ids
 
 
-def render_selection_series_dropdown(data: DataInterface, selected_data: Optional[List]):
+def render_selection_series_dropdown(
+    data: DataInterface, selected_data: Optional[List]
+):
     locs = data.db.list_locations()
-    locs = [f"{iloc[0]}-{iloc[1]:03g}" for iloc in locs]
     options = [{"label": i, "value": i} for i in locs]
 
     if selected_data is not None and len(selected_data) == 1:
@@ -34,7 +35,6 @@ def render_selection_series_dropdown(data: DataInterface, selected_data: Optiona
 
 def render_additional_series_dropdown(data: DataInterface):
     locs = data.db.list_locations()
-    locs = [f"{iloc[0]}-{iloc[1]:03g}" for iloc in locs]
     options = [{"label": i, "value": i} for i in locs]
     return html.Div(
         children=[
