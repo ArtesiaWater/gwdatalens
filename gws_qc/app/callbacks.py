@@ -169,32 +169,41 @@ def plot_overview_time_series(selectedData, selected_oseries):
 
 @app.callback(
     Output(ids.OVERVIEW_MAP, "selectedData"),
+    Output(ids.OVERVIEW_MAP, "selectedpoints"),
+    Output(ids.OVERVIEW_MAP, "figure"),
     Input(ids.OVERVIEW_TABLE, "active_cell"),
+    State(ids.OVERVIEW_MAP, "figure"),
     # prevent_initial_call=True,
-    allow_duplicate=True,
 )
-def select_point_on_map(active_cell):
+def highlight_point_on_map_from_table(active_cell, figure):
     if active_cell is None:
-        return None
+        return None, [], no_update
 
+    ic(active_cell)
     df = data.db.gmw_gdf.reset_index()
     loc = df.loc[active_cell["row"]]
-    ic(
-        active_cell["row"],
-        loc.bro_id,
+    pts = [active_cell["row"]]
+
+    uirevision = figure["layout"]["uirevision"]
+    uirevision = True if uirevision is None else ~uirevision
+    figure["layout"]["uirevision"] = uirevision
+    
+    return (
+        {
+            "points": [
+                {
+                    "curveNumber": 0,
+                    "pointNumber": active_cell["row"],
+                    "pointIndex": active_cell["row"],
+                    "lon": loc["lon"],
+                    "lat": loc["lat"],
+                    "text": f"{loc.bro_id}-{loc.tube_number:03g}",
+                }
+            ]
+        },
+        pts,
+        figure,
     )
-    return {
-        "points": [
-            {
-                "curveNumber": 0,
-                "pointNumber": active_cell["row"],
-                "pointIndex": active_cell["row"],
-                "lon": loc["lon"],
-                "lat": loc["lat"],
-                "text": f"{loc.bro_id}-{loc.tube_number}",
-            }
-        ]
-    }
 
 
 @app.callback(
