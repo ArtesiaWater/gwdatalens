@@ -72,6 +72,105 @@
 
 /*DATA TABLE*/
 
-.Select-menu-outer {
+/* fixes margins so data isn't cut off at table edges */
+.dbc .dash-table-container .row {
     display: block !important;
+    margin: 0;
+}
+
+/* fixes  when the table dropdown doesn't drop down */
+.dbc .Select-menu-outer {
+    display: block !important;
+}
+
+.dash-table-container .dropdown {
+    position: static;
+}
+
+/*
+   *  sort arrow and delete icons in the DataTable header - changes pink color
+   *  these icons appear when the table is sortable and/or columns are deletable
+   */
+.dbc .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table {
+    --accent: var(--bs-primary) !important;
+    --hover: none !important;
+    /* font-family: var(--bs-font-sans-serif); */
+}
+
+/* input box */
+/* .dbc .Select-control {
+    background-color: var(--bs-body-bg) !important;
+    border: solid #006f92 1px !important;
+} */
+
+/* changes the text color of input box */
+.dbc .Select-value-label {
+    color: black !important;
+}
+
+.dbc .Select input {
+    color: black;
+}
+
+/* dropdown menu options */
+.dbc .VirtualizedSelectOption {
+    background-color: white;
+    color: black;
+}
+
+/* dropdown menu hover effect */
+.dbc .VirtualizedSelectFocusedOption {
+    /* background-color: rgba(255, 65, 65, 0.2); */
+    color: black;
+}
+
+/* border on focus - default is blue
+   * shadow box around input box.  default is blue
+   */
+.dbc .is-focused:not(.is-open)>.Select-control {
+    border-color: var(--bs-primary) !important;
+    /* box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.2); */
+}
+
+/* on hover highlight entire row */
+.dash-spreadsheet tr:hover td.dash-cell {
+    border-color: rgba(100, 100, 100, 0.4) !important;
+    border-width: 0.5px !important;
+    background-color: rgba(100, 100, 100, 0.1) !important;
+
+}
+
+/* active cell */
+.dbc .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner td.focused {
+    background-color: rgba(var(--bs-primary-rgb), 0.2) !important;
+    outline: 1px solid var(--bs-primary);
+}
+
+/* active cell when cell is  editable */
+.dbc .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner input:not([type=radio]):not([type=checkbox]) {
+    background-color: transparent !important;
+}
+
+/* selected cells */
+.dbc .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner td.cell--selected {
+    background-color: rgba(var(--bs-primary-rgb), 0.2) !important;
+}
+
+/*  dropdown inside datatable */
+.dbc .dash-table-container .dash-spreadsheet .Select-menu-outer {
+    background-color: white;
+    border-color: #006f92;
+}
+
+.dbc .dash-table-container .dash-spreadsheet .Select-option {
+    background-color: rgba(var(--bs-gray-500), .4);
+}
+
+/* ALERT */
+.alert {
+    height: 50px;
+}
+
+#alert-body {
+    font-size: smaller;
 }
