@@ -1,3 +1,4 @@
+import os
 import base64
 import io
 import json
@@ -8,7 +9,7 @@ import pandas as pd
 import pastas as ps
 import traval
 from app import app, data
-from dash import ALL, Input, Output, Patch, State, ctx, no_update
+from dash import ALL, Input, Output, Patch, State, ctx, no_update, MATCH, dcc, html
 from dash.exceptions import PreventUpdate
 from icecream import ic
 from pastas.extensions import register_plotly
@@ -16,6 +17,7 @@ from pastas.io.pas import PastasEncoder
 from src.components.qc_rules_form import (
     generate_kwargs_from_func,
     generate_traval_rule_components,
+    derive_form_parameters,
 )
 from traval import rulelib
 
@@ -65,7 +67,7 @@ def toggle_modal(n1, n2, is_open):
 )
 def render_tab_content(tab, selected_data):
     if tab == ids.TAB_OVERVIEW:
-        return tab_overview.render_content(data)
+        return tab_overview.render_content(data, selected_data)
     elif tab == ids.TAB_QC:
         return tab_qc.render_content(data, selected_data)
     elif tab == ids.TAB_MODEL:
@@ -187,7 +189,7 @@ def highlight_point_on_map_from_table(active_cell, figure):
     uirevision = figure["layout"]["uirevision"]
     uirevision = True if uirevision is None else ~uirevision
     figure["layout"]["uirevision"] = uirevision
-    
+
     return (
         {
             "points": [
@@ -565,6 +567,10 @@ def load_ruleset(contents):
             return no_update, True, "warning", f"Could not load ruleset: {e}"
     elif contents is None:
         raise PreventUpdate
+
+
+# %% QC table
+
 
 @app.callback(
     Output(ids.QC_RESULT_TABLE, "data"),
