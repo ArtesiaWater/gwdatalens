@@ -9,7 +9,7 @@ def render_run_traval_button():
         Button(
             html.Span(
                 [
-                    html.I(className="fa-solid fa-gear"),  # , style={"color: #006f92"}
+                    html.I(className="fa-solid fa-gear"),
                     " Run TRAVAL",
                 ],
                 id="span-recalculate",

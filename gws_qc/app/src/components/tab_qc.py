@@ -1,7 +1,7 @@
 from typing import List
 
 import dash_bootstrap_components as dbc
-from dash import dcc
+from dash import dcc, html
 
 from ..data.source import DataInterface
 from . import ids, qc_chart, qc_dropdowns, qc_rules_form, qc_traval_buttons
@@ -48,20 +48,51 @@ def render_content(data: DataInterface, selected_data: List):
             # ),
             dbc.Row(
                 [
-                    qc_rules_form.render_traval_form(data),
-                ]
-            ),
-            dbc.Row(
-                [
-                    dbc.Col([qc_dropdowns.render_add_rule_dropdown()], width="4"),
-                    dbc.Col([qc_traval_buttons.render_add_rule_button()], width="auto"),
                     dbc.Col(
-                        [qc_traval_buttons.render_load_ruleset_button()], width="auto"
+                        dbc.Button(
+                            [
+                                html.I(className="fa-solid fa-chevron-right"),
+                                " Show parameters",
+                            ],
+                            style={
+                                "backgroundcolor": "#006f92",
+                                "margin-top": 10,
+                                "margin-bottom": 10,
+                            },
+                            id=ids.QC_COLLAPSE_BUTTON,
+                            n_clicks=0,
+                        ),
+                        width="auto",
                     ),
                     dbc.Col(
                         [qc_traval_buttons.render_run_traval_button()], width="auto"
                     ),
                 ]
+            ),
+            dbc.Collapse(
+                dbc.Row(
+                    id=ids.TRAVAL_FORM_ROW,
+                    children=[
+                        qc_rules_form.render_traval_form(data),
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    [qc_dropdowns.render_add_rule_dropdown()], width="4"
+                                ),
+                                dbc.Col(
+                                    [qc_traval_buttons.render_add_rule_button()],
+                                    width="auto",
+                                ),
+                                dbc.Col(
+                                    [qc_traval_buttons.render_load_ruleset_button()],
+                                    width="auto",
+                                ),
+                            ]
+                        ),
+                    ],
+                ),
+                is_open=False,
+                id=ids.QC_COLLAPSE_CONTENT,
             ),
             # NOTE: use below for showing JSON of current traval ruleset
             # dbc.Row(
