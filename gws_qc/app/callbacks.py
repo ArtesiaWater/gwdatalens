@@ -79,8 +79,9 @@ def render_tab_content(tab, selected_data):
 @app.callback(
     Output(ids.SELECTED_OSERIES_STORE, "data"),
     Input(ids.OVERVIEW_MAP, "selectedData"),
+    State(ids.SELECTED_OSERIES_STORE, "data"),
 )
-def store_modeldetails_dropdown_value(selected_data):
+def store_modeldetails_dropdown_value(selected_data, current_value):
     """Store model results tab dropdown value.
 
     Parameters
@@ -97,9 +98,11 @@ def store_modeldetails_dropdown_value(selected_data):
         pts = pd.DataFrame(selected_data["points"])
         if not pts.empty:
             names = pts["text"].tolist()
-        return names
+            return names
+        else:
+            return None if current_value is None else current_value
     else:
-        return None
+        return None if current_value is None else current_value
 
 
 @app.callback(
