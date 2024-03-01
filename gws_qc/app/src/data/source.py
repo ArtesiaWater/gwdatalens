@@ -58,7 +58,6 @@ class TravalInterface:
             apply_to=0,
             kwargs={"threshold": 0.15, "spike_tol": 0.15, "max_gap": "7D"},
         )
-        ic(self.db.gmw_gdf.index)
         ruleset.add_rule(
             "hardmax",
             traval.rulelib.rule_ufunc_threshold,
@@ -339,13 +338,12 @@ class DataSource:
 
         # set bro_id and tube_number as index
         gdf = gdf.set_index(["bro_id", "tube_number"])
+        gdf = gdf.reset_index().set_index("name")
 
         # add number of measurements
         gdf["metingen"] = 0
         hasobs = [x for x in self.list_locations() if x in gdf.index]
         gdf.loc[hasobs, "metingen"] = 1
-
-        gdf = gdf.reset_index().set_index("name")
 
         # add location data in RD and lat/lon in WGS84
         gdf["x"] = gdf.geometry.x
@@ -360,18 +358,21 @@ class DataSource:
         gdf.sort_values(
             ["metingen", "nitg_code", "tube_number"], ascending=False, inplace=True
         )
+        gdf["id"] = range(gdf.index.size)
 
         return gdf
 
     @lru_cache
-    def list_locations(self) -> List[Tuple[str, int]]:
+    def list_locations(self) -> List[str]:
         """Return a list of locations that contain groundwater level dossiers, where
         each location is defines by a tuple of length 2: bro-id and tube_id"""
         # get all grundwater level dossiers
         df = self._get_table_df("gld.groundwater_level_dossier")
         # get unique combinations of gmw id and tube id
         loc_df = df[["gmw_bro_id", "tube_number"]].drop_duplicates()
-        locations = list(loc_df.itertuples(index=False, name=None))
+        locations = [
+            f"{t[0]}-{t[1]:03g}" for t in loc_df.itertuples(index=False, name=None)
+        ]
         return locations
 
     def list_locations_sorted_by_distance(self, name):
