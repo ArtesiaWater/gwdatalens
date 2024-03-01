@@ -285,10 +285,10 @@ def qc_result_traval_figure(tab, value):
 
 # %% MODEL TAB
 @app.callback(
-    Output(ids.MODEL_RESULTS_CHART, "figure"),
-    Output(ids.MODEL_DIAGNOSTICS_CHART, "figure"),
+    Output(ids.MODEL_RESULTS_CHART, "figure", allow_duplicate=True),
+    Output(ids.MODEL_DIAGNOSTICS_CHART, "figure", allow_duplicate=True),
     Output(ids.PASTAS_MODEL_STORE, "data"),
-    Output(ids.MODEL_SAVE_BUTTON, "disabled"),
+    Output(ids.MODEL_SAVE_BUTTON, "disabled", allow_duplicate=True),
     Output(ids.ALERT, "is_open", allow_duplicate=True),
     Output(ids.ALERT, "color", allow_duplicate=True),
     Output(ids.ALERT_BODY, "children", allow_duplicate=True),
@@ -296,32 +296,37 @@ def qc_result_traval_figure(tab, value):
     State(ids.MODEL_DROPDOWN_SELECTION, "value"),
     prevent_initial_call=True,
 )
-def generate_model(_, value):
-    if value is not None:
-        try:
-            ml = data.pstore.create_model(value, add_recharge=True)
-            ml.solve(freq="D", report=False, noise=False)
-            ml.solve(freq="D", noise=True, report=False, initial=False)
-            mljson = json.dumps(ml.to_dict(), cls=PastasEncoder)
-            return (
-                ml.plotly.results(),
-                ml.plotly.diagnostics(),
-                mljson,
-                False,  # enable save button
-                False,  # show alert
-                "danger",  # alert color
-                "",  # empty alert message
-            )
-        except Exception as e:
-            return (
-                no_update,
-                no_update,
-                None,
-                True,  # disable save button
-                True,  # show alert
-                "danger",  # alert color
-                f"Error {e}",  # alert message
-            )
+def generate_model(n_clicks, value):
+    if n_clicks is not None:
+        if value is not None:
+            try:
+                ml = data.pstore.create_model(value, add_recharge=True)
+                ml.solve(freq="D", report=False, noise=False)
+                ml.solve(freq="D", noise=True, report=False, initial=False)
+                mljson = json.dumps(
+                    ml.to_dict(), cls=PastasEncoder
+                )  # store generated model
+                return (
+                    ml.plotly.results(),
+                    ml.plotly.diagnostics(),
+                    mljson,
+                    False,  # enable save button
+                    True,  # show alert
+                    "success",  # alert color
+                    f"Created time series model for {value}.",  # empty alert message
+                )
+            except Exception as e:
+                return (
+                    no_update,
+                    no_update,
+                    None,
+                    True,  # disable save button
+                    True,  # show alert
+                    "danger",  # alert color
+                    f"Error {e}",  # alert message
+                )
+        else:
+            raise PreventUpdate
     else:
         raise PreventUpdate
 
