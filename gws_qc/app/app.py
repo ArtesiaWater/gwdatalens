@@ -35,6 +35,7 @@ db = DataSource()
 name = "zeeland_bro"
 conn = pst.ArcticDBConnector(name=name, uri="lmdb://../../traval_scripts/pastasdb/")
 pstore = pst.PastaStore(conn)
+print(pstore)
 
 # load ruleset
 traval_interface = TravalInterface(db, pstore)
