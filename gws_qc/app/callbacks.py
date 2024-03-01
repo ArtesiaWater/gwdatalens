@@ -346,12 +346,13 @@ def save_model(n_clicks, mljson):
         with open("temp.pas", "w") as f:
             f.write(mljson)
         ml = ps.io.load("temp.pas")
-        # data.pstore.add_model(ml)
-        ic(f"Pretending to save {ml}!")
+        os.remove("temp.pas")
+        data.pstore.add_model(ml, overwrite=True)
+        # ic(f"Pretending to save {ml}!")
         return (
             True,
             "success",
-            f"Success! I pretend-saved the model for {ml.oseries.name}!",
+            f"Success! Saved model for {ml.oseries.name} in Pastastore!",
         )
     else:
         raise PreventUpdate
