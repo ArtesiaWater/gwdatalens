@@ -16,20 +16,20 @@ def render():
 
 
 @cache.memoize(timeout=TIMEOUT)
-def render_content(data: DataInterface):
+def render_content(data: DataInterface, selected_data: str):
     return dbc.Container(
         [
             dbc.Row(
                 [
                     dbc.Col(
                         [
-                            overview_map.render(data),
+                            overview_map.render(data, selected_data),
                         ],
                         width=6,
                     ),
                     dbc.Col(
                         [
-                            overview_table.render(data),
+                            overview_table.render(data, selected_data),
                         ],
                         width=6,
                     ),
