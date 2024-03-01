@@ -588,3 +588,15 @@ def multi_edit_qc_results_table(table_data, cols, selected_cells):
     return table_data
 
 
+@app.callback(
+    Output(ids.DOWNLOAD_EXPORT_CSV, "data"),
+    Input(ids.QC_RESULT_EXPORT_CSV, "n_clicks"),
+    State(ids.SELECTED_OSERIES_STORE, "data"),
+    prevent_initial_call=True,
+)
+def download_export_csv(n_clicks, name):
+    timestr = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{timestr}_qc_result_{name[0]}.csv"
+    if data.traval.traval_result is not None:
+        return dcc.send_string(data.traval.traval_result.to_csv, filename=filename)
+
