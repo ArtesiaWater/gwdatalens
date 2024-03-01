@@ -565,3 +565,26 @@ def load_ruleset(contents):
             return no_update, True, "warning", f"Could not load ruleset: {e}"
     elif contents is None:
         raise PreventUpdate
+
+@app.callback(
+    Output(ids.QC_RESULT_TABLE, "data"),
+    Input(ids.QC_RESULT_TABLE, "data"),
+    State(ids.QC_RESULT_TABLE, "columns"),
+    State(ids.QC_RESULT_TABLE, "selected_cells"),
+    prevent_initial_call=True,
+)
+def multi_edit_qc_results_table(table_data, cols, selected_cells):
+    selected_row_id = [c["row"] for c in selected_cells]
+    changed_cell = selected_cells[0]
+    new_value = table_data[changed_cell["row"]][changed_cell["column_id"]]
+
+    # ic(changed_cell)
+    # ic(table_data[changed_cell["row"]])
+    for r in table_data:
+        if r["id"] in selected_row_id:
+            mask = data.traval.traval_result["id"] == r["id"]
+            data.traval.traval_result.loc[mask, changed_cell["column_id"]] = new_value
+            r[changed_cell["column_id"]] = new_value
+    return table_data
+
+
