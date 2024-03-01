@@ -16,22 +16,25 @@ def render():
 
 def render_export_to_csv_button():
     return html.Div(
-        dbc.Button(
-            html.Span(
-                [
-                    html.I(className="fa-solid fa-file-csv"),
-                    " Export CSV",
-                ],
-                id="span-export-csv",
-                n_clicks=0,
+        [
+            dbc.Button(
+                html.Span(
+                    [
+                        html.I(className="fa-solid fa-file-csv"),
+                        " Export CSV",
+                    ],
+                    id="span-export-csv",
+                    n_clicks=0,
+                ),
+                style={
+                    "margin-top": 10,
+                    "margin-bottom": 10,
+                },
+                disabled=True,
+                id=ids.QC_RESULT_EXPORT_CSV,
             ),
-            style={
-                "margin-top": 10,
-                "margin-bottom": 10,
-            },
-            disabled=False,
-            id=ids.QC_RESULT_EXPORT_CSV,
-        ),
+            dcc.Download(id=ids.DOWNLOAD_EXPORT_CSV),
+        ]
     )
 
 
@@ -50,7 +53,7 @@ def render_export_to_database_button():
                 "margin-top": 10,
                 "margin-bottom": 10,
             },
-            disabled=False,
+            disabled=True,
             id=ids.QC_RESULT_EXPORT_DB,
         ),
     )
