@@ -482,6 +482,35 @@ def display_rules(n_clicks, rule_to_add, current_rules):
 
 
 @app.callback(
+    Output({"type": "rule_input", "index": ALL}, "value"),
+    Output({"type": "rule_input", "index": ALL}, "type"),
+    Output({"type": "rule_input", "index": ALL}, "disabled"),
+    Output({"type": "rule_input", "index": ALL}, "step"),
+    Input(ids.QC_DROPDOWN_SELECTION, "value"),
+    prevent_initial_call=False,
+)
+def display_rules_for_series(name):
+    values = []
+    input_types = []
+    disableds = []
+    steps = []
+    nrules = len(data.traval.ruleset.rules) - 1
+
+    for i in range(1, nrules + 1):
+        irule = data.traval.ruleset.get_rule(istep=i)
+        for _, v in irule["kwargs"].items():
+            if callable(v):
+                if name is not None:
+                    v = v(name)
+            v, input_type, disabled, step = derive_form_parameters(v)
+            values.append(v)
+            input_types.append(input_type)
+            disableds.append(disabled)
+            steps.append(step)
+    return values, input_types, disableds, steps
+
+
+@app.callback(
     Output(ids.TRAVAL_ADD_RULE_BUTTON, "disabled"),
     Input(ids.TRAVAL_ADD_RULE_DROPDOWN, "value"),
 )
