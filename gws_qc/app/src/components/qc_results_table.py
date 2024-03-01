@@ -38,13 +38,14 @@ qc_categories = {
 def render(data):
     if data.traval.traval_result is None:
         df = pd.DataFrame(
-            columns=["value", "comment", "manual_check"],
+            columns=["id", "value", "comment", "manual_check"],
         )
         df.index.name = "datetime"
         df = df.reset_index()
         df_records = df.to_dict("records")
     else:
-        df = data.traval.traval_result.copy()
+        df = data.traval.traval_result
+        df["id"] = range(df.index.size)
         df["manual_check"] = np.nan
         df_records = df.reset_index().to_dict("records")
 
@@ -78,9 +79,11 @@ def render(data):
                     },
                     {
                         "id": "manual_check",
-                        "name": "Manual check",
+                        "name": "Manual check (1/0)",
                         "type": "numeric",
                         "editable": True,
+                        "on_change": {"action": "validate", "failure": "default"},
+                        "validation": {"default": 1},
                     },
                     {
                         "id": "category",
@@ -100,6 +103,7 @@ def render(data):
                     },
                 },
                 page_action="none",
+                filter_action="native",
                 virtualization=True,
                 style_table={
                     "height": "40vh",
@@ -127,6 +131,12 @@ def render(data):
                 style_header={
                     "backgroundColor": DATA_TABLE_HEADER_BGCOLOR,
                     "fontWeight": "bold",
+                },
+                tooltip_header={
+                    "manual_check": {
+                        "type": "text",
+                        "value": "1 = Accept suggestion\n 0 = Reject suggestion",
+                    }
                 },
             ),
         ],
