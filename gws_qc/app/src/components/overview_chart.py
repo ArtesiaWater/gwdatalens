@@ -39,8 +39,7 @@ def render():
 
 
 def plot_obs(names, data):
-    # ic(names)
-    hasobs = [i for i, _ in data.db.list_locations()]
+    hasobs = [i for i in data.db.list_locations()]
 
     if names is None:
         return {"layout": {"title": "No series to plot"}}
