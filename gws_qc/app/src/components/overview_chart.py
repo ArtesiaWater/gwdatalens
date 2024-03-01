@@ -51,9 +51,8 @@ def plot_obs(names, data):
         tube_nr = int(tube_nr)
 
         # no obs
-        if monitoring_well not in hasobs:
-            ic("no data", monitoring_well)
-            return {"layout": {"title": "No series to plot"}}
+        if name not in hasobs:
+            continue
 
         df = data.db.get_timeseries(gmw_id=monitoring_well, tube_id=tube_nr)
 
