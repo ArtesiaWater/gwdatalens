@@ -19,7 +19,45 @@ def generate_kwargs_from_func(func):
     return kwargs
 
 
-def generate_traval_rule_components(rule, rule_number):
+def derive_form_parameters(v):
+    input_type = "text"
+    disabled = False
+    ndecimals = None
+    step = None
+
+    if isinstance(v, tuple) and callable(v[0]):
+        input_type = "text"
+        disabled = True
+        v = str(v)
+    elif callable(v):
+        v = str(v)
+        disabled = True
+        input_type = "text"
+    elif isinstance(v, float):
+        input_type = "number"
+        # step = np.min([10 ** np.floor(np.log10(v)) / 2, 10])
+        vstr = str(v % 1)
+        ndecimals = len(vstr) - vstr.find(".") - 1
+        step = 10 ** (-ndecimals) / 2
+    elif isinstance(v, (int, np.integer)):
+        input_type = "number"
+        step = int(np.min([10 ** np.floor(np.log10(v)), 10]))
+        if isinstance(v, bool):
+            v = int(v)
+    elif isinstance(v, str):
+        input_type = "text"
+        step = "any"
+        disabled = False
+    else:
+        input_type = "text"
+        step = None
+        v = str(v)
+        disabled = True
+
+    return v, input_type, disabled, step
+
+
+def generate_traval_rule_components(rule, rule_number, series_name=None):
     name = rule["name"]
     ibtn = dbc.Button(
         html.Span(
@@ -37,33 +75,44 @@ def generate_traval_rule_components(rule, rule_number):
         },
     )
     lbl = dbc.Label(name, width=1)
-    row_components = [ibtn, lbl]
+    info = dbc.Button(
+        html.Span(
+            [html.I(className="fa-solid fa-info")],
+            id="span-info-button",
+            n_clicks=0,
+        ),
+        style={
+            "fontSize": "small",
+            "background-color": "#006f92",
+            # "padding": 1,
+            "height": "30px",
+            "width": "30px",
+            # "border": None,
+            "border-radius": "50%",
+            "padding": 0,
+            "textAlign": "center",
+            "display": "block",
+        },
+        id={"type": "info-button", "index": f"{name}-{rule_number}"},
+    )
+    tooltip = dbc.Tooltip(
+        children=[
+            html.P(f"{name}", style={"margin-bottom": 0}),
+            html.P(
+                "I am an explanation",
+                style={"margin-top": 0, "margin-bottom": 0},
+            ),
+        ],
+        target={"type": "info-button", "index": f"{name}-{rule_number}"},
+        placement="right",
+    )
+    row_components = [ibtn, lbl, info, tooltip]
     idx = rule_number  # input_field_no
     for k, v in rule["kwargs"].items():
-        disabled = False
-        step = None
-        if isinstance(v, tuple) and callable(v[0]):
-            input_type = "text"
-            v = str(v)
-            disabled = True
-        elif callable(v):
-            v = str(v)
-            disabled = True
-            input_type = "text"
-        elif isinstance(v, float):
-            input_type = "number"
-            # step = np.min([10 ** np.floor(np.log10(v)) / 2, 10])
-            vstr = str(v % 1)
-            ndecimals = len(vstr) - vstr.find(".") - 1
-            step = 10 ** (-ndecimals) / 2
-        elif isinstance(v, (int, np.integer)):
-            input_type = "number"
-            step = int(np.min([10 ** np.floor(np.log10(v)), 10]))
-            if isinstance(v, bool):
-                v = int(v)
-        else:
-            input_type = "text"
-            step = "any"
+        if callable(v):
+            if series_name is not None:
+                v = v(series_name)
+        v, input_type, disabled, step = derive_form_parameters(v)
 
         ilbl = dbc.Label(k, width=1)
         param = dbc.Col(
@@ -163,14 +212,14 @@ def render_rules_table(data):
     )
 
 
-def render_traval_form(data: DataInterface):
+def render_traval_form(data: DataInterface, series_name=None):
     form_components = []
     nrules = len(data.traval.ruleset.rules) - 1
 
     idx = 0
     for i in range(1, nrules + 1):
         irule = data.traval.ruleset.get_rule(istep=i)
-        irow = generate_traval_rule_components(irule, idx)
+        irow = generate_traval_rule_components(irule, idx, series_name=series_name)
         form_components.append(irow)
         idx += 1
 
