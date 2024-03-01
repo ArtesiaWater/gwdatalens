@@ -600,3 +600,29 @@ def download_export_csv(n_clicks, name):
     if data.traval.traval_result is not None:
         return dcc.send_string(data.traval.traval_result.to_csv, filename=filename)
 
+
+@app.callback(
+    Output(ids.QC_COLLAPSE_CONTENT, "is_open"),
+    Output(ids.QC_COLLAPSE_BUTTON, "children"),
+    Input(ids.QC_COLLAPSE_BUTTON, "n_clicks"),
+    State(ids.QC_COLLAPSE_CONTENT, "is_open"),
+)
+def toggle_collapse(n, is_open):
+    if n:
+        if not is_open:
+            button_text = [
+                html.I(className="fa-solid fa-chevron-down"),
+                " Hide parameters",
+            ]
+            return not is_open, button_text
+        else:
+            button_text = [
+                html.I(className="fa-solid fa-chevron-right"),
+                " Show parameters",
+            ]
+            return not is_open, button_text
+    # button_text = [
+    #     html.I(className="fa-solid fa-chevron-left"),
+    #     " Show parameters",
+    # ]
+    return is_open, no_update
