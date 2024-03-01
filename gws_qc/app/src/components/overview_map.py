@@ -13,13 +13,17 @@ except FileNotFoundError:
 
 
 @cache.memoize()
-def render(data: DataInterface):
+def render(
+    data: DataInterface,
+    selected_data=None,
+):
     df = data.db.gmw_gdf.reset_index()
     return dcc.Graph(
         id=ids.OVERVIEW_MAP,
         figure=draw_map(
             df,
             mapbox_access_token,
+            selected_data=selected_data,
         ),
         style={
             "margin-top": "15",
@@ -36,6 +40,7 @@ def render(data: DataInterface):
 def draw_map(
     df,
     mapbox_access_token,
+    selected_data=None,
 ):
     """Draw ScatterMapBox.
 
@@ -58,11 +63,18 @@ def draw_map(
 
     mask = df["metingen"] > 0
 
+    if selected_data is not None:
+        pts_data = np.nonzero(df.loc[mask, "name"].isin(selected_data))[0].tolist()
+        pts_nodata = np.nonzero(df.loc[~mask, "name"].isin(selected_data))[0].tolist()
+    else:
+        pts_data = None
+        pts_nodata = None
+
     # oseries data for map
     pb_data = dict(
         lat=df.loc[mask, "lat"],
         lon=df.loc[mask, "lon"],
-        name="peilbuizen",
+        name="Provincie Zeeland",
         # customdata=df.loc[mask, "z"],
         type="scattermapbox",
         text=df.loc[mask, "name"].tolist(),
@@ -70,44 +82,7 @@ def draw_map(
         textfont=dict(size=12, color="black") if mapbox_access_token else None,
         mode="markers" if mapbox_access_token else "markers",
         marker=go.scattermapbox.Marker(
-            size=10,
-            # sizeref=0.5,
-            # sizemin=2,
-            # sizemode="area",
-            opacity=0.7,
-            color="red",
-            # colorscale=px.colors.sequential.Reds,
-            # reversescale=False,
-            # showscale=True,
-            # colorbar={
-            #     "title": "depth<br>(m NAP)",
-            #     "x": -0.1,
-            #     "y": 0.95,
-            #     "len": 0.95,
-            #     "yanchor": "top",
-            # },
-        ),
-        hovertemplate=(
-            "<b>%{text}</b><br>"
-            # + "<b>z:</b> NAP%{marker.color:.2f} m"
-            # + "<extra></extra> "
-        ),
-        showlegend=False,
-        unselected={"marker": {"opacity": 0.15}},
-    )
-
-    pb_nodata = dict(
-        lat=df.loc[~mask, "lat"],
-        lon=df.loc[~mask, "lon"],
-        name="peilbuizen",
-        # customdata=df.loc[~mask, "z"],
-        type="scattermapbox",
-        text=df.loc[~mask, "name"].tolist(),
-        textposition="top center" if mapbox_access_token else None,
-        textfont=dict(size=12, color="black") if mapbox_access_token else None,
-        mode="markers" if mapbox_access_token else "markers",
-        marker=go.scattermapbox.Marker(
-            size=5,
+            size=6,
             # sizeref=0.5,
             # sizemin=2,
             # sizemode="area",
@@ -129,8 +104,65 @@ def draw_map(
             # + "<b>z:</b> NAP%{marker.color:.2f} m"
             # + "<extra></extra> "
         ),
-        showlegend=False,
-        unselected={"marker": {"opacity": 0.15}},
+        showlegend=True,
+        legendgroup="DATA",
+        selectedpoints=pts_data,
+        unselected={"marker": {"opacity": 0.15, "color": "black", "size": 7}},
+        selected={"marker": {"opacity": 1.0, "color": "red", "size": 9}},
+    )
+
+    pb_nodata = dict(
+        lat=df.loc[~mask, "lat"],
+        lon=df.loc[~mask, "lon"],
+        name="No data",
+        # customdata=df.loc[~mask, "z"],
+        type="scattermapbox",
+        text=df.loc[~mask, "name"].tolist(),
+        textposition="top center" if mapbox_access_token else None,
+        textfont=dict(size=12, color="black") if mapbox_access_token else None,
+        mode="markers" if mapbox_access_token else "markers",
+        marker=go.scattermapbox.Marker(
+            symbol="circle-stroked",
+            size=7,
+            opacity=0.8,
+            # sizeref=0.5,
+            # sizemin=2,
+            # sizemode="area",
+            color="grey",
+            # colorscale=px.colors.sequential.Reds,
+            # reversescale=False,
+            # showscale=True,
+            # colorbar={
+            #     "title": "depth<br>(m NAP)",
+            #     "x": -0.1,
+            #     "y": 0.95,
+            #     "len": 0.95,
+            #     "yanchor": "top",
+            # },
+        ),
+        hovertemplate=(
+            "<b>%{text}</b><br>"
+            # + "<b>z:</b> NAP%{marker.color:.2f} m"
+            # + "<extra></extra> "
+        ),
+        showlegend=True,
+        legendgroup="NODATA",
+        # selectedpoints=pts_nodata,
+        # selected={
+        #     "marker": go.scattermapbox.Marker(
+        #         symbol="circle",
+        #         size=7,
+        #         opacity=1.0,
+        #         color="red",
+        #     )
+        # },
+        # unselected={
+        #     "marker": go.scattermapbox.Marker(
+        #         symbol="circle-stroked",
+        #         size=7,
+        #         opacity=0.15,
+        #     )
+        # },
     )
 
     # if selected_rows is None:
@@ -171,8 +203,8 @@ def draw_map(
             # style="satellite-streets"
         ),
         # relayoutData=mapbox_cfg,
-        legend={"x": 0.99, "y": 0.99, "xanchor": "right", "yanchor": "top"},
-        # uirevision="1",
+        legend={"x": 0.01, "y": 0.99, "xanchor": "left", "yanchor": "top"},
+        uirevision=False,
         modebar={
             "bgcolor": "rgba(255,255,255,0.9)",
         },
