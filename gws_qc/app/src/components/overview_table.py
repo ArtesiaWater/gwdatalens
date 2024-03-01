@@ -4,9 +4,10 @@ from dash.dash_table.Format import Format
 from ..data.source import DataInterface
 from . import ids
 from .styling import DATA_TABLE_HEADER_BGCOLOR
+from icecream import ic
 
 
-def render(data: DataInterface):
+def render(data: DataInterface, selected_data=None):
     df = data.db.gmw_gdf.reset_index()
     usecols = [
         "bro_id",
@@ -18,6 +19,7 @@ def render(data: DataInterface):
         "y",
         "metingen",
     ]
+    # ic(selected_data)
 
     return html.Div(
         id="table-div",
@@ -75,6 +77,7 @@ def render(data: DataInterface):
                 ],
                 fixed_rows={"headers": True},
                 page_action="none",
+                filter_action="native",
                 style_table={
                     # "height": "70vh",
                     # "overflowY": "auto",
