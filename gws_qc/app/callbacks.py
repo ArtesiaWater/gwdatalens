@@ -358,6 +358,47 @@ def save_model(n_clicks, mljson):
         raise PreventUpdate
 
 
+@app.callback(
+    Output(ids.MODEL_RESULTS_CHART, "figure", allow_duplicate=True),
+    Output(ids.MODEL_DIAGNOSTICS_CHART, "figure", allow_duplicate=True),
+    Output(ids.MODEL_SAVE_BUTTON, "disabled", allow_duplicate=True),
+    Output(ids.ALERT, "is_open", allow_duplicate=True),
+    Output(ids.ALERT, "color", allow_duplicate=True),
+    Output(ids.ALERT_BODY, "children", allow_duplicate=True),
+    Input(ids.MODEL_DROPDOWN_SELECTION, "value"),
+    prevent_initial_call=True,
+)
+def plot_model_results(value):
+    if value is not None:
+        try:
+            ml = data.pstore.get_models(value)
+            return (
+                ml.plotly.results(),
+                ml.plotly.diagnostics(),
+                True,
+                True,  # show alert
+                "success",  # alert color
+                f"Loaded time series model '{value}' from PastaStore.",  # empty alert message
+            )
+        except Exception as e:
+            return (
+                {"layout": {"title": "No model."}},
+                {"layout": {"title": "No model."}},
+                True,
+                True,  # show alert
+                "warning",  # alert color
+                f"No model available for {value}. Click 'Generate Model' to create one.",
+            )
+    elif value is None:
+        return (
+            {"layout": {"title": "No model."}},
+            {"layout": {"title": "No model."}},
+            True,
+            False,  # show alert
+            "success",  # alert color
+            "",  # empty message
+        )
+
 # %% TRAVAL TAB
 @app.callback(
     Output(ids.TRAVAL_OUTPUT, "children"),
