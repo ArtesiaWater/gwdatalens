@@ -268,12 +268,17 @@ def run_traval(n_clicks, name):
 
 @app.callback(
     Output(ids.QC_RESULT_CHART, "figure"),
+    Output(ids.QC_RESULT_EXPORT_CSV, "disabled"),
+    Output(ids.QC_RESULT_EXPORT_DB, "disabled"),
     Input(ids.TAB_CONTAINER, "value"),
     State(ids.SELECTED_OSERIES_STORE, "value"),
 )
 def qc_result_traval_figure(tab, value):
     if tab == ids.TAB_QC_RESULT:
-        return data.traval.figure
+        if hasattr(data.traval, "figure"):
+            return (data.traval.figure, False, False)
+        else:
+            return ({"layout": {"title": "No traval result."}}, True, True)
     else:
         raise PreventUpdate
 
