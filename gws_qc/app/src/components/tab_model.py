@@ -1,3 +1,4 @@
+import i18n
 from typing import List
 
 import dash_bootstrap_components as dbc
@@ -9,7 +10,7 @@ from . import ids, model_buttons, model_dropdown, model_plots
 
 def render():
     return dcc.Tab(
-        label="Time Series Model",
+        label=i18n.t("general.tab_model"),
         value=ids.TAB_MODEL,
         className="custom-tab",
         selected_className="custom-tab--selected",
@@ -28,7 +29,7 @@ def render_content(data: DataInterface, selected_data: List):
                         [
                             html.P(
                                 [
-                                    "Powered by ",
+                                    i18n.t("general.powered_by") + " ",
                                     html.A(
                                         "Pastas",
                                         href="https://pastas.dev",
