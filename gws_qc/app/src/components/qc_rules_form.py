@@ -4,8 +4,11 @@ import dash_bootstrap_components as dbc
 import numpy as np
 from dash import html
 
-
 from ..data.source import DataInterface
+from ..data.qc_definitions import rule_explanation_nl as rule_explanation
+
+# TODO: obtain rule explanations through i18n as well?
+# from ..data.qc_definitions import rule_explanation_en as rule_explanation  # ruff:noqa
 from . import ids
 
 
@@ -98,7 +101,7 @@ def generate_traval_rule_components(rule, rule_number, series_name=None):
         children=[
             html.P(f"{name}", style={"margin-bottom": 0}),
             html.P(
-                "I am an explanation",
+                rule_explanation[rule["func"].__name__],
                 style={"margin-top": 0, "margin-bottom": 0},
             ),
         ],
@@ -112,7 +115,7 @@ def generate_traval_rule_components(rule, rule_number, series_name=None):
             if series_name is not None:
                 try:
                     v = v(series_name)
-                except Exception as e:
+                except Exception as _:
                     print(f"Parameter '{rule['name']}: {k}' not defined.")
                     pass
         v, input_type, disabled, step = derive_form_parameters(v)
