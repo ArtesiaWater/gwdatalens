@@ -1,3 +1,4 @@
+import i18n
 from dash import dcc, html
 
 from . import ids
@@ -17,7 +18,7 @@ def render(data, selected_data):
             dcc.Dropdown(
                 id=ids.MODEL_DROPDOWN_SELECTION,
                 clearable=True,
-                placeholder="Select a location",
+                placeholder=i18n.t("general.select_location"),
                 value=value,
                 multi=False,
                 searchable=True,

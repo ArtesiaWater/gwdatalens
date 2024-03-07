@@ -1,11 +1,11 @@
+import i18n
 import plotly.graph_objs as go
 from dash import dcc, html
-from icecream import ic
 
 from . import ids
 
 
-def render():
+def render(data, selected_data):
     return html.Div(
         id="series-chart-div",
         children=[
@@ -16,6 +16,7 @@ def render():
                 parent_className="loading-wrapper",
                 children=[
                     dcc.Graph(
+                        figure=plot_obs(selected_data, data),
                         id=ids.SERIES_CHART,
                         config={
                             "displayModeBar": True,
@@ -42,7 +43,9 @@ def plot_obs(names, data):
     hasobs = [i for i in data.db.list_locations()]
 
     if names is None:
-        return {"layout": {"title": "No series to plot"}}
+        return {"layout": {"title": i18n.t("general.no_plot")}}
+
+    title = None
 
     traces = []
     for name in names:
@@ -52,6 +55,7 @@ def plot_obs(names, data):
 
         # no obs
         if name not in hasobs:
+            title = i18n.t("general.no_plot")
             continue
 
         df = data.db.get_timeseries(gmw_id=monitoring_well, tube_id=tube_nr)
@@ -64,7 +68,7 @@ def plot_obs(names, data):
         ].fillna("")
 
         if len(names) == 1:
-            data.db.df = df
+            title = name
             # plot different qualifiers
             for qualifier in df[data.db.qualifier_column].unique():
                 mask = df[data.db.qualifier_column] == qualifier
@@ -93,8 +97,7 @@ def plot_obs(names, data):
                 )
                 traces.append(trace_i)
         else:
-            data.db.df = None
-            # TODO: plot each series with its own color
+            title = None
             ts = df[data.db.value_column]
             trace_i = go.Scattergl(
                 x=ts.index,
@@ -108,6 +111,7 @@ def plot_obs(names, data):
             )
             traces.append(trace_i)
     layout = {
+        "title": title,
         # "xaxis": {"range": [sim.index[0], sim.index[-1]]},
         "yaxis": {"title": "(m NAP)"},
         "legend": {
