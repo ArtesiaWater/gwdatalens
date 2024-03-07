@@ -1,3 +1,4 @@
+import i18n
 import numpy as np
 import plotly.graph_objs as go
 from dash import dcc
@@ -74,7 +75,7 @@ def draw_map(
     pb_data = dict(
         lat=df.loc[mask, "lat"],
         lon=df.loc[mask, "lon"],
-        name="Provincie Zeeland",
+        name="PMG Kwantiteit",
         # customdata=df.loc[mask, "z"],
         type="scattermapbox",
         text=df.loc[mask, "name"].tolist(),
@@ -114,7 +115,7 @@ def draw_map(
     pb_nodata = dict(
         lat=df.loc[~mask, "lat"],
         lon=df.loc[~mask, "lon"],
-        name="No data",
+        name=i18n.t("general.no_data"),
         # customdata=df.loc[~mask, "z"],
         type="scattermapbox",
         text=df.loc[~mask, "name"].tolist(),
