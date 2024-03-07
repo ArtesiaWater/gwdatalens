@@ -1,3 +1,4 @@
+import i18n
 from typing import List, Optional
 
 from dash import dcc, html
@@ -25,7 +26,7 @@ def render_selection_series_dropdown(
                 value=value,
                 clearable=True,
                 searchable=True,
-                placeholder="Select time series ...",
+                placeholder=i18n.t("general.select_series"),
                 id=ids.QC_DROPDOWN_SELECTION,
                 disabled=False,
             )
@@ -42,7 +43,7 @@ def render_additional_series_dropdown(data: DataInterface):
                 options=options,
                 clearable=True,
                 searchable=True,
-                placeholder="Select additional time series to plot ...",
+                placeholder=i18n.t("general.select_series2"),
                 id=ids.QC_DROPDOWN_ADDITIONAL,
                 disabled=True,
                 multi=True,
@@ -62,7 +63,7 @@ def render_add_rule_dropdown():
             dcc.Dropdown(
                 id=ids.TRAVAL_ADD_RULE_DROPDOWN,
                 clearable=True,
-                placeholder="Select a rule to add",
+                placeholder=i18n.t("general.select_rule"),
                 value=None,
                 multi=False,
                 searchable=True,
