@@ -1,4 +1,3 @@
-import callbacks  # noqa:F401
 from app import app
 from icecream import ic
 from waitress import serve
@@ -11,15 +10,15 @@ except ImportError:  # if running app.py directly
 ic.configureOutput(includeContext=True)
 
 
-def run(app, debug=False):
+def run(app, debug=False, port=8050):
     if debug:
         app.run_server(debug=debug)
     else:
         ic(
-            "\nRunning QC Grondwaterstanden on http://127.0.0.1:8050/"
+            f"\nRunning QC Grondwaterstanden on http://127.0.0.1:{port}/"
             "\nPress Ctrl+C to quit."
         )
-        serve(app.server, host="127.0.0.1", port=8050)
+        serve(app.server, host="127.0.0.1", port=port)
     cache.clear()
 
 
