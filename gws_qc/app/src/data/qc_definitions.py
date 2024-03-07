@@ -55,7 +55,7 @@ rule_explanation_nl = {
     "rule_ufunc_threshold": "Detectie-regel, signaleer op basis van operator en drempelwaarde",
     "rule_diff_ufunc_threshold": "Detectie-regel, signaleer op basss van verschil, operator en drempelwaarde",
     "rule_other_ufunc_threshold": "Detectie-regel, signaleer op basis van andere reeks en toegestaan verschil",
-    "rule_spike_detection": "Detectie-regel, singaleer pieken",
+    "rule_spike_detection": "Detectie-regel, signaleer pieken",
     "rule_offset_detection": "Detectie-regel, signaleer perioden met een verschilfout",
     "rule_outside_n_sigma": "Detectie-regel, signaleer buiten n * standaarddeviatie",
     "rule_diff_outside_of_n_sigma": "Detectie-regel, signaleer op basis van verandering in periode",
