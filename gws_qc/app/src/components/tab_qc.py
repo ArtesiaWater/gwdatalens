@@ -1,3 +1,4 @@
+import i18n
 from typing import List
 
 import dash_bootstrap_components as dbc
@@ -9,7 +10,7 @@ from . import ids, qc_chart, qc_dropdowns, qc_rules_form, qc_traval_buttons
 
 def render():
     return dcc.Tab(
-        label="QC",
+        label=i18n.t("general.tab_qc"),
         value=ids.TAB_QC,
         className="custom-tab",
         selected_className="custom-tab--selected",
@@ -52,7 +53,7 @@ def render_content(data: DataInterface, selected_data: List):
                         dbc.Button(
                             [
                                 html.I(className="fa-solid fa-chevron-right"),
-                                " Show parameters",
+                                " " + i18n.t("general.show_parameters"),
                             ],
                             style={
                                 "backgroundcolor": "#006f92",
@@ -83,8 +84,26 @@ def render_content(data: DataInterface, selected_data: List):
                                     [qc_traval_buttons.render_add_rule_button()],
                                     width="auto",
                                 ),
+                            ]
+                        ),
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    [qc_traval_buttons.render_reset_rules_button()],
+                                    width="auto",
+                                ),
                                 dbc.Col(
                                     [qc_traval_buttons.render_load_ruleset_button()],
+                                    width="auto",
+                                ),
+                                dbc.Col(
+                                    [qc_traval_buttons.render_export_ruleset_button()],
+                                    width="auto",
+                                ),
+                                dbc.Col(
+                                    [
+                                        qc_traval_buttons.render_export_parameter_csv_button()
+                                    ],
                                     width="auto",
                                 ),
                             ]
