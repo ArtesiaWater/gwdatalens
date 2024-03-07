@@ -111,7 +111,11 @@ def generate_traval_rule_components(rule, rule_number, series_name=None):
     for k, v in rule["kwargs"].items():
         if callable(v):
             if series_name is not None:
-                v = v(series_name)
+                try:
+                    v = v(series_name)
+                except Exception as e:
+                    print(f"Parameter '{rule['name']}: {k}' not defined.")
+                    pass
         v, input_type, disabled, step = derive_form_parameters(v)
 
         ilbl = dbc.Label(k, width=1)
