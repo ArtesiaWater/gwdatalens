@@ -11,6 +11,9 @@ ALERT_BODY = "alert-body"
 # STORE
 SELECTED_OSERIES_STORE = "selected-oseries-store"
 PASTAS_MODEL_STORE = "pastas-model-store"
+OVERVIEW_TABLE_SELECTION = "overview-table-selection"
+RESULT_TABLE_SELECTION = "qc-result-table-selection"
+TRAVAL_RULESET_STORE = "traval-ruleset-values-store"
 
 # TABS
 TAB_CONTAINER = "tab-container"
@@ -43,9 +46,15 @@ TRAVAL_RULES_FORM = "traval-rules-form"
 TRAVAL_ADD_RULE_DROPDOWN = "traval-add-rule-dropdown"
 TRAVAL_ADD_RULE_BUTTON = "traval-add-rule-button"
 TRAVAL_LOAD_RULESET_BUTTON = "traval-load-ruleset-button"
+TRAVAL_RESET_RULESET_BUTTON = "traval-reset-ruleset-button"
+TRAVAL_EXPORT_RULESET_BUTTON = "traval-export-ruleset-button"
+TRAVAL_EXPORT_PARAMETERS_CSV_BUTTON = "traval-export-parameters-csv-button"
+DOWNLOAD_TRAVAL_RULESET = "download-traval-ruleset"
+DOWNLOAD_TRAVAL_PARAMETERS_CSV = "download-traval-parameters-csv"
+
 QC_RUN_TRAVAL_BUTTON = "qc-run-traval-button"
 TRAVAL_FORM_ROW = "traval-form-row"
-QC_COLLAPSE_BUTTON = "qc-collapse-button"   
+QC_COLLAPSE_BUTTON = "qc-collapse-button"
 QC_COLLAPSE_CONTENT = "qc-collapse-content"
 
 # QC RESULT TAB
@@ -55,3 +64,4 @@ QC_RESULT_EXPORT_CSV = "qc-result-export-csv"
 QC_RESULT_EXPORT_DB = "qc-result-export-db"
 QC_RESULT_CHART = "qc-result-chart"
 DOWNLOAD_EXPORT_CSV = "download-export-csv"
+QC_RESULTS_SHOW_ALL_OBS_SWITCH = "show-all-obs-switch"
