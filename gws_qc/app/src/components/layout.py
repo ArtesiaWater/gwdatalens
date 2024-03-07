@@ -23,7 +23,10 @@ def create_layout(app: Dash, data: DataInterface) -> html.Div:
         id="main",
         children=[
             dcc.Store(id=ids.SELECTED_OSERIES_STORE),
-            dcc.Store(ids.PASTAS_MODEL_STORE),
+            dcc.Store(id=ids.PASTAS_MODEL_STORE),
+            dcc.Store(id=ids.OVERVIEW_TABLE_SELECTION),
+            dcc.Store(id=ids.RESULT_TABLE_SELECTION),
+            dcc.Store(id=ids.TRAVAL_RULESET_STORE),
             html.Div(
                 id="header",
                 children=[
