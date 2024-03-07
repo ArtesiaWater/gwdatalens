@@ -42,14 +42,19 @@ class TravalInterface:
         self.db = db
         self.pstore = pstore
         self.ruleset = None
+        self._ruleset = None
 
         self.traval_result = None
         self.traval_figure = None
 
-    def load_ruleset(self):
+        # set ruleset in data object
+        self.ruleset = self.get_default_ruleset()
+        self._ruleset = deepcopy(self.ruleset)
+
+    def get_default_ruleset(self):
         # ruleset
         # initialize RuleSet object
-        ruleset = traval.RuleSet(name="basic")
+        ruleset = traval.RuleSet(name="default")
 
         # add rules
         ruleset.add_rule(
@@ -58,15 +63,17 @@ class TravalInterface:
             apply_to=0,
             kwargs={"threshold": 0.15, "spike_tol": 0.15, "max_gap": "7D"},
         )
+
+        def get_tube_top_level(name):
+            return self.db.gmw_gdf.loc[name, "tube_top_position"].item()
+
         ruleset.add_rule(
             "hardmax",
             traval.rulelib.rule_ufunc_threshold,
             apply_to=0,
             kwargs={
                 "ufunc": (np.greater,),
-                "threshold": lambda name: self.db.gmw_gdf.loc[
-                    name, "tube_top_position"
-                ],
+                "threshold": get_tube_top_level,
             },
         )
         ruleset.add_rule(
@@ -75,17 +82,17 @@ class TravalInterface:
             apply_to=0,
             kwargs={"window": 100, "min_obs": 5, "std_threshold": 2e-2},
         )
-        ruleset.add_rule(
-            "offsets",
-            traval.rulelib.rule_offset_detection,
-            apply_to=0,
-            kwargs={
-                "threshold": 0.5,
-                "updown_diff": 0.5,
-                "max_gap": "100D",
-                "search_method": "time",
-            },
-        )
+        # ruleset.add_rule(
+        #     "offsets",
+        #     traval.rulelib.rule_offset_detection,
+        #     apply_to=0,
+        #     kwargs={
+        #         "threshold": 0.5,
+        #         "updown_diff": 0.5,
+        #         "max_gap": "100D",
+        #         "search_method": "time",
+        #     },
+        # )
         ci = 0.99
         ruleset.add_rule(
             "pastas",
@@ -102,13 +109,11 @@ class TravalInterface:
         ruleset.add_rule(
             "combine_results",
             traval.rulelib.rule_combine_nan_or,
-            apply_to=(1, 2, 3, 4),
+            apply_to=(1, 2, 3),
         )
+        return ruleset
 
-        # set ruleset in data object
-        self.ruleset = ruleset
-
-    def run_traval(self, gmw_id, tube_id):
+    def run_traval(self, gmw_id, tube_id, ruleset=None):
         name = f"{gmw_id}-{int(tube_id):03g}"
         ic(f"Running traval for {name}...")
         ts = self.db.get_timeseries(gmw_id, tube_id)
