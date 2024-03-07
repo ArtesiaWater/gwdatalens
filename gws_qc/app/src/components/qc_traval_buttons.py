@@ -1,4 +1,5 @@
-from dash import html, dcc
+import i18n
+from dash import dcc, html
 from dash_bootstrap_components import Button
 
 from . import ids
@@ -31,7 +32,7 @@ def render_add_rule_button():
             html.Span(
                 [
                     html.I(className="fa-solid fa-plus"),
-                    " Add rule",
+                    i18n.t("general.add_rule_button"),
                 ],
                 id="span-add-rule",
                 n_clicks=0,
@@ -43,6 +44,75 @@ def render_add_rule_button():
             disabled=True,
             id=ids.TRAVAL_ADD_RULE_BUTTON,
         ),
+    )
+
+
+def render_reset_rules_button():
+    return html.Div(
+        Button(
+            html.Span(
+                [
+                    html.I(className="fa-solid fa-arrows-rotate"),
+                    " Reset",
+                ],
+                id="span-reset-rules",
+                n_clicks=0,
+            ),
+            style={
+                "margin-top": 10,
+                "margin-bottom": 10,
+            },
+            disabled=True,
+            id=ids.TRAVAL_RESET_RULESET_BUTTON,
+        ),
+    )
+
+
+def render_export_ruleset_button():
+    return html.Div(
+        [
+            Button(
+                html.Span(
+                    [
+                        html.I(className="fa-solid fa-file-export"),
+                        " " + i18n.t("general.export"),
+                    ],
+                    id="span-ruleset-export",
+                    n_clicks=0,
+                ),
+                style={
+                    "margin-top": 10,
+                    "margin-bottom": 10,
+                },
+                disabled=False,
+                id=ids.TRAVAL_EXPORT_RULESET_BUTTON,
+            ),
+            dcc.Download(id=ids.DOWNLOAD_TRAVAL_RULESET),
+        ]
+    )
+
+
+def render_export_parameter_csv_button():
+    return html.Div(
+        [
+            Button(
+                html.Span(
+                    [
+                        html.I(className="fa-solid fa-file-csv"),
+                        " " + i18n.t("general.export_params"),
+                    ],
+                    id="span-parameters-export",
+                    n_clicks=0,
+                ),
+                style={
+                    "margin-top": 10,
+                    "margin-bottom": 10,
+                },
+                disabled=False,
+                id=ids.TRAVAL_EXPORT_PARAMETERS_CSV_BUTTON,
+            ),
+            dcc.Download(id=ids.DOWNLOAD_TRAVAL_PARAMETERS_CSV),
+        ]
     )
 
 
@@ -59,11 +129,11 @@ def render_load_ruleset_button():
                 #     ".pkl",
                 # ],  # Only works in production mode, not in debug mode
                 children=[
-                    html.A(
+                    html.P(
                         html.Span(
                             [
                                 html.I(className="fa-solid fa-file-import"),
-                                "  Load RuleSet ",
+                                f" {i18n.t('general.load')} RuleSet",
                             ],
                             style={
                                 "color": "white",
@@ -87,7 +157,7 @@ def render_load_ruleset_button():
         style={
             "display": "inline-block",
             "margin-top": 5,
-            "margin-bottom": 10,
+            "margin-bottom": 5,
             "margin-right": 5,
             "verticalAlign": "middle",
         },
