@@ -1,7 +1,7 @@
 from dash import dcc, html
 
-from . import ids
 from ..cache import cache
+from . import ids
 
 
 @cache.memoize()

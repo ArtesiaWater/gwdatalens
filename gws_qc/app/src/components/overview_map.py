@@ -66,10 +66,10 @@ def draw_map(
 
     if selected_data is not None:
         pts_data = np.nonzero(df.loc[mask, "name"].isin(selected_data))[0].tolist()
-        pts_nodata = np.nonzero(df.loc[~mask, "name"].isin(selected_data))[0].tolist()
+        # pts_nodata = np.nonzero(df.loc[~mask, "name"].isin(selected_data))[0].tolist()
     else:
         pts_data = None
-        pts_nodata = None
+        # pts_nodata = None
 
     # oseries data for map
     pb_data = dict(

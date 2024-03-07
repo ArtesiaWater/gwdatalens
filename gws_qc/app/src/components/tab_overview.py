@@ -1,6 +1,6 @@
 import dash_bootstrap_components as dbc
-from dash import dcc
 import i18n
+from dash import dcc
 
 from ..cache import TIMEOUT, cache
 from ..data.source import DataInterface

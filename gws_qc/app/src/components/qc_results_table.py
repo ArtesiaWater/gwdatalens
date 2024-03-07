@@ -128,7 +128,7 @@ def render(data):
                     "category": {
                         # "use_with": "both",
                         "type": "markdown",
-                        "value": i18n.t('general.category'),
+                        "value": i18n.t("general.category"),
                     },
                 },
             ),

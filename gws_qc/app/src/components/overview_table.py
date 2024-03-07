@@ -4,7 +4,6 @@ from dash.dash_table.Format import Format
 from ..data.source import DataInterface
 from . import ids
 from .styling import DATA_TABLE_HEADER_BGCOLOR
-from icecream import ic
 
 
 def render(data: DataInterface, selected_data=None):

@@ -307,9 +307,9 @@ class GroundwaterMonitoringTubesDynamic(Base):
             "groundwater_monitoring_tubes_static.groundwater_monitoring_tube_static_id"
         )
     )
-    groundwater_monitoring_tubes_static: Mapped["GroundwaterMonitoringTubesStatic"] = (
-        relationship(back_populates="dynamic")
-    )
+    groundwater_monitoring_tubes_static: Mapped[
+        "GroundwaterMonitoringTubesStatic"
+    ] = relationship(back_populates="dynamic")
 
 
 class DeliveredLocations(Base):

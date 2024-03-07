@@ -1,7 +1,7 @@
-import i18n
 from typing import List
 
 import dash_bootstrap_components as dbc
+import i18n
 from dash import dcc, html
 
 from ..data.source import DataInterface

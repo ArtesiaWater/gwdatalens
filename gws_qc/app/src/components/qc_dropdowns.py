@@ -1,6 +1,6 @@
-import i18n
 from typing import List, Optional
 
+import i18n
 from dash import dcc, html
 from traval import rulelib
 

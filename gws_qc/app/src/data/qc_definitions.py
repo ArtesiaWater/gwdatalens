@@ -25,7 +25,7 @@ qc_categories = {
     "QC5b": "Nauwkeurigheid",
 }
 
-rule_explenation_en = {
+rule_explanation_en = {
     "rule_funcdict_to_nan": "Detection rule, flag values with dictionary of functions",
     "rule_max_gradient": "Detection rule, flag values when maximum gradient exceeded",
     "rule_hardmax": "Detection rule, flag values greater than threshold value",
@@ -47,7 +47,7 @@ rule_explenation_en = {
     "rule_flat_signal": "Detection rule, flag values based on dead signal in rolling window",
 }
 
-rule_explenation_nl = {
+rule_explanation_nl = {
     "rule_funcdict_to_nan": "Detectie-regel, signaleer met behulp van een dictionary van functies",
     "rule_max_gradient": "Detectie-regel, signaleer een te grote stijging in een bepaalde periode",
     "rule_hardmax": "Detectie-regel, signaleer waarden hoger dan een drempelwaarde",

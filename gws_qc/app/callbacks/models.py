@@ -120,7 +120,7 @@ def register_model_callbacks(app, data):
                     "success",  # alert color
                     f"Loaded time series model '{value}' from PastaStore.",  # empty alert message
                 )
-            except Exception as e:
+            except Exception as _:
                 return (
                     {"layout": {"title": i18n.t("general.no_model")}},
                     {"layout": {"title": i18n.t("general.no_model")}},

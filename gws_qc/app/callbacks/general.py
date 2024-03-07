@@ -8,7 +8,6 @@ except ImportError:
 
 
 def register_general_callbacks(app, data):
-    
     @app.callback(
         Output(ids.HELP_MODAL, "is_open"),
         Input(ids.HELP_BUTTON_OPEN, "n_clicks"),
@@ -35,7 +34,6 @@ def register_general_callbacks(app, data):
         if n1 or n2:
             return not is_open
         return is_open
-
 
     @app.callback(
         Output(ids.TAB_CONTENT, "children"),
