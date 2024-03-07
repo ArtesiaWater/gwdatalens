@@ -96,6 +96,25 @@ def render_content(data: DataInterface):
     return dbc.Container(
         [
             dbc.Row([render_qc_chart()]),
+            dbc.Row(
+                [
+                    dbc.Switch(
+                        label=i18n.t("general.show_all"),
+                        value=False,
+                        disabled=data.traval.traval_result is None,
+                        id=ids.QC_RESULTS_SHOW_ALL_OBS_SWITCH,
+                        style={"margin-left": "10px"},
+                    ),
+                    dbc.Tooltip(
+                        html.P(
+                            i18n.t("general.show_all_tooltip"),
+                            style={"margin-top": 0, "margin-bottom": 0},
+                        ),
+                        target=ids.QC_RESULTS_SHOW_ALL_OBS_SWITCH,
+                        placement="top",
+                    ),
+                ]
+            ),
             dbc.Row([qc_results_table.render(data)]),
             dbc.Row(
                 [
