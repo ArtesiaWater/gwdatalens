@@ -10,6 +10,7 @@ from icecream import ic
 def render(data: DataInterface, selected_data=None):
     df = data.db.gmw_gdf.reset_index()
     usecols = [
+        "id",
         "bro_id",
         # "nitg_code",
         "tube_number",
@@ -66,7 +67,7 @@ def render(data: DataInterface, selected_data=None):
                         "id": "y",
                         "name": "Y\n[m RD]",
                         "type": "numeric",
-                        "format": Format(scheme="r", precision=5),
+                        "format": Format(scheme="r", precision=6),
                     },
                     {
                         "id": "metingen",
@@ -78,6 +79,7 @@ def render(data: DataInterface, selected_data=None):
                 fixed_rows={"headers": True},
                 page_action="none",
                 filter_action="native",
+                sort_action="native",
                 style_table={
                     # "height": "70vh",
                     # "overflowY": "auto",
@@ -104,7 +106,12 @@ def render(data: DataInterface, selected_data=None):
                     {"if": {"column_id": "y"}, "width": "10%"},
                     {"if": {"column_id": "metingen"}, "width": "15%"},
                 ],
-                # style_data_conditional=style_data_conditional,
+                style_data_conditional=[
+                    {
+                        "if": {"state": "selected"},  # 'active' | 'selected'
+                        "border": "1px solid #006f92",
+                    },
+                ],
                 style_header={
                     "backgroundColor": DATA_TABLE_HEADER_BGCOLOR,
                     "fontWeight": "bold",
