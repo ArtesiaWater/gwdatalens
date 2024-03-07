@@ -1,3 +1,4 @@
+import i18n
 import dash_bootstrap_components as dbc
 from dash import dcc, html
 
@@ -7,7 +8,7 @@ from . import ids, qc_results_table
 
 def render():
     return dcc.Tab(
-        label="QC Result",
+        label=i18n.t("general.tab_qc_result"),
         value=ids.TAB_QC_RESULT,
         className="custom-tab",
         selected_className="custom-tab--selected",
@@ -21,7 +22,7 @@ def render_export_to_csv_button():
                 html.Span(
                     [
                         html.I(className="fa-solid fa-file-csv"),
-                        " Export CSV",
+                        " " + i18n.t("general.export_csv"),
                     ],
                     id="span-export-csv",
                     n_clicks=0,
@@ -44,7 +45,7 @@ def render_export_to_database_button():
             html.Span(
                 [
                     html.I(className="fa-solid fa-database"),
-                    " Export to DB",
+                    " " + i18n.t("general.export_db"),
                 ],
                 id="span-export-db",
                 n_clicks=0,
@@ -64,10 +65,12 @@ def render_qc_chart():
         id="series-chart-div",
         children=[
             dcc.Loading(
+                # TODO: on new release dash, use delay_show option to hide loading
+                # on short updates. See https://github.com/plotly/dash/pull/2760
                 id=ids.LOADING_QC_CHART,
                 type="dot",
                 style={"position": "absolute", "align-self": "center"},
-                parent_className="loading-wrapper",
+                parent_className="loading-wrapper-qc-result",
                 children=[
                     dcc.Graph(
                         id=ids.QC_RESULT_CHART,
