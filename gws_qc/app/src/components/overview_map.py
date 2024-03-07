@@ -108,7 +108,7 @@ def draw_map(
         showlegend=True,
         legendgroup="DATA",
         selectedpoints=pts_data,
-        unselected={"marker": {"opacity": 0.15, "color": "black", "size": 7}},
+        unselected={"marker": {"opacity": 0.5, "color": "black", "size": 6}},
         selected={"marker": {"opacity": 1.0, "color": "red", "size": 9}},
     )
 
@@ -123,8 +123,8 @@ def draw_map(
         textfont=dict(size=12, color="black") if mapbox_access_token else None,
         mode="markers" if mapbox_access_token else "markers",
         marker=go.scattermapbox.Marker(
-            symbol="circle-stroked",
-            size=7,
+            symbol="circle",
+            size=5,
             opacity=0.8,
             # sizeref=0.5,
             # sizemin=2,
@@ -149,21 +149,8 @@ def draw_map(
         showlegend=True,
         legendgroup="NODATA",
         # selectedpoints=pts_nodata,
-        # selected={
-        #     "marker": go.scattermapbox.Marker(
-        #         symbol="circle",
-        #         size=7,
-        #         opacity=1.0,
-        #         color="red",
-        #     )
-        # },
-        # unselected={
-        #     "marker": go.scattermapbox.Marker(
-        #         symbol="circle-stroked",
-        #         size=7,
-        #         opacity=0.15,
-        #     )
-        # },
+        unselected={"marker": {"opacity": 0.5, "color": "grey", "size": 5}},
+        selected={"marker": {"opacity": 1.0, "color": "red", "size": 9}},
     )
 
     # if selected_rows is None:
@@ -171,7 +158,7 @@ def draw_map(
         df.lon.values, df.lat.values
     )
 
-    mapdata = [pb_data, pb_nodata]
+    mapdata = [pb_nodata, pb_data]
 
     maplayout = dict(
         # top, bottom, left and right margins
