@@ -78,12 +78,13 @@ def render(data):
                 },
                 page_action="none",
                 filter_action="native",
+                filter_query='{comment} != ""',
                 virtualization=True,
                 style_table={
-                    "height": "40vh",
+                    "height": "37vh",
                     # "overflowY": "auto",
                     # "margin-top": 15,
-                    "maxHeight": "40vh",
+                    "maxHeight": "37vh",
                 },
                 # row_selectable="multi",
                 style_cell={"whiteSpace": "pre-line", "fontSize": 12},
@@ -101,16 +102,34 @@ def render(data):
                     {"if": {"column_id": "manual_check"}, "width": "20%"},
                     {"if": {"column_id": "category"}, "width": "20%"},
                 ],
-                # style_data_conditional=style_data_conditional,
+                style_data_conditional=[
+                    {
+                        "if": {"state": "selected"},  # 'active' | 'selected'
+                        "border": "1px solid #006f92",
+                    },
+                ],
                 style_header={
                     "backgroundColor": DATA_TABLE_HEADER_BGCOLOR,
                     "fontWeight": "bold",
                 },
+                style_header_conditional=[
+                    {
+                        "if": {"column_id": ["manual_check", "category"]},
+                        "textDecoration": "underline",
+                        "textDecorationStyle": "dotted",
+                    }
+                ],
                 tooltip_header={
                     "manual_check": {
-                        "type": "text",
-                        "value": "1 = Accept suggestion\n 0 = Reject suggestion",
-                    }
+                        # "use_with": "both",
+                        "type": "markdown",
+                        "value": f"1 = {i18n.t('general.accept')}\n0 = {i18n.t('general.reject')}",
+                    },
+                    "category": {
+                        # "use_with": "both",
+                        "type": "markdown",
+                        "value": i18n.t('general.category'),
+                    },
                 },
             ),
         ],
