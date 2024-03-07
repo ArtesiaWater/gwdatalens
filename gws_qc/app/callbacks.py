@@ -1,15 +1,17 @@
+import i18n
 import os
 import base64
 import io
 import json
 import pickle
+from copy import deepcopy
 
 import numpy as np
 import pandas as pd
 import pastas as ps
 import traval
 from app import app, data
-from dash import ALL, Input, Output, Patch, State, ctx, no_update, MATCH, dcc, html
+from dash import ALL, Input, Output, Patch, State, ctx, no_update, dcc, html
 from dash.exceptions import PreventUpdate
 from icecream import ic
 from pastas.extensions import register_plotly
@@ -30,6 +32,8 @@ except ImportError:
 
 
 register_plotly()
+
+# %% GENERAL
 
 
 @app.callback(
@@ -78,6 +82,9 @@ def render_tab_content(tab, selected_data):
         raise PreventUpdate
 
 
+# %% OVERVIEW
+
+
 @app.callback(
     Output(ids.SELECTED_OSERIES_STORE, "data"),
     Input(ids.OVERVIEW_MAP, "selectedData"),
@@ -109,15 +116,29 @@ def store_modeldetails_dropdown_value(selected_data, current_value):
 
 @app.callback(
     Output(ids.SERIES_CHART, "figure", allow_duplicate=True),
+    Output(ids.OVERVIEW_TABLE, "data", allow_duplicate=True),
     Output(ids.ALERT, "is_open", allow_duplicate=True),
     Output(ids.ALERT, "color", allow_duplicate=True),
     Output(ids.ALERT_BODY, "children", allow_duplicate=True),
+    Output(ids.OVERVIEW_TABLE_SELECTION, "data", allow_duplicate=True),
+    # Output(ids.UPDATE_OVERVIEW_TABLE, "data"),
     Input(ids.OVERVIEW_MAP, "selectedData"),
     State(ids.SELECTED_OSERIES_STORE, "data"),
-    prevent_initial_call="initial_duplicate",
+    State(ids.OVERVIEW_TABLE_SELECTION, "data"),
+    prevent_initial_call=True,
 )
-def plot_overview_time_series(selectedData, selected_oseries):
-    # ic(selectedData)
+def plot_overview_time_series(selectedData, selected_oseries, table_selected):
+    usecols = [
+        "id",
+        "bro_id",
+        # "nitg_code",
+        "tube_number",
+        "screen_top",
+        "screen_bot",
+        "x",
+        "y",
+        "metingen",
+    ]
 
     if selectedData is not None:
         pts = pd.DataFrame(selectedData["points"])
@@ -127,165 +148,112 @@ def plot_overview_time_series(selectedData, selected_oseries):
             names = pts["text"].tolist()
         else:
             names = None
+        if table_selected:
+            table = no_update
+        else:
+            table = data.db.gmw_gdf.loc[names, usecols].reset_index().to_dict("records")
         try:
             chart = plot_obs(names, data)
             if chart is not None:
                 return (
                     chart,
+                    table,
                     False,
                     None,
                     None,
+                    False,
                 )
             else:
                 return (
-                    {"layout": {"title": "No series selected."}},
+                    {"layout": {"title": i18n.t("general.no_data_selection")}},
+                    table,
                     True,
                     "warning",
                     f"No data to plot for: {names}.",
+                    False,
                 )
         except Exception as e:
-            raise e
+            # raise e
             return (
-                {"layout": {"title": "No series selected."}},
+                {"layout": {"title": i18n.t("general.no_series")}},
+                data.db.gmw_gdf.loc[:, usecols].reset_index().to_dict("records"),
                 True,  # show alert
                 "danger",  # alert color
                 f"Error! Something went wrong: {e}",  # alert message
+                False,
             )
     elif selected_oseries is not None:
         chart = plot_obs(selected_oseries, data)
+        table = data.db.gmw_gdf.loc[:, usecols].reset_index().to_dict("records")
         return (
             chart,
+            table,
             False,
             None,
             None,
+            False,
         )
     else:
-        # ic("no update")
+        table = data.db.gmw_gdf.loc[:, usecols].reset_index().to_dict("records")
         return (
-            {"layout": {"title": "No series selected."}},
+            {"layout": {"title": i18n.t("general.no_series")}},
+            table,
             False,
             None,
             None,
+            False,
         )
 
 
 @app.callback(
     Output(ids.OVERVIEW_MAP, "selectedData"),
-    Output(ids.OVERVIEW_MAP, "selectedpoints"),
     Output(ids.OVERVIEW_MAP, "figure"),
-    Input(ids.OVERVIEW_TABLE, "active_cell"),
-    State(ids.OVERVIEW_MAP, "figure"),
-    # prevent_initial_call=True,
+    Output(ids.OVERVIEW_TABLE_SELECTION, "data", allow_duplicate=True),
+    Input(ids.OVERVIEW_TABLE, "selected_cells"),
+    State(ids.OVERVIEW_TABLE, "derived_virtual_data"),
+    prevent_initial_call=True,
 )
-def highlight_point_on_map_from_table(active_cell, figure):
-    if active_cell is None:
-        return None, [], no_update
+def highlight_point_on_map_from_table(selected_cells, table):
+    if selected_cells is None:
+        return no_update, no_update, False
 
-    ic(active_cell)
-    df = data.db.gmw_gdf.reset_index()
-    loc = df.loc[active_cell["row"]]
-    pts = [active_cell["row"]]
+    rows = np.unique([cell["row"] for cell in selected_cells]).tolist()
+    df = pd.DataFrame.from_dict(table, orient="columns")
+    loc = df.loc[rows]
+    pts = loc["id"].tolist()
 
-    uirevision = figure["layout"]["uirevision"]
-    uirevision = True if uirevision is None else ~uirevision
-    figure["layout"]["uirevision"] = uirevision
+    dfm = data.db.gmw_gdf.reset_index().loc[pts].copy()
+    dfm["curveNumber"] = 0
+    mask = dfm.loc[:, "metingen"] == 1
+    dfm.loc[mask, "curveNumber"] = 1
+
+    # update selected points
+    mappatch = Patch()
+    mappatch["data"][1]["selectedpoints"] = dfm.loc[mask, "id"].tolist()
+    mappatch["data"][0]["selectedpoints"] = dfm.loc[~mask, "id"].tolist()
 
     return (
         {
             "points": [
                 {
-                    "curveNumber": 0,
-                    "pointNumber": active_cell["row"],
-                    "pointIndex": active_cell["row"],
-                    "lon": loc["lon"],
-                    "lat": loc["lat"],
-                    "text": f"{loc.bro_id}-{loc.tube_number:03g}",
+                    "curveNumber": dfm["curveNumber"].iloc[i],
+                    "pointNumber": dfm["id"].iloc[i],
+                    "pointIndex": dfm["id"].iloc[i],
+                    "lon": dfm["lon"].iloc[i],
+                    "lat": dfm["lat"].iloc[i],
+                    "text": dfm["name"].iloc[i],
                 }
+                for i in range(loc.index.size)
             ]
         },
-        pts,
-        figure,
+        mappatch,
+        True,
     )
 
 
-@app.callback(
-    Output(ids.QC_CHART, "figure"),
-    Input(ids.QC_DROPDOWN_SELECTION, "value"),
-    Input(ids.QC_DROPDOWN_ADDITIONAL, "value"),
-)
-def plot_qc_time_series(value, additional_values):
-    # ic(value, additional_values)
-    if value is None:
-        return {"layout": {"title": "No series selected."}}
-    else:
-        if data.db.source == "bro":
-            name = value.split("-")[0]
-        else:
-            name = value
-        if additional_values is not None:
-            additional = [i for i in additional_values]
-        else:
-            additional = []
-        return plot_obs([name] + additional, data)
+# %% MODEL
 
 
-# @app.callback(
-#     Output(ids.QC_DROPDOWN_ADDITIONAL, "disabled"),
-#     Output(ids.QC_DROPDOWN_ADDITIONAL, "options"),
-#     Input(ids.QC_DROPDOWN_SELECTION, "value"),
-# )
-# def enable_additional_dropdown(value):
-#     if value is not None:
-#         ic(value)
-#         # value = value.split("-")
-#         # value[1] = int(value[1])
-#         locs = data.db.list_locations_sorted_by_distance(value)
-#         options = [
-#             {"label": i + f" ({row.distance / 1e3:.1f} km)", "value": i}
-#             for i, row in locs.iterrows()
-#         ]
-#         return False, options
-#     else:
-#         return True, no_update
-
-
-@app.callback(
-    # Output(ids.QC_RESULT_TABLE, "data"),
-    Output(ids.QC_CHART, "figure", allow_duplicate=True),
-    Input(ids.QC_RUN_TRAVAL_BUTTON, "n_clicks"),
-    State(ids.QC_DROPDOWN_SELECTION, "value"),
-    prevent_initial_call=True,
-)
-def run_traval(n_clicks, name):
-    if n_clicks:
-        gmw_id, tube_id = name.split("-")
-        result, figure = data.traval.run_traval(gmw_id, tube_id)
-        data.traval.traval_result = result
-        data.traval.figure = figure
-        # return result, figure
-        return figure
-    else:
-        raise PreventUpdate
-
-
-@app.callback(
-    Output(ids.QC_RESULT_CHART, "figure"),
-    Output(ids.QC_RESULT_EXPORT_CSV, "disabled"),
-    Output(ids.QC_RESULT_EXPORT_DB, "disabled"),
-    Input(ids.TAB_CONTAINER, "value"),
-    State(ids.SELECTED_OSERIES_STORE, "value"),
-)
-def qc_result_traval_figure(tab, value):
-    if tab == ids.TAB_QC_RESULT:
-        if hasattr(data.traval, "figure"):
-            return (data.traval.figure, False, False)
-        else:
-            return ({"layout": {"title": "No traval result."}}, True, True)
-    else:
-        raise PreventUpdate
-
-
-# %% MODEL TAB
 @app.callback(
     Output(ids.MODEL_RESULTS_CHART, "figure", allow_duplicate=True),
     Output(ids.MODEL_DIAGNOSTICS_CHART, "figure", allow_duplicate=True),
@@ -349,13 +317,19 @@ def save_model(n_clicks, mljson):
             f.write(mljson)
         ml = ps.io.load("temp.pas")
         os.remove("temp.pas")
-        data.pstore.add_model(ml, overwrite=True)
-        # ic(f"Pretending to save {ml}!")
-        return (
-            True,
-            "success",
-            f"Success! Saved model for {ml.oseries.name} in Pastastore!",
-        )
+        try:
+            data.pstore.add_model(ml, overwrite=True)
+            return (
+                True,
+                "success",
+                f"Success! Saved model for {ml.oseries.name} in Pastastore!",
+            )
+        except Exception as e:
+            return (
+                True,
+                "danger",
+                f"Error! Model for {ml.oseries.name} not saved: {e}!",
+            )
     else:
         raise PreventUpdate
 
@@ -384,8 +358,8 @@ def plot_model_results(value):
             )
         except Exception as e:
             return (
-                {"layout": {"title": "No model."}},
-                {"layout": {"title": "No model."}},
+                {"layout": {"title": i18n.t("general.no_model")}},
+                {"layout": {"title": i18n.t("general.no_model")}},
                 True,
                 True,  # show alert
                 "warning",  # alert color
@@ -393,31 +367,32 @@ def plot_model_results(value):
             )
     elif value is None:
         return (
-            {"layout": {"title": "No model."}},
-            {"layout": {"title": "No model."}},
+            {"layout": {"title": i18n.t("general.no_model")}},
+            {"layout": {"title": i18n.t("general.no_model")}},
             True,
             False,  # show alert
             "success",  # alert color
             "",  # empty message
         )
 
-# %% TRAVAL TAB
-@app.callback(
-    Output(ids.TRAVAL_OUTPUT, "children"),
-    Input({"type": "rule_input", "index": ALL}, "value"),
-    # prevent_initial_call=True,
-)
-def update_ruleset_values(val):
-    if val and ctx.triggered_id is not None:
-        for i in range(len(val)):
-            if ctx.inputs_list[0][i]["id"] == ctx.triggered_id:
-                break
-        (idx, rule, param) = ctx.triggered_id["index"].split("-")
-        ruledict = data.traval.ruleset.get_rule(stepname=rule)
-        ruledict["kwargs"][param] = val[i]
-        data.traval.update_rule(**ruledict)
-    return data.traval.to_json()
 
+# %% QC
+
+# @app.callback(
+#     Output(ids.TRAVAL_RULESET_STORE, "data"),
+#     Input({"type": "rule_input", "index": ALL}, "value"),
+#     prevent_initial_call=True,
+# )
+# def update_ruleset_values(val):
+#     if val and ctx.triggered_id is not None:
+#         for i in range(len(val)):
+#             if ctx.inputs_list[0][i]["id"] == ctx.triggered_id:
+#                 break
+#         (idx, rule, param) = ctx.triggered_id["index"].split("-")
+#         ruledict = data.traval._ruleset.get_rule(stepname=rule)
+#         ruledict["kwargs"][param] = val[i]
+#         data.traval._ruleset.update_rule(**ruledict)
+#     return data.traval._ruleset.to_json()
 
 # @app.callback(
 #     Output(ids.TRAVAL_OUTPUT, "children", allow_duplicate=True),
@@ -425,11 +400,51 @@ def update_ruleset_values(val):
 #     prevent_initial_call=True,
 # )
 # def update_ruleset(rules):
-#     return data.traval.to_json()
+#     return data.traval._ruleset.to_json()
+
+
+@app.callback(
+    Output(ids.QC_CHART, "figure"),
+    Input(ids.QC_DROPDOWN_SELECTION, "value"),
+    Input(ids.QC_DROPDOWN_ADDITIONAL, "value"),
+)
+def plot_qc_time_series(value, additional_values):
+    if value is None:
+        return {"layout": {"title": i18n.t("general.no_series")}}
+    else:
+        if data.db.source == "bro":
+            name = value.split("-")[0]
+        else:
+            name = value
+        if additional_values is not None:
+            additional = [i for i in additional_values]
+        else:
+            additional = []
+        return plot_obs([name] + additional, data)
+
+
+# @app.callback(
+#     Output(ids.QC_DROPDOWN_ADDITIONAL, "disabled"),
+#     Output(ids.QC_DROPDOWN_ADDITIONAL, "options"),
+#     Input(ids.QC_DROPDOWN_SELECTION, "value"),
+# )
+# def enable_additional_dropdown(value):
+#     if value is not None:
+#         # value = value.split("-")
+#         # value[1] = int(value[1])
+#         locs = data.db.list_locations_sorted_by_distance(value)
+#         options = [
+#             {"label": i + f" ({row.distance / 1e3:.1f} km)", "value": i}
+#             for i, row in locs.iterrows()
+#         ]
+#         return False, options
+#     else:
+#         return True, no_update
 
 
 @app.callback(
     Output(ids.TRAVAL_RULES_FORM, "children", allow_duplicate=True),
+    Output(ids.TRAVAL_RESET_RULESET_BUTTON, "disabled", allow_duplicate=True),
     Input({"type": "clear-button", "index": ALL}, "n_clicks"),
     State(ids.TRAVAL_RULES_FORM, "children"),
     prevent_initial_call=True,
@@ -442,37 +457,39 @@ def delete_rule(n_clicks, rules):
         if rule["props"]["id"]["index"] != ctx.triggered_id["index"]:
             keep.append(rule)
         else:
-            data.traval.ruleset.del_rule(ctx.triggered_id["index"].split("-")[0])
+            data.traval._ruleset.del_rule(ctx.triggered_id["index"].split("-")[0])
 
-        data.traval.ruleset.del_rule("combine_results")
-        data.traval.ruleset.add_rule(
+        data.traval._ruleset.del_rule("combine_results")
+        data.traval._ruleset.add_rule(
             "combine_results",
             rulelib.rule_combine_nan_or,
             apply_to=tuple(range(1, len(keep) + 1)),
         )
-    return keep
+    return keep, False
 
 
 @app.callback(
     Output(ids.TRAVAL_RULES_FORM, "children", allow_duplicate=True),
+    Output(ids.TRAVAL_RESET_RULESET_BUTTON, "disabled", allow_duplicate=True),
     Input(ids.TRAVAL_ADD_RULE_BUTTON, "n_clicks"),
     State(ids.TRAVAL_ADD_RULE_DROPDOWN, "value"),
     State(ids.TRAVAL_RULES_FORM, "children"),
     prevent_initial_call=True,
 )
-def display_rules(n_clicks, rule_to_add, current_rules):
+def add_rule(n_clicks, rule_to_add, current_rules):
     try:
         rule_number = int(current_rules[-1]["props"]["id"]["index"].split("-")[-1]) + 1
     except IndexError:
         rule_number = 0
+
     func = getattr(rulelib, rule_to_add)
     rule = {"name": rule_to_add, "kwargs": generate_kwargs_from_func(func)}
     irow = generate_traval_rule_components(rule, rule_number)
 
     # add to ruleset
-    data.traval.ruleset.del_rule("combine_results")
-    data.traval.ruleset.add_rule(rule["name"], func, apply_to=0, kwargs=rule["kwargs"])
-    data.traval.ruleset.add_rule(
+    data.traval._ruleset.del_rule("combine_results")
+    data.traval._ruleset.add_rule(rule["name"], func, apply_to=0, kwargs=rule["kwargs"])
+    data.traval._ruleset.add_rule(
         "combine_results",
         rulelib.rule_combine_nan_or,
         apply_to=tuple(range(1, len(current_rules) + 1)),
@@ -480,7 +497,7 @@ def display_rules(n_clicks, rule_to_add, current_rules):
 
     patched_children = Patch()
     patched_children.append(irow)
-    return patched_children
+    return patched_children, False
 
 
 @app.callback(
@@ -488,28 +505,89 @@ def display_rules(n_clicks, rule_to_add, current_rules):
     Output({"type": "rule_input", "index": ALL}, "type"),
     Output({"type": "rule_input", "index": ALL}, "disabled"),
     Output({"type": "rule_input", "index": ALL}, "step"),
+    Output({"type": "rule_input_tooltip", "index": ALL}, "children"),
+    Output(ids.TRAVAL_RESET_RULESET_BUTTON, "disabled", allow_duplicate=True),
+    Output(ids.ALERT, "is_open", allow_duplicate=True),
+    Output(ids.ALERT, "color", allow_duplicate=True),
+    Output(ids.ALERT_BODY, "children", allow_duplicate=True),
     Input(ids.QC_DROPDOWN_SELECTION, "value"),
-    prevent_initial_call=False,
+    prevent_initial_call=True,
 )
 def display_rules_for_series(name):
+    # reset ruleset to original version
+    # data.traval._ruleset = deepcopy(data.traval.ruleset)
+
     values = []
     input_types = []
     disableds = []
     steps = []
-    nrules = len(data.traval.ruleset.rules) - 1
+    tooltips = []
+    nrules = len(data.traval._ruleset.rules) - 1
+    errors = []
 
     for i in range(1, nrules + 1):
-        irule = data.traval.ruleset.get_rule(istep=i)
-        for _, v in irule["kwargs"].items():
+        irule = data.traval._ruleset.get_rule(istep=i)
+        for k, v in irule["kwargs"].items():
             if callable(v):
                 if name is not None:
-                    v = v(name)
+                    try:
+                        v = v(name)
+                    except Exception as e:
+                        errors.append((f"{irule['name']}: {k}", e))
+
             v, input_type, disabled, step = derive_form_parameters(v)
+            tooltips.append(str(v))
             values.append(v)
             input_types.append(input_type)
             disableds.append(disabled)
             steps.append(step)
-    return values, input_types, disableds, steps
+    if len(errors) > 0:
+        return (
+            values,
+            input_types,
+            disableds,
+            steps,
+            tooltips,
+            False,
+            True,
+            "danger",
+            f"Error! Could not load parameter(s) for: {[e[0] for e in errors]}",
+        )
+    else:
+        return (
+            values,
+            input_types,
+            disableds,
+            steps,
+            tooltips,
+            False,
+            False,
+            None,
+            None,
+        )
+
+
+@app.callback(
+    Output(ids.TRAVAL_RULES_FORM, "children", allow_duplicate=True),
+    Input(ids.TRAVAL_RESET_RULESET_BUTTON, "n_clicks"),
+    State(ids.QC_DROPDOWN_SELECTION, "value"),
+    prevent_initial_call=True,
+)
+def reset_ruleset_to_current_default(n_clicks, name):
+    if n_clicks is not None:
+        form_components = []
+        nrules = len(data.traval.ruleset.rules) - 1
+
+        # reset ruleset to original version
+        data.traval._ruleset = deepcopy(data.traval.ruleset)
+
+        idx = 0
+        for i in range(1, nrules + 1):
+            irule = data.traval.ruleset.get_rule(istep=i)
+            irow = generate_traval_rule_components(irule, idx, series_name=name)
+            form_components.append(irow)
+            idx += 1
+        return form_components
 
 
 @app.callback(
@@ -553,11 +631,13 @@ def load_ruleset(contents):
             ruleset.rules.update(rules)
 
             data.traval.ruleset = ruleset
-            nrules = len(data.traval.ruleset.rules) - 1
+            data.traval._ruleset = ruleset
+
+            nrules = len(data.traval._ruleset.rules) - 1
             form_components = []
             idx = 0
             for i in range(1, nrules + 1):
-                irule = data.traval.ruleset.get_rule(istep=i)
+                irule = data.traval._ruleset.get_rule(istep=i)
                 irow = generate_traval_rule_components(irule, idx)
                 form_components.append(irow)
                 idx += 1
@@ -569,29 +649,126 @@ def load_ruleset(contents):
         raise PreventUpdate
 
 
-# %% QC table
+@app.callback(
+    Output(ids.DOWNLOAD_TRAVAL_RULESET, "data"),
+    Input(ids.TRAVAL_EXPORT_RULESET_BUTTON, "n_clicks"),
+    State(ids.SELECTED_OSERIES_STORE, "data"),
+    prevent_initial_call=True,
+)
+def export_ruleset(n_clicks, name):
+    timestr = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{timestr}_traval_ruleset_{name[0]}.pickle"
+    if data.traval._ruleset is not None:
+        ruleset = data.traval._ruleset.get_resolved_ruleset(name)
+
+        def to_pickle(f):
+            """Version of to_pickle that works with dcc Download component."""
+            ruleset["name"] = name
+            pickle.dump(ruleset, f)
+
+        return dcc.send_bytes(to_pickle, filename=filename)
 
 
 @app.callback(
-    Output(ids.QC_RESULT_TABLE, "data"),
-    Input(ids.QC_RESULT_TABLE, "data"),
-    State(ids.QC_RESULT_TABLE, "columns"),
-    State(ids.QC_RESULT_TABLE, "selected_cells"),
+    Output(ids.DOWNLOAD_TRAVAL_PARAMETERS_CSV, "data"),
+    Input(ids.TRAVAL_EXPORT_PARAMETERS_CSV_BUTTON, "n_clicks"),
+    State(ids.SELECTED_OSERIES_STORE, "data"),
     prevent_initial_call=True,
 )
-def multi_edit_qc_results_table(table_data, cols, selected_cells):
-    selected_row_id = [c["row"] for c in selected_cells]
-    changed_cell = selected_cells[0]
-    new_value = table_data[changed_cell["row"]][changed_cell["column_id"]]
+def export_parameters_csv(n_clicks, name):
+    timestr = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{timestr}_traval_parameters_{name[0]}.csv"
+    if data.traval._ruleset is not None:
+        ruleset = data.traval._ruleset.get_resolved_ruleset(name)
+        traval_params = traval.TravalParameters.from_ruleset(ruleset)
+        return dcc.send_string(traval_params.to_csv, filename=filename)
 
-    # ic(changed_cell)
-    # ic(table_data[changed_cell["row"]])
-    for r in table_data:
+
+@app.callback(
+    Output(ids.QC_COLLAPSE_CONTENT, "is_open"),
+    Output(ids.QC_COLLAPSE_BUTTON, "children"),
+    Input(ids.QC_COLLAPSE_BUTTON, "n_clicks"),
+    State(ids.QC_COLLAPSE_CONTENT, "is_open"),
+)
+def toggle_collapse(n, is_open):
+    if n:
+        if not is_open:
+            button_text = [
+                html.I(className="fa-solid fa-chevron-down"),
+                " " + i18n.t("general.hide_parameters"),
+            ]
+            return not is_open, button_text
+        else:
+            button_text = [
+                html.I(className="fa-solid fa-chevron-right"),
+                " " + i18n.t("general.show_parameters"),
+            ]
+            return not is_open, button_text
+    return is_open, no_update
+
+
+@app.callback(
+    # Output(ids.QC_RESULT_TABLE, "data"),
+    Output(ids.QC_CHART, "figure", allow_duplicate=True),
+    Input(ids.QC_RUN_TRAVAL_BUTTON, "n_clicks"),
+    State(ids.QC_DROPDOWN_SELECTION, "value"),
+    prevent_initial_call=True,
+)
+def run_traval(n_clicks, name):
+    if n_clicks:
+        gmw_id, tube_id = name.split("-")
+        result, figure = data.traval.run_traval(gmw_id, tube_id)
+        data.traval.traval_result = result
+        data.traval.figure = figure
+        return figure
+    else:
+        raise PreventUpdate
+
+
+# %% RESULT
+
+
+@app.callback(
+    Output(ids.QC_RESULT_CHART, "figure"),
+    Output(ids.QC_RESULT_EXPORT_CSV, "disabled"),
+    Output(ids.QC_RESULT_EXPORT_DB, "disabled"),
+    Input(ids.TAB_CONTAINER, "value"),
+    State(ids.SELECTED_OSERIES_STORE, "value"),
+)
+def qc_result_traval_figure(tab, value):
+    if tab == ids.TAB_QC_RESULT:
+        if hasattr(data.traval, "figure"):
+            return (data.traval.figure, False, False)
+        else:
+            return ({"layout": {"title": "No traval result."}}, True, True)
+    else:
+        raise PreventUpdate
+
+
+@app.callback(
+    Output(ids.QC_RESULT_TABLE, "data", allow_duplicate=True),
+    Input(ids.QC_RESULT_TABLE, "derived_virtual_data"),
+    State(ids.QC_RESULT_TABLE, "columns"),
+    State(ids.QC_RESULT_TABLE, "selected_cells"),
+    # State(ids.QC_RESULT_TABLE, "data"),
+    prevent_initial_call=True,
+)
+def multi_edit_qc_results_table(filtered_data, cols, selected_cells):
+    if selected_cells is None or selected_cells == []:
+        raise PreventUpdate
+    selected_columns = [c["column_id"] for c in selected_cells]
+    if not np.any(np.isin(selected_columns, ["manual_check", "category"])):
+        raise PreventUpdate
+    selected_row_id = [c["row_id"] for c in selected_cells]
+    changed_cell = selected_cells[0]
+    new_value = filtered_data[changed_cell["row"]][changed_cell["column_id"]]
+
+    for r in filtered_data:
         if r["id"] in selected_row_id:
             mask = data.traval.traval_result["id"] == r["id"]
             data.traval.traval_result.loc[mask, changed_cell["column_id"]] = new_value
             r[changed_cell["column_id"]] = new_value
-    return table_data
+    return data.traval.traval_result.reset_index().to_dict("records")
 
 
 @app.callback(
@@ -608,27 +785,84 @@ def download_export_csv(n_clicks, name):
 
 
 @app.callback(
-    Output(ids.QC_COLLAPSE_CONTENT, "is_open"),
-    Output(ids.QC_COLLAPSE_BUTTON, "children"),
-    Input(ids.QC_COLLAPSE_BUTTON, "n_clicks"),
-    State(ids.QC_COLLAPSE_CONTENT, "is_open"),
+    Output(ids.QC_RESULT_TABLE, "filter_query"),
+    Input(ids.QC_RESULTS_SHOW_ALL_OBS_SWITCH, "value"),
+    State(ids.QC_RESULT_TABLE, "filter_query"),
+    prevent_initial_call=True,
 )
-def toggle_collapse(n, is_open):
-    if n:
-        if not is_open:
-            button_text = [
-                html.I(className="fa-solid fa-chevron-down"),
-                " Hide parameters",
-            ]
-            return not is_open, button_text
+def show_all_observations(value, query):
+    if value and (query != ""):
+        return ""
+    elif not value and (query == ""):
+        return '{comment} != ""'
+    else:
+        # some query is active, try keeping it active but also filtering on comments
+        if "{comment}" not in query:
+            if value:
+                return query
+            else:
+                return query + ' && {comment} != ""'  # add comment query
         else:
-            button_text = [
-                html.I(className="fa-solid fa-chevron-right"),
-                " Show parameters",
+            if value:
+                return ""  # can't remove only comment query so remove all filters
+            else:
+                return query  # return current active query
+
+
+@app.callback(
+    Output(ids.QC_RESULT_TABLE, "data", allow_duplicate=True),
+    Output(ids.RESULT_TABLE_SELECTION, "data", allow_duplicate=True),
+    Input(ids.QC_RESULT_CHART, "selectedData"),
+    State(ids.RESULT_TABLE_SELECTION, "data"),
+    prevent_initial_call=True,
+)
+def filter_table_from_result_chart(selected_data, table_selection):
+    if table_selection:
+        return no_update, False
+    if selected_data is not None and len(selected_data) > 0:
+        ic(selected_data)
+        pts = pd.DataFrame(selected_data["points"])
+        t = pts["x"].unique()
+        return data.traval.traval_result.loc[t].reset_index().to_dict("records"), False
+    elif data.traval.traval_result is not None:
+        return data.traval.traval_result.reset_index().to_dict("records"), False
+    else:
+        return no_update, False
+
+
+@app.callback(
+    Output(ids.QC_RESULT_CHART, "selectedData"),
+    Output(ids.QC_RESULT_CHART, "figure", allow_duplicate=True),
+    Output(ids.RESULT_TABLE_SELECTION, "data", allow_duplicate=True),
+    Input(ids.QC_RESULT_TABLE, "selected_cells"),
+    prevent_initial_call=True,
+)
+def select_points_in_chart_from_table(selected_cells):
+    if selected_cells is not None:
+        selected_row_ids = [c["row_id"] for c in selected_cells]
+        series = data.traval.traval_result
+
+        selectedData = {
+            "points": [
+                {
+                    "curveNumber": 2,  # TODO: if no pastas model, the original series is trace 0
+                    "pointNumber": series["id"].iloc[i],
+                    "pointIndex": series["id"].iloc[i],
+                    "x": series.index[i],
+                    "y": series["values"].iloc[i],
+                }
+                for i in selected_row_ids
             ]
-            return not is_open, button_text
-    # button_text = [
-    #     html.I(className="fa-solid fa-chevron-left"),
-    #     " Show parameters",
-    # ]
-    return is_open, no_update
+        }
+        ptspatch = Patch()
+        # TODO: if no pastas model, the original series is trace 0
+        ptspatch["data"][2]["selectedpoints"] = selected_row_ids
+        active_selection = True
+    else:
+        selectedData = {}
+        active_selection = False
+        # ptspatch = Patch()
+        # # TODO: if no pastas model, the original series is trace 0
+        # ptspatch["data"][2]["selectedpoints"] = []
+        ptspatch = no_update
+    return selectedData, ptspatch, active_selection
