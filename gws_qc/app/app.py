@@ -3,17 +3,16 @@ from callbacks import register_callbacks
 import dash_bootstrap_components as dbc
 import pastastore as pst
 from dash import Dash
+import i18n
 
 try:
     from .src.cache import cache
     from .src.components.layout import create_layout
     from .src.data.source import DataInterface
-    from .src.data.source_hpd import DataSourceHydropandas
 except ImportError:  # if running app.py directly
     from src.cache import cache
     from src.components.layout import create_layout
     from src.data.source import DataInterface, DataSource, TravalInterface
-    from src.data.source_hpd import DataSourceHydropandas
 
 logger = logging.getLogger("waitress")
 logger.setLevel(logging.ERROR)
@@ -25,6 +24,12 @@ external_stylesheets = [
 ]
 
 # %% main app
+
+# set the locale and load the translations
+LOCALE = "nl"
+
+i18n.set("locale", LOCALE)
+i18n.load_path.append("locale")
 
 # connect to the database
 db = DataSource()
@@ -39,7 +44,6 @@ print(pstore)
 
 # load ruleset
 traval_interface = TravalInterface(db, pstore)
-traval_interface.load_ruleset()
 
 # add all components to our data interface object
 data = DataInterface(db=db, pstore=pstore, traval=traval_interface)
@@ -50,7 +54,7 @@ app = Dash(
     external_stylesheets=external_stylesheets,
     suppress_callback_exceptions=True,
 )
-app.title = "QC Grondwaterstanden"
+app.title = i18n.t("general.app_title")
 app.layout = create_layout(app, data)
 
 # register callbacks
