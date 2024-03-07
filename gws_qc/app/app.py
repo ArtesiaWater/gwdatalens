@@ -53,6 +53,9 @@ app = Dash(
 app.title = "QC Grondwaterstanden"
 app.layout = create_layout(app, data)
 
+# register callbacks
+register_callbacks(app, data)
+
 # initialize cache
 cache.init_app(
     app.server,
