@@ -1,38 +1,12 @@
+import i18n
 import numpy as np
 import pandas as pd
 from dash import dash_table, html
 from dash.dash_table.Format import Format
 
+from ..data.qc_definitions import qc_categories
 from . import ids
 from .styling import DATA_TABLE_HEADER_BGCOLOR
-
-
-qc_categories = {
-    "QC0i": "Verstopt filter",
-    "QC0j": "Ijsvorming in buis",
-    "QC2b": "Tijdsverschuiving",
-    "QC2c": "Afwijking meetbereik",
-    "QC2d": "Temperatuurafwijking",
-    "QC2e": "Hysteresis",
-    "QC2g": "Hapering sensor",
-    "QC2h": "Falen sensor",
-    "QC2i": "Sterke ruis",
-    "QC2j": "Falen instrument",
-    "QC3a": "Droogval buis",
-    "QC3b": "Droogval filter",
-    "QC3c": "Droogval sensor",
-    "QC3d": "Vollopen buis",
-    "QC3e": "Overlopen buis",
-    "QC3g": "Onderschreiding minimum",
-    "QC3h": "Overschreiding maximum	",
-    "QC4a": "Onwaarschijnlijke waarde",
-    "QC4b": "Filterverwisseling",
-    "QC4c": "Onwaarschijnlijke sprong ",
-    "QC4d": "Onvoldoende variatie",
-    "QC4e": "Onvoldoende samenhang",
-    "QC5a": "Betrouwbaarheid",
-    "QC5b": "Nauwkeurigheid",
-}
 
 
 def render(data):
@@ -60,34 +34,34 @@ def render(data):
                 columns=[
                     {
                         "id": "datetime",
-                        "name": "Date",
+                        "name": i18n.t("general.datetime"),
                         "type": "text",
                         "editable": False,
                     },
                     {
                         "id": "values",
-                        "name": "Meting",
+                        "name": i18n.t("general.observations"),
                         "type": "numeric",
                         "format": Format(scheme="r", precision=5),
                         "editable": False,
                     },
                     {
                         "id": "comment",
-                        "name": "Comment",
+                        "name": i18n.t("general.comment"),
                         "type": "text",
                         "editable": False,
                     },
                     {
                         "id": "manual_check",
-                        "name": "Manual check (1/0)",
+                        "name": i18n.t("general.manual_check"),
                         "type": "numeric",
                         "editable": True,
-                        "on_change": {"action": "validate", "failure": "default"},
-                        "validation": {"default": 1},
+                        "on_change": {"action": "validate", "failure": "accept"},
+                        # "validation": {"default": 1},
                     },
                     {
                         "id": "category",
-                        "name": "QC-label",
+                        "name": i18n.t("general.qc_label"),
                         "editable": True,
                         "presentation": "dropdown",
                     },
