@@ -21,3 +21,4 @@ dependencies:
     - pastastore
     - hydropandas
     - icecream
+    - i18nice[YAML]
