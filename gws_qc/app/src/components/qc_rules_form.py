@@ -119,7 +119,8 @@ def generate_traval_rule_components(rule, rule_number, series_name=None):
         v, input_type, disabled, step = derive_form_parameters(v)
 
         ilbl = dbc.Label(k, width=1)
-        param = dbc.Col(
+        param_input = []
+        param_input.append(
             dbc.Input(
                 id={"type": "rule_input", "index": f"{idx}-{name}-{k}"},
                 step=step,
@@ -128,7 +129,24 @@ def generate_traval_rule_components(rule, rule_number, series_name=None):
                 value=v,
                 disabled=disabled,
                 size="sm",
-            ),
+            )
+        )
+        param_input.append(
+            dbc.Tooltip(
+                html.P(
+                    v,
+                    style={"margin-top": 0, "margin-bottom": 0},
+                    id={
+                        "type": "rule_input_tooltip",
+                        "index": f"{idx}-{name}-{k}",
+                    },
+                ),
+                target={"type": "rule_input", "index": f"{idx}-{name}-{k}"},
+                placement="right",
+            )
+        )
+        param = dbc.Col(
+            param_input,
             className="me-3",
             width=1,
         )
