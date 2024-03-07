@@ -1,5 +1,5 @@
 import logging
-
+from callbacks import register_callbacks
 import dash_bootstrap_components as dbc
 import pastastore as pst
 from dash import Dash
