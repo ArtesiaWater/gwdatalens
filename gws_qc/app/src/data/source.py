@@ -121,14 +121,20 @@ class TravalInterface:
         series = ts.loc[:, self.db.value_column]
         series.name = f"{gmw_id}-{tube_id}"
         detector = traval.Detector(series)
-        detector.apply_ruleset(self.ruleset)
+        ruleset = self._ruleset
+        detector.apply_ruleset(ruleset)
+
+        # TODO: store detector for now to inspect result
+        self.detector = detector
 
         comments = detector.get_comment_series()
 
         df = detector.series.to_frame().loc[comments.index]
-        df.columns = ["values"]
+        df = ts.join(detector.get_results_dataframe())
+        df["flagged"] = df.isna().any(axis=1)
         df["comment"] = ""
         df.loc[comments.index, "comment"] = comments
+        df.rename(columns={"base series": "values"}, inplace=True)
 
         df.index.name = "datetime"
         # table = df.reset_index().to_dict("records")
