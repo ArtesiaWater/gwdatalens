@@ -1,3 +1,4 @@
+import i18n
 from dash import html
 from dash_bootstrap_components import Button
 
@@ -9,8 +10,8 @@ def render_generate_button():
         Button(
             html.Span(
                 [
-                    html.I(className="fa-solid fa-gear"),  # , style={"color: #006f92"}
-                    " Generate model",
+                    html.I(className="fa-solid fa-gear"),
+                    " " + i18n.t("general.generate"),
                 ],
                 id="span-recalculate",
                 n_clicks=0,
@@ -30,8 +31,8 @@ def render_save_button():
         Button(
             html.Span(
                 [
-                    html.I(className="fa-solid fa-floppy-disk"),  # , style={"color: #006f92"}
-                    " Save model",
+                    html.I(className="fa-solid fa-floppy-disk"),
+                    " " + i18n.t("general.save"),
                 ],
                 id="span-recalculate",
                 n_clicks=0,
