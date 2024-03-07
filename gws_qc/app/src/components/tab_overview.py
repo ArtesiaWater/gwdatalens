@@ -1,5 +1,6 @@
 import dash_bootstrap_components as dbc
 from dash import dcc
+import i18n
 
 from ..cache import TIMEOUT, cache
 from ..data.source import DataInterface
@@ -8,7 +9,7 @@ from . import ids, overview_chart, overview_map, overview_table
 
 def render():
     return dcc.Tab(
-        label="Overview",
+        label=i18n.t("general.tab_overview"),
         value=ids.TAB_OVERVIEW,
         className="custom-tab",
         selected_className="custom-tab--selected",
@@ -38,7 +39,7 @@ def render_content(data: DataInterface, selected_data: str):
             ),
             dbc.Row(
                 [
-                    overview_chart.render(),
+                    overview_chart.render(data, selected_data),
                 ],
             ),
         ],
