@@ -1,6 +1,7 @@
 import logging
 from functools import cached_property, lru_cache
 from typing import List
+from copy import deepcopy
 
 import geopandas as gpd
 import numpy as np
@@ -167,6 +168,9 @@ class TravalInterface:
             name=ts0.name,
             legendgroup=ts0.name,
             showlegend=True,
+            selected={"marker": {"opacity": 1.0, "size": 6, "color": "black"}},
+            unselected={"marker": {"opacity": 1.0, "size": 3, "color": "gray"}},
+            selectedpoints=[],
         )
         traces.append(trace_0)
 
