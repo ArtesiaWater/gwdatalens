@@ -10,6 +10,7 @@ dependencies:
   - jupyter
   - sqlalchemy
   - psycopg2
+  - geopandas
   - pip:
     - dash
     - dash-bootstrap-components
@@ -22,3 +23,5 @@ dependencies:
     - hydropandas
     - icecream
     - i18nice[YAML]
+    - arcticdb
+    - protobuf~=4.0

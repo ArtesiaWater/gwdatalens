@@ -49,9 +49,9 @@ def register_result_callbacks(app, data):
         for r in filtered_data:
             if r["id"] in selected_row_id:
                 mask = data.traval.traval_result["id"] == r["id"]
-                data.traval.traval_result.loc[
-                    mask, changed_cell["column_id"]
-                ] = new_value
+                data.traval.traval_result.loc[mask, changed_cell["column_id"]] = (
+                    new_value
+                )
                 r[changed_cell["column_id"]] = new_value
         return data.traval.traval_result.reset_index().to_dict("records")
 
@@ -66,6 +66,21 @@ def register_result_callbacks(app, data):
         filename = f"{timestr}_qc_result_{name[0]}.csv"
         if data.traval.traval_result is not None:
             return dcc.send_string(data.traval.traval_result.to_csv, filename=filename)
+
+    @app.callback(
+        Output(ids.DOWNLOAD_EXPORT_DB, "data"),  # what do i need to use as output?
+        Input(ids.QC_RESULT_EXPORT_DB, "n_clicks"),
+        State(ids.SELECTED_OSERIES_STORE, "data"),
+        prevent_initial_call=True,
+    )
+    def export_to_db(n_clicks, name):
+        if data.traval.traval_result is not None:
+            df = data.traval.traval_result
+            mask = df["manual_check"] = 1
+            data.set_qualifier(df[mask], "goedgekeurd")
+            mask = df["manual_check"] = 0
+            data.set_qualifier(df[mask], "afgekeurd")
+            return None  # ??
 
     @app.callback(
         Output(ids.QC_RESULT_TABLE, "filter_query"),
@@ -105,9 +120,10 @@ def register_result_callbacks(app, data):
             ic(selected_data)
             pts = pd.DataFrame(selected_data["points"])
             t = pts["x"].unique()
-            return data.traval.traval_result.loc[t].reset_index().to_dict(
-                "records"
-            ), False
+            return (
+                data.traval.traval_result.loc[t].reset_index().to_dict("records"),
+                False,
+            )
         elif data.traval.traval_result is not None:
             return data.traval.traval_result.reset_index().to_dict("records"), False
         else:

@@ -307,9 +307,9 @@ class GroundwaterMonitoringTubesDynamic(Base):
             "groundwater_monitoring_tubes_static.groundwater_monitoring_tube_static_id"
         )
     )
-    groundwater_monitoring_tubes_static: Mapped[
-        "GroundwaterMonitoringTubesStatic"
-    ] = relationship(back_populates="dynamic")
+    groundwater_monitoring_tubes_static: Mapped["GroundwaterMonitoringTubesStatic"] = (
+        relationship(back_populates="dynamic")
+    )
 
 
 class DeliveredLocations(Base):
@@ -567,7 +567,7 @@ class DataSource:
         stmt = (
             update(MeasurementPointMetadata)
             .where(MeasurementPointMetadata.measurement_point_metadata_id.in_(ids))
-            .values(qualifier_by_category="goedgekeurd")
+            .values(qualifier_by_category=qualifier)
         )
         with self.engine.begin() as conn:
             conn.execute(stmt)
