@@ -77,9 +77,10 @@ def register_result_callbacks(app, data):
         if data.traval.traval_result is not None:
             df = data.traval.traval_result
             mask = df["manual_check"] = 1
-            data.set_qualifier(df[mask], "goedgekeurd")
+            df.loc[mask, "qualifier_by_category"] = "goedgekeurd"
             mask = df["manual_check"] = 0
-            data.set_qualifier(df[mask], "afgekeurd")
+            df.loc[mask, "qualifier_by_category"] = "afgekeurd"
+            data.save_qualifier(df)
             return None  # ??
 
     @app.callback(

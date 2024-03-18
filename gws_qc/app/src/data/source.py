@@ -9,7 +9,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objs as go
 from sqlalchemy import create_engine, select, ForeignKey, DateTime, func, update
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session
 from datetime import datetime
 import traval
 from icecream import ic
@@ -560,6 +560,13 @@ class DataSource:
         )
         count = pd.read_sql(stmt, con=self.engine)
         return count
+
+    def save_qualifier(self, df):
+        param_columns = ["measurement_point_metadata_id", "qualifier_by_category"]
+        params = df[param_columns].to_dict("records")
+        with Session(self.engine) as session:
+            session.execute(update(MeasurementPointMetadata), params)
+            session.commit()
 
     def set_qualifier(self, df, qualifier="goedgekeurd"):
         mask = df["qualifier_by_category"] != qualifier
