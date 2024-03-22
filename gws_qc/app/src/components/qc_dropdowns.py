@@ -34,9 +34,15 @@ def render_selection_series_dropdown(
     )
 
 
-def render_additional_series_dropdown(data: DataInterface):
-    locs = data.db.list_locations()
-    options = [{"label": i, "value": i} for i in locs]
+def render_additional_series_dropdown(data: DataInterface, selected_data):
+    if selected_data is not None:
+        locs = data.db.list_locations_sorted_by_distance(selected_data[0])
+        options = [
+            {"label": i + f" ({row.distance / 1e3:.1f} km)", "value": i}
+            for i, row in locs.iterrows()
+        ]
+    else:
+        options = None
     return html.Div(
         children=[
             dcc.Dropdown(
@@ -45,7 +51,7 @@ def render_additional_series_dropdown(data: DataInterface):
                 searchable=True,
                 placeholder=i18n.t("general.select_series2"),
                 id=ids.QC_DROPDOWN_ADDITIONAL,
-                disabled=True,
+                disabled=selected_data is None,
                 multi=True,
             )
         ]
