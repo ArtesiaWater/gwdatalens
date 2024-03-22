@@ -69,7 +69,7 @@ else:
     # Diskcache for non-production apps when developing locally
     import diskcache
 
-    callback_cache = diskcache.Cache("./cache")
+    callback_cache = diskcache.Cache("./.cache")
     background_callback_manager = DiskcacheManager(callback_cache)
 
 # %% build app
