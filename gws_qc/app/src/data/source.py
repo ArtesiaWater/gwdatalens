@@ -302,13 +302,10 @@ class DataSource:
         # init connection to database OR just read in some data from somewhere
         # Connect to database using psycopg2
         try:
-            self.engine = create_engine(
-                f"postgresql+psycopg2://{config.user}:{config.password}@"
-                f"{config.host}:{config.port}/{config.database}",
-                connect_args={"options": "-csearch_path=gmw,gld"},
-            )
+            self.engine = self._engine()
 
             logger.info("Database connected successfully")
+            self.engine.dispose()
         except Exception as e:
             print(e)
             logger.error("Database not connected successfully")
@@ -316,6 +313,13 @@ class DataSource:
         self.value_column = "field_value"
         self.qualifier_column = "qualifier_by_category"
         self.source = "zeeland"
+
+    def _engine(self):
+        return create_engine(
+            f"postgresql+psycopg2://{config.user}:{config.password}@"
+            f"{config.host}:{config.port}/{config.database}",
+            connect_args={"options": "-csearch_path=gmw,gld"},
+        )
 
     @cached_property
     def gmw_gdf(self):
