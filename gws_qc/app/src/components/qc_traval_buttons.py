@@ -26,6 +26,29 @@ def render_run_traval_button():
     )
 
 
+def render_qc_cancel_button():
+    return html.Div(
+        children=[
+            Button(
+                html.Span(
+                    [
+                        html.I(className="fa-regular fa-circle-stop"),
+                        " " + i18n.t("general.cancel"),
+                    ],
+                    id="span-cancel-button",
+                    n_clicks=0,
+                ),
+                style={
+                    "margin-top": 10,
+                    "margin-bottom": 10,
+                },
+                disabled=True,
+                id=ids.QC_CANCEL_BUTTON,
+            ),
+        ]
+    )
+
+
 def render_add_rule_button():
     return html.Div(
         Button(
