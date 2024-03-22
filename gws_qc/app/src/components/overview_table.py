@@ -19,8 +19,6 @@ def render(data: DataInterface, selected_data=None):
         "y",
         "metingen",
     ]
-    # ic(selected_data)
-
     return html.Div(
         id="table-div",
         children=[
@@ -80,10 +78,9 @@ def render(data: DataInterface, selected_data=None):
                 filter_action="native",
                 sort_action="native",
                 style_table={
-                    # "height": "70vh",
+                    "height": "45vh",
                     # "overflowY": "auto",
                     "margin-top": 15,
-                    # "maxHeight": "70vh",
                 },
                 # row_selectable="multi",
                 virtualization=True,
