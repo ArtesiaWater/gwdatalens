@@ -1,14 +1,18 @@
+import i18n
 import numpy as np
 import pandas as pd
-from dash import Input, Output, Patch, State, dcc, no_update
+from dash import ALL, Input, Output, Patch, State, ctx, dcc, no_update
 from dash.exceptions import PreventUpdate
-from icecream import ic
 
 try:
-    from .src.components import ids
+    from ..src.cache import cache
+    from ..src.components import ids
+    from ..src.components.overview_chart import plot_obs
 
 except ImportError:
+    from src.cache import cache
     from src.components import ids
+    from src.components.overview_chart import plot_obs
 
 
 def register_result_callbacks(app, data):
@@ -17,12 +21,13 @@ def register_result_callbacks(app, data):
         Output(ids.QC_RESULT_EXPORT_CSV, "disabled"),
         Output(ids.QC_RESULT_EXPORT_DB, "disabled"),
         Input(ids.TAB_CONTAINER, "value"),
-        State(ids.SELECTED_OSERIES_STORE, "value"),
+        Input(ids.TRAVAL_RESULT_FIGURE_STORE, "data"),
     )
-    def qc_result_traval_figure(tab, value):
+    def qc_result_traval_figure(tab, figure):
         if tab == ids.TAB_QC_RESULT:
-            if hasattr(data.traval, "figure"):
-                return (data.traval.figure, False, False)
+            if figure is not None:
+                figure["layout"]["dragmode"] = "select"
+                return (figure, False, False)
             else:
                 return ({"layout": {"title": "No traval result."}}, True, True)
         else:
