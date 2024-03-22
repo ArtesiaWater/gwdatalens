@@ -6,7 +6,7 @@ from copy import deepcopy
 import i18n
 import pandas as pd
 import traval
-from dash import ALL, Input, Output, Patch, State, ctx, dcc, html, no_update
+from dash import ALL, Input, Output, Patch, State, ctx, dcc, html, no_update, MATCH
 from dash.exceptions import PreventUpdate
 from src.components.qc_rules_form import (
     derive_form_parameters,
@@ -25,21 +25,25 @@ except ImportError:
 
 # %% TRAVAL TAB
 def register_qc_callbacks(app, data):
-    # @app.callback(
-    #     Output(ids.TRAVAL_RULESET_STORE, "data"),
-    #     Input({"type": "rule_input", "index": ALL}, "value"),
-    #     prevent_initial_call=True,
-    # )
-    # def update_ruleset_values(val):
-    #     if val and ctx.triggered_id is not None:
-    #         for i in range(len(val)):
-    #             if ctx.inputs_list[0][i]["id"] == ctx.triggered_id:
-    #                 break
-    #         (idx, rule, param) = ctx.triggered_id["index"].split("-")
-    #         ruledict = data.traval._ruleset.get_rule(stepname=rule)
-    #         ruledict["kwargs"][param] = val[i]
-    #         data.traval._ruleset.update_rule(**ruledict)
-    #     return data.traval._ruleset.to_json()
+    @app.callback(
+        Output(
+            {"type": "rule_input_tooltip", "index": MATCH},
+            "children",
+            allow_duplicate=True,
+        ),
+        Input({"type": "rule_input", "index": MATCH}, "value"),
+        Input({"type": "rule_input", "index": MATCH}, "disabled"),
+        prevent_initial_call=True,
+    )
+    def update_ruleset_values(val, disabled):
+        if not disabled:
+            (idx, rule, param) = ctx.triggered_id["index"].split("-")
+            ruledict = data.traval._ruleset.get_rule(stepname=rule)
+            ruledict["kwargs"][param] = val
+            data.traval._ruleset.update_rule(**ruledict)
+            return [str(val)]
+        else:
+            return no_update
 
     # @app.callback(
     #     Output(ids.TRAVAL_OUTPUT, "children", allow_duplicate=True),
@@ -53,38 +57,42 @@ def register_qc_callbacks(app, data):
         Output(ids.QC_CHART, "figure"),
         Input(ids.QC_DROPDOWN_SELECTION, "value"),
         Input(ids.QC_DROPDOWN_ADDITIONAL, "value"),
+        State(ids.QC_DROPDOWN_ADDITIONAL, "disabled"),
     )
-    def plot_qc_time_series(value, additional_values):
+    def plot_qc_time_series(value, additional_values, disabled):
         if value is None:
             return {"layout": {"title": "No series selected."}}
+        elif disabled:
+            raise PreventUpdate
         else:
             if data.db.source == "bro":
                 name = value.split("-")[0]
             else:
                 name = value
             if additional_values is not None:
-                additional = [i for i in additional_values]
+                additional = additional_values
             else:
                 additional = []
             return plot_obs([name] + additional, data)
 
-    # @app.callback(
-    #     Output(ids.QC_DROPDOWN_ADDITIONAL, "disabled"),
-    #     Output(ids.QC_DROPDOWN_ADDITIONAL, "options"),
-    #     Input(ids.QC_DROPDOWN_SELECTION, "value"),
-    # )
-    # def enable_additional_dropdown(value):
-    #     if value is not None:
-    #         # value = value.split("-")
-    #         # value[1] = int(value[1])
-    #         locs = data.db.list_locations_sorted_by_distance(value)
-    #         options = [
-    #             {"label": i + f" ({row.distance / 1e3:.1f} km)", "value": i}
-    #             for i, row in locs.iterrows()
-    #         ]
-    #         return False, options
-    #     else:
-    #         return True, no_update
+    @app.callback(
+        Output(ids.QC_DROPDOWN_ADDITIONAL, "disabled", allow_duplicate=True),
+        Output(ids.QC_DROPDOWN_ADDITIONAL, "options"),
+        Input(ids.QC_DROPDOWN_SELECTION, "value"),
+        prevent_initial_call=True,
+    )
+    def enable_additional_dropdown(value):
+        if value is not None:
+            # value = value.split("-")
+            # value[1] = int(value[1])
+            locs = data.db.list_locations_sorted_by_distance(value)
+            options = [
+                {"label": i + f" ({row.distance / 1e3:.1f} km)", "value": i}
+                for i, row in locs.iterrows()
+            ]
+            return False, options
+        else:
+            return True, no_update
 
     @app.callback(
         Output(ids.TRAVAL_RULES_FORM, "children", allow_duplicate=True),
@@ -151,7 +159,11 @@ def register_qc_callbacks(app, data):
         Output({"type": "rule_input", "index": ALL}, "type"),
         Output({"type": "rule_input", "index": ALL}, "disabled"),
         Output({"type": "rule_input", "index": ALL}, "step"),
-        Output({"type": "rule_input_tooltip", "index": ALL}, "children"),
+        Output(
+            {"type": "rule_input_tooltip", "index": ALL},
+            "children",
+            allow_duplicate=True,
+        ),
         Output(ids.TRAVAL_RESET_RULESET_BUTTON, "disabled", allow_duplicate=True),
         Output(ids.ALERT, "is_open", allow_duplicate=True),
         Output(ids.ALERT, "color", allow_duplicate=True),
@@ -353,16 +365,54 @@ def register_qc_callbacks(app, data):
     @app.callback(
         # Output(ids.QC_RESULT_TABLE, "data"),
         Output(ids.QC_CHART, "figure", allow_duplicate=True),
+        Output(ids.TRAVAL_RESULT_FIGURE_STORE, "data"),
+        Output(ids.TRAVAL_RESULT_TABLE_STORE, "data"),
+        Output(ids.QC_DROPDOWN_ADDITIONAL, "value"),
+        Output(ids.QC_DROPDOWN_ADDITIONAL, "disabled", allow_duplicate=True),
         Input(ids.QC_RUN_TRAVAL_BUTTON, "n_clicks"),
         State(ids.QC_DROPDOWN_SELECTION, "value"),
+        State(ids.QC_DATEPICKER_TMIN, "date"),
+        State(ids.QC_DATEPICKER_TMAX, "date"),
+        State(ids.QC_RUN_ONLY_UNVALIDATED_CHECKBOX, "value"),
+        background=True,
+        running=[
+            (Output(ids.QC_RUN_TRAVAL_BUTTON, "disabled"), True, False),
+            (Output(ids.QC_CANCEL_BUTTON, "disabled"), False, True),
+        ],
+        cancel=[Input(ids.QC_CANCEL_BUTTON, "n_clicks")],
         prevent_initial_call=True,
     )
-    def run_traval(n_clicks, name):
+    def run_traval(n_clicks, name, tmin, tmax, only_unvalidated):
         if n_clicks:
             gmw_id, tube_id = name.split("-")
-            result, figure = data.traval.run_traval(gmw_id, tube_id)
-            data.traval.traval_result = result
-            data.traval.figure = figure
-            return figure
+            result, figure = data.traval.run_traval(
+                gmw_id, tube_id, tmin=tmin, tmax=tmax, only_unvalidated=only_unvalidated
+            )
+            # NOTE: it would be prettier to return the figure once, and somehow trigger
+            # the loading state of the figure
+            return (
+                figure,
+                figure,
+                result.reset_index().to_dict("records"),
+                None,
+                True,
+            )
         else:
             raise PreventUpdate
+
+    @app.callback(
+        Output(ids.QC_CHART, "figure", allow_duplicate=True),
+        Input(ids.TRAVAL_RESULT_FIGURE_STORE, "data"),
+        Input(ids.TRAVAL_RESULT_TABLE_STORE, "data"),
+        prevent_initial_call=True,
+    )
+    def update_traval_figure(figure, table):
+        if figure is not None:
+            # set result table
+            df = pd.DataFrame(table).set_index("datetime")
+            df.index = pd.to_datetime(df.index)
+            data.traval.traval_result = df
+            return figure
+        else:
+            # data.traval.traval_result = None
+            return no_update
