@@ -153,6 +153,7 @@ dmypy.json
 cython_debug/
 
 # custom
+cache/
 .mapbox_access_token
 traval_scripts/oseries/
 traval_scripts/pastasdb/
