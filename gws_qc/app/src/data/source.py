@@ -114,11 +114,23 @@ class TravalInterface:
         )
         return ruleset
 
-    def run_traval(self, gmw_id, tube_id, ruleset=None):
+    def run_traval(
+        self,
+        gmw_id,
+        tube_id,
+        ruleset=None,
+        tmin=None,
+        tmax=None,
+        only_unvalidated=False,
+    ):
         name = f"{gmw_id}-{int(tube_id):03g}"
         ic(f"Running traval for {name}...")
         ts = self.db.get_timeseries(gmw_id, tube_id)
 
+        if tmin is not None:
+            ts = ts.loc[tmin:]
+        if tmax is not None:
+            ts = ts.loc[:tmax]
         series = ts.loc[:, self.db.value_column]
         series.name = f"{gmw_id}-{tube_id}"
         detector = traval.Detector(series)
@@ -138,13 +150,27 @@ class TravalInterface:
         df.rename(columns={"base series": "values"}, inplace=True)
 
         df.index.name = "datetime"
-        # table = df.reset_index().to_dict("records")
+        df["id"] = range(df.index.size)
+        df["reliable"] = (~df["flagged"]).astype(int)  # column for manual validation
+        df["category"] = ""  # for QC Protocol category
+
+        # filter out observations that were already checked
+        if only_unvalidated:
+            mask = df["qualifier_by_category"].isin(["goedgekeurd", "afgekeurd"])
+            df.loc[mask, "flagged"] = -1  # already checked
+            df.loc[mask, "reliable"] = np.nan  # TODO: somehow pick this up from DB
+            ignore = df.loc[mask].index
+        else:
+            ignore = None
+
         try:
             ml = self.pstore.get_models(series.name)
         except Exception as e:
             ic(e)
             ml = None
-        figure = self.plot_traval_result(detector, ml)
+        figure = self.plot_traval_result(
+            detector, ml, tmin=tmin, tmax=tmax, ignore=ignore
+        )
         return df, figure
 
     @staticmethod
