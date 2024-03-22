@@ -68,20 +68,45 @@ def register_result_callbacks(app, data):
             return dcc.send_string(data.traval.traval_result.to_csv, filename=filename)
 
     @app.callback(
-        Output(ids.DOWNLOAD_EXPORT_DB, "data"),  # what do i need to use as output?
+        Output(ids.ALERT, "is_open", allow_duplicate=True),
+        Output(ids.ALERT, "color", allow_duplicate=True),
+        Output(ids.ALERT_BODY, "children", allow_duplicate=True),
         Input(ids.QC_RESULT_EXPORT_DB, "n_clicks"),
         State(ids.SELECTED_OSERIES_STORE, "data"),
         prevent_initial_call=True,
     )
     def export_to_db(n_clicks, name):
-        if data.traval.traval_result is not None:
-            df = data.traval.traval_result
-            mask = df["manual_check"] = 1
-            df.loc[mask, "qualifier_by_category"] = "goedgekeurd"
-            mask = df["manual_check"] = 0
-            df.loc[mask, "qualifier_by_category"] = "afgekeurd"
-            data.save_qualifier(df)
-            return None  # ??
+        if n_clicks:
+            if data.traval.traval_result is not None:
+                df = data.traval.traval_result.copy()
+                mask = df["reliable"] == 1.0
+                df.loc[mask, "qualifier_by_category"] = "goedgekeurd"
+                mask = df["reliable"] == 0.0
+                df.loc[mask, "qualifier_by_category"] = "afgekeurd"
+                data.db.save_qualifier(df)
+                try:
+                    data.db.save_qualifier(df)
+                    # clear cache entry, maybe do not cache plot_obs at all?
+                    cache.delete_memoized(plot_obs)
+                    return (
+                        True,
+                        "success",
+                        f"Succesfully exported to Database: {name}",
+                    )
+                except Exception as e:
+                    return (
+                        True,
+                        "danger",
+                        f"Database export failed: {name}. Error: {e}",
+                    )
+            else:
+                return (
+                    True,
+                    "warning",
+                    "No QC result to export.",
+                )
+        else:
+            return no_update
 
     @app.callback(
         Output(ids.QC_RESULT_TABLE, "filter_query"),
