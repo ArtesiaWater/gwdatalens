@@ -11,7 +11,7 @@ def render(data: DataInterface, selected_data=None):
     usecols = [
         "id",
         "bro_id",
-        # "nitg_code",
+        "nitg_code",
         "tube_number",
         "screen_top",
         "screen_bot",
@@ -31,11 +31,11 @@ def render(data: DataInterface, selected_data=None):
                         "name": "Naam",
                         "type": "text",
                     },
-                    # {
-                    #     "id": "nitg_code",
-                    #     "name": "NITG-code",
-                    #     "type": "text",
-                    # },
+                    {
+                        "id": "nitg_code",
+                        "name": "NITG",
+                        "type": "text",
+                    },
                     {
                         "id": "tube_number",
                         "name": "Filternummer",
@@ -98,9 +98,9 @@ def render(data: DataInterface, selected_data=None):
                     {"if": {"column_id": "tube_number"}, "width": "10%"},
                     {"if": {"column_id": "screen_top"}, "width": "15%"},
                     {"if": {"column_id": "screen_bot"}, "width": "15%"},
-                    {"if": {"column_id": "x"}, "width": "10%"},
-                    {"if": {"column_id": "y"}, "width": "10%"},
-                    {"if": {"column_id": "metingen"}, "width": "15%"},
+                    {"if": {"column_id": "x"}, "width": "7.5%"},
+                    {"if": {"column_id": "y"}, "width": "7.5%"},
+                    {"if": {"column_id": "metingen"}, "width": "10%"},
                 ],
                 style_data_conditional=[
                     {
