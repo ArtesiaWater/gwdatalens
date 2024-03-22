@@ -62,7 +62,7 @@ class TravalInterface:
             "spikes",
             traval.rulelib.rule_spike_detection,
             apply_to=0,
-            kwargs={"threshold": 0.15, "spike_tol": 0.15, "max_gap": "7D"},
+            kwargs={"threshold": 0.50, "spike_tol": 0.25, "max_gap": "30D"},
         )
 
         def get_tube_top_level(name):
