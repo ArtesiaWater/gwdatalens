@@ -48,6 +48,28 @@ traval_interface = TravalInterface(db, pstore)
 # add all components to our data interface object
 data = DataInterface(db=db, pstore=pstore, traval=traval_interface)
 
+# %%
+
+if "REDIS_URL" in os.environ:
+    # Use Redis & Celery if REDIS_URL set as an env variable
+    from celery import Celery
+
+    celery_app = Celery(
+        __name__,
+        broker=os.environ["REDIS_URL"],
+        backend=os.environ["REDIS_URL"],
+    )
+    background_callback_manager = CeleryManager(celery_app)
+
+else:
+    # Diskcache for non-production apps when developing locally
+    import diskcache
+
+    callback_cache = diskcache.Cache("./cache")
+    background_callback_manager = DiskcacheManager(callback_cache)
+
+# %% build app
+
 # create app
 app = Dash(
     __name__,
