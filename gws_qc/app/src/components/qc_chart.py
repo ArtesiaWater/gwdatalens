@@ -1,10 +1,10 @@
 from dash import dcc, html
 
-from ..cache import cache
+from ..cache import cache, TIMEOUT
 from . import ids
 
 
-@cache.memoize()
+@cache.memoize(timeout=TIMEOUT)
 def render():
     return html.Div(
         id="series-chart-div",

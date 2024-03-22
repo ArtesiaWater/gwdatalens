@@ -3,7 +3,7 @@ import numpy as np
 import plotly.graph_objs as go
 from dash import dcc
 
-from ..cache import cache
+from ..cache import cache, TIMEOUT
 from ..data.source import DataInterface
 from . import ids
 
@@ -13,7 +13,7 @@ except FileNotFoundError:
     mapbox_access_token = None
 
 
-@cache.memoize()
+@cache.memoize(timeout=TIMEOUT)
 def render(
     data: DataInterface,
     selected_data=None,
