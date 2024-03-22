@@ -17,12 +17,64 @@ def render():
     )
 
 
+def render_datepicker_tmin(data, selected_data):
+    if selected_data is not None and len(selected_data) == 1:
+        name = selected_data[0]
+        tmintmax = data.pstore.get_tmin_tmax("oseries", name)
+        start_date = tmintmax.loc[name, "tmin"].to_pydatetime()
+        disabled = False
+    else:
+        start_date = None
+        disabled = True
+
+    return dcc.DatePickerSingle(
+        date=start_date,
+        placeholder=i18n.t("general.tmin"),
+        display_format="YYYY-MM-DD",
+        show_outside_days=True,
+        number_of_months_shown=1,
+        day_size=30,
+        disabled=disabled,
+        id=ids.MODEL_DATEPICKER_TMIN,
+        style={"fontSize": 8},
+    )
+
+
+def render_datepicker_tmax(data, selected_data):
+    if selected_data is not None and len(selected_data) == 1:
+        name = selected_data[0]
+        tmintmax = data.pstore.get_tmin_tmax("oseries", name)
+        end_date = tmintmax.loc[name, "tmax"].to_pydatetime()
+        disabled = False
+    else:
+        end_date = None
+        disabled = True
+
+    return dcc.DatePickerSingle(
+        date=end_date,
+        placeholder=i18n.t("general.tmax"),
+        display_format="YYYY-MM-DD",
+        show_outside_days=True,
+        number_of_months_shown=1,
+        day_size=20,
+        disabled=disabled,
+        id=ids.MODEL_DATEPICKER_TMAX,
+        style={"fontSize": 8},
+    )
+
+
 def render_content(data: DataInterface, selected_data: List):
     return dbc.Container(
         [
             dbc.Row(
                 children=[
                     dbc.Col([model_dropdown.render(data, selected_data)], width=4),
+                    dbc.Col(
+                        [render_datepicker_tmin(data, selected_data)], width="auto"
+                    ),
+                    dbc.Col(
+                        [render_datepicker_tmax(data, selected_data)], width="auto"
+                    ),
                     dbc.Col([model_buttons.render_generate_button()], width="auto"),
                     dbc.Col([model_buttons.render_save_button()], width="auto"),
                     dbc.Col(
