@@ -40,11 +40,10 @@ def render(data, selected_data):
 
 
 def plot_obs(names, data):
-    hasobs = [i for i in data.db.list_locations()]
-
     if names is None:
         return {"layout": {"title": i18n.t("general.no_plot")}}
 
+    hasobs = [i for i in data.db.list_locations()]
     title = None
 
     traces = []
@@ -68,28 +67,40 @@ def plot_obs(names, data):
         ].fillna("")
 
         if len(names) == 1:
-            title = name
+            title = None
+            ts = df[data.db.value_column]
+            trace_i = go.Scattergl(
+                x=ts.index,
+                y=ts.values,
+                mode="lines",
+                line={"width": 1, "color": "gray"},
+                name=name,
+                legendgroup=f"{name}-{tube_nr}",
+                showlegend=True,
+            )
+            traces.append(trace_i)
+
             # plot different qualifiers
             for qualifier in df[data.db.qualifier_column].unique():
                 mask = df[data.db.qualifier_column] == qualifier
                 ts = df.loc[mask, data.db.value_column]
                 legendrank = 1000
-                if qualifier == "goedgekeurd":
+                if qualifier in ["goedgekeurd"]:
                     color = "green"
                 elif qualifier == "nogNietBeoordeeld":
                     color = "orange"
                 elif qualifier == "":
-                    color = None
-                    qualifier = f"{name}-{tube_nr}"
-                    legendrank = 999
+                    color = "#636EFA"
+                    # legendrank = 999
+                elif qualifier in ["afgekeurd"]:
+                    color = "red"
                 else:
-                    color = None
+                    color = "gray"
                 trace_i = go.Scattergl(
                     x=ts.index,
                     y=ts.values,
-                    mode="markers+lines",
-                    line={"width": 1},
-                    marker={"color": color, "size": 3},
+                    mode="markers",
+                    marker={"color": color, "size": 4},
                     name=qualifier,
                     legendgroup=qualifier,
                     showlegend=True,
@@ -97,7 +108,6 @@ def plot_obs(names, data):
                 )
                 traces.append(trace_i)
         else:
-            title = None
             ts = df[data.db.value_column]
             trace_i = go.Scattergl(
                 x=ts.index,
@@ -123,7 +133,8 @@ def plot_obs(names, data):
             "y": 1.02,
         },
         "dragmode": "pan",
-        # "margin": dict(t=70, b=40, l=40, r=10),
+        # "margin": dict(t=20, b=20, l=50, r=20),
+        "margin-top": 0,
     }
 
     return dict(data=traces, layout=layout)
