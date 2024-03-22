@@ -60,6 +60,90 @@ def render_export_to_database_button():
     )
 
 
+def render_mark_selection_reliable_button():
+    return html.Div(
+        dbc.Button(
+            html.Span(
+                [
+                    html.I(className="fa-solid fa-check"),
+                    " " + i18n.t("general.mark_reliable"),
+                ],
+                id="span-export-db",
+                n_clicks=0,
+            ),
+            style={
+                "margin-top": 10,
+                "margin-bottom": 10,
+            },
+            disabled=True,
+            id={"type": ids.QC_RESULT_MARK_OBS_BUTTONS, "index": "reliable"},
+        ),
+    )
+
+
+def render_mark_selection_suspect_button():
+    return html.Div(
+        dbc.Button(
+            html.Span(
+                [
+                    html.I(className="fa-solid fa-xmark"),
+                    " " + i18n.t("general.mark_unreliable"),
+                ],
+                id="span-export-db",
+                n_clicks=0,
+            ),
+            style={
+                "margin-top": 10,
+                "margin-bottom": 10,
+            },
+            disabled=True,
+            id={"type": ids.QC_RESULT_MARK_OBS_BUTTONS, "index": "suspect"},
+        ),
+    )
+
+
+def render_reset_qualifier_button():
+    return html.Div(
+        dbc.Button(
+            html.Span(
+                [
+                    html.I(className="fa-solid fa-delete-left"),
+                    " " + i18n.t("general.reset_status"),
+                ],
+                id="span-export-db",
+                n_clicks=0,
+            ),
+            style={
+                "margin-top": 10,
+                "margin-bottom": 10,
+            },
+            disabled=True,
+            id={"type": ids.QC_RESULT_MARK_OBS_BUTTONS, "index": "unknown"},
+        ),
+    )
+
+
+def render_clear_table_selection_button():
+    return html.Div(
+        dbc.Button(
+            html.Span(
+                [
+                    html.I(className="fa-solid fa-ban"),
+                    " " + i18n.t("general.clear_selection"),
+                ],
+                id="span-export-db",
+                n_clicks=0,
+            ),
+            style={
+                "margin-top": 10,
+                "margin-bottom": 10,
+            },
+            disabled=True,
+            id=ids.QC_RESULT_CLEAR_TABLE_SELECTION,
+        ),
+    )
+
+
 def render_qc_chart():
     return html.Div(
         id="series-chart-div",
@@ -101,22 +185,31 @@ def render_content(data: DataInterface):
             dbc.Row([render_qc_chart()]),
             dbc.Row(
                 [
-                    dbc.Switch(
-                        label=i18n.t("general.show_all"),
-                        value=False,
-                        disabled=data.traval.traval_result is None,
-                        id=ids.QC_RESULTS_SHOW_ALL_OBS_SWITCH,
-                        style={"margin-left": "10px"},
+                    dbc.Col(
+                        [
+                            dbc.Switch(
+                                label=i18n.t("general.show_all"),
+                                value=False,
+                                disabled=data.traval.traval_result is None,
+                                id=ids.QC_RESULTS_SHOW_ALL_OBS_SWITCH,
+                                style={"margin-left": "10px"},
+                            ),
+                            dbc.Tooltip(
+                                html.P(
+                                    i18n.t("general.show_all_tooltip"),
+                                    style={"margin-top": 0, "margin-bottom": 0},
+                                ),
+                                target=ids.QC_RESULTS_SHOW_ALL_OBS_SWITCH,
+                                placement="top",
+                            ),
+                        ],
+                        width=True,
                     ),
-                    dbc.Tooltip(
-                        html.P(
-                            i18n.t("general.show_all_tooltip"),
-                            style={"margin-top": 0, "margin-bottom": 0},
-                        ),
-                        target=ids.QC_RESULTS_SHOW_ALL_OBS_SWITCH,
-                        placement="top",
-                    ),
-                ]
+                    dbc.Col([render_clear_table_selection_button()], width="auto"),
+                    dbc.Col([render_mark_selection_suspect_button()], width="auto"),
+                    dbc.Col([render_mark_selection_reliable_button()], width="auto"),
+                    dbc.Col([render_reset_qualifier_button()], width="auto"),
+                ],
             ),
             dbc.Row([qc_results_table.render(data)]),
             dbc.Row(
