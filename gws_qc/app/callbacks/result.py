@@ -33,38 +33,38 @@ def register_result_callbacks(app, data):
         else:
             raise PreventUpdate
 
-    @app.callback(
-        Output(ids.QC_RESULT_TABLE, "derived_virtual_data", allow_duplicate=True),
-        Input(ids.QC_RESULT_TABLE, "derived_virtual_data"),
-        State(ids.QC_RESULT_TABLE, "selected_cells"),
-        # State(ids.QC_RESULT_TABLE, "data"),
-        prevent_initial_call=True,
-    )
-    def multi_edit_qc_results_table(filtered_data, selected_cells):
-        # if no selection do nothing
-        if selected_cells is None or selected_cells == []:
-            raise PreventUpdate
+    # @app.callback(
+    #     Output(ids.QC_RESULT_TABLE, "derived_virtual_data", allow_duplicate=True),
+    #     Input(ids.QC_RESULT_TABLE, "derived_virtual_data"),
+    #     State(ids.QC_RESULT_TABLE, "selected_cells"),
+    #     # State(ids.QC_RESULT_TABLE, "data"),
+    #     prevent_initial_call=True,
+    # )
+    # def multi_edit_qc_results_table(filtered_data, selected_cells):
+    #     # if no selection do nothing
+    #     if selected_cells is None or selected_cells == []:
+    #         raise PreventUpdate
 
-        # check columns
-        selected_columns = [c["column_id"] for c in selected_cells]
-        if not np.any(np.isin(selected_columns, ["reliable", "category"])):
-            raise PreventUpdate
+    #     # check columns
+    #     selected_columns = [c["column_id"] for c in selected_cells]
+    #     if not np.any(np.isin(selected_columns, ["reliable", "category"])):
+    #         raise PreventUpdate
 
-        selected_row_id = [c["row_id"] for c in selected_cells]
-        changed_cell = selected_cells[0]
-        new_value = filtered_data[changed_cell["row"]][changed_cell["column_id"]]
+    #     selected_row_id = [c["row_id"] for c in selected_cells]
+    #     changed_cell = selected_cells[0]
+    #     new_value = filtered_data[changed_cell["row"]][changed_cell["column_id"]]
 
-        # return filtered_data
-        for r in filtered_data:
-            if r["id"] in selected_row_id:
-                mask = data.traval.traval_result["id"] == r["id"]
-                data.traval.traval_result.loc[
-                    mask, changed_cell["column_id"]
-                ] = new_value
-                r[changed_cell["column_id"]] = new_value
-        return data.traval.traval_result.reset_index(names="datetime").to_dict(
-            "records"
-        )
+    #     # return filtered_data
+    #     for r in filtered_data:
+    #         if r["id"] in selected_row_id:
+    #             mask = data.traval.traval_result["id"] == r["id"]
+    #             data.traval.traval_result.loc[
+    #                 mask, changed_cell["column_id"]
+    #             ] = new_value
+    #             r[changed_cell["column_id"]] = new_value
+    #     return data.traval.traval_result.reset_index(names="datetime").to_dict(
+    #         "records"
+    #     )
 
     @app.callback(
         Output(ids.DOWNLOAD_EXPORT_CSV, "data"),
