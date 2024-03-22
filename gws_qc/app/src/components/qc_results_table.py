@@ -1,5 +1,4 @@
 import i18n
-import numpy as np
 import pandas as pd
 from dash import dash_table, html
 from dash.dash_table.Format import Format
@@ -12,18 +11,14 @@ from .styling import DATA_TABLE_HEADER_BGCOLOR
 def render(data):
     if data.traval.traval_result is None:
         df = pd.DataFrame(
-            columns=["id", "value", "comment", "manual_check"],
+            columns=["id", "value", "comment", "reliable", "category"],
         )
         df.index.name = "datetime"
-        df = df.reset_index()
+        df = df.reset_index(names="datetime")
         df_records = df.to_dict("records")
     else:
-        df = data.traval.traval_result
-        df["id"] = range(df.index.size)
-        df["manual_check"] = np.nan
-        df_records = df.reset_index().to_dict("records")
-
-    df["category"] = ""
+        df = data.traval.traval_result.copy()
+        df_records = df.reset_index(names="datetime").to_dict("records")
 
     return html.Div(
         id="qc-table-div",
@@ -52,11 +47,11 @@ def render(data):
                         "editable": False,
                     },
                     {
-                        "id": "manual_check",
-                        "name": i18n.t("general.manual_check"),
+                        "id": "reliable",
+                        "name": i18n.t("general.reliable"),
                         "type": "numeric",
                         "editable": True,
-                        "on_change": {"action": "validate", "failure": "accept"},
+                        # "on_change": {"action": "validate", "failure": "accept"},
                         # "validation": {"default": 1},
                     },
                     {
@@ -81,7 +76,7 @@ def render(data):
                 filter_query='{comment} != ""',
                 virtualization=True,
                 style_table={
-                    "height": "37vh",
+                    "height": "35vh",
                     # "overflowY": "auto",
                     # "margin-top": 15,
                     "maxHeight": "37vh",
@@ -99,7 +94,7 @@ def render(data):
                     {"if": {"column_id": "datetime"}, "width": "20%"},
                     {"if": {"column_id": "values"}, "width": "20%"},
                     {"if": {"column_id": "comment"}, "width": "20%"},
-                    {"if": {"column_id": "manual_check"}, "width": "20%"},
+                    {"if": {"column_id": "reliable"}, "width": "20%"},
                     {"if": {"column_id": "category"}, "width": "20%"},
                 ],
                 style_data_conditional=[
@@ -114,16 +109,20 @@ def render(data):
                 },
                 style_header_conditional=[
                     {
-                        "if": {"column_id": ["manual_check", "category"]},
+                        "if": {"column_id": ["reliable", "category"]},
                         "textDecoration": "underline",
                         "textDecorationStyle": "dotted",
                     }
                 ],
                 tooltip_header={
-                    "manual_check": {
+                    "reliable": {
                         # "use_with": "both",
                         "type": "markdown",
-                        "value": f"1 = {i18n.t('general.accept')}\n0 = {i18n.t('general.reject')}",
+                        "value": (
+                            f"1 = {i18n.t('general.reliable')}\n"
+                            f"0 = {i18n.t('general.unreliable')}"
+                            f"-1 = {i18n.t('general.unknown')}"
+                        ),
                     },
                     "category": {
                         # "use_with": "both",
