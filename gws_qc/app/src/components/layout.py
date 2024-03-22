@@ -25,8 +25,11 @@ def create_layout(app: Dash, data: DataInterface) -> html.Div:
             dcc.Store(id=ids.SELECTED_OSERIES_STORE),
             dcc.Store(id=ids.PASTAS_MODEL_STORE),
             dcc.Store(id=ids.OVERVIEW_TABLE_SELECTION),
-            dcc.Store(id=ids.RESULT_TABLE_SELECTION),
+            dcc.Store(id=ids.ACTIVE_TABLE_SELECTION_STORE),
             dcc.Store(id=ids.TRAVAL_RULESET_STORE),
+            dcc.Store(id=ids.TRAVAL_RESULT_FIGURE_STORE),
+            dcc.Store(id=ids.TRAVAL_RESULT_TABLE_STORE),
+            dcc.Store(id=ids.SELECTED_OBS_STORE),
             html.Div(
                 id="header",
                 children=[
