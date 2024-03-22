@@ -1,9 +1,11 @@
 import logging
-from callbacks import register_callbacks
+import os
+
 import dash_bootstrap_components as dbc
-import pastastore as pst
-from dash import Dash
 import i18n
+import pastastore as pst
+from callbacks import register_callbacks
+from dash import CeleryManager, Dash, DiskcacheManager
 
 try:
     from .src.cache import cache
@@ -25,11 +27,13 @@ external_stylesheets = [
 
 # %% main app
 
-# set the locale and load the translations
-LOCALE = "nl"
+# %% set the locale and load the translations
+LOCALE = "en"
 
 i18n.set("locale", LOCALE)
 i18n.load_path.append("locale")
+
+# %% Set up backend
 
 # connect to the database
 db = DataSource()
