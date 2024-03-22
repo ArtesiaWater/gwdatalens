@@ -314,6 +314,29 @@ def register_result_callbacks(app, data):
             raise PreventUpdate
         return update_figure, update_figure_selection, update_table
 
+    @app.callback(
+        Output(ids.QC_RESULT_TABLE, "selected_cells"),
+        Output(ids.QC_RESULT_TABLE, "active_cell"),
+        Output(
+            {"type": ids.QC_RESULT_MARK_OBS_BUTTONS, "index": ALL},
+            "disabled",
+            allow_duplicate=True,
+        ),
+        Output(ids.QC_RESULT_CLEAR_TABLE_SELECTION, "disabled", allow_duplicate=True),
+        Input(ids.QC_RESULT_CLEAR_TABLE_SELECTION, "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def clear_table_selection(n):
+        if n:
+            return (
+                [],  # selected cells in table
+                None,  # active cell in table
+                [True, True, True],
+                True,
+            )
+        else:
+            raise PreventUpdate
+
         else:
             selectedData = {}
             active_selection = False
