@@ -51,6 +51,11 @@ def register_overview_callbacks(app, data):
         Input(ids.OVERVIEW_MAP, "selectedData"),
         State(ids.SELECTED_OSERIES_STORE, "data"),
         State(ids.OVERVIEW_TABLE_SELECTION, "data"),
+        background=True,
+        running=[
+            (Output(ids.OVERVIEW_CANCEL_BUTTON, "disabled"), False, True),
+        ],
+        cancel=[Input(ids.OVERVIEW_CANCEL_BUTTON, "n_clicks")],
         prevent_initial_call=True,
     )
     def plot_overview_time_series(selectedData, selected_oseries, table_selected):
