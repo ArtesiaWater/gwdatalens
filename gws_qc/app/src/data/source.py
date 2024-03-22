@@ -1,20 +1,20 @@
 import logging
+from copy import deepcopy
 from functools import cached_property, lru_cache
 from typing import List
-from copy import deepcopy
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objs as go
-from sqlalchemy import create_engine, select, ForeignKey, DateTime, func, update
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session
-from datetime import datetime
 import traval
 from icecream import ic
 from pyproj import Transformer
+from sqlalchemy import create_engine, func, select, update
+from sqlalchemy.orm import Session
 
+from . import datamodel
 from .util import EPSG_28992, WGS84, get_model_sim_pi
 
 try:
@@ -341,21 +341,24 @@ class DataSource:
         """
         stmt = (
             select(
-                GroundwaterMonitoringWell.bro_id,
-                GroundwaterMonitoringWell.nitg_code,
-                GroundwaterMonitoringTubesStatic.tube_number,
-                GroundwaterMonitoringTubesDynamic.tube_top_position,
-                GroundwaterMonitoringTubesDynamic.plain_tube_part_length,
-                GroundwaterMonitoringTubesStatic.screen_length,
-                DeliveredLocations.coordinates,
-                DeliveredLocations.referencesystem,
+                datamodel.GroundwaterMonitoringWell.bro_id,
+                datamodel.GroundwaterMonitoringWell.nitg_code,
+                datamodel.GroundwaterMonitoringTubesStatic.tube_number,
+                datamodel.GroundwaterMonitoringTubesDynamic.tube_top_position,
+                datamodel.GroundwaterMonitoringTubesDynamic.plain_tube_part_length,
+                datamodel.GroundwaterMonitoringTubesStatic.screen_length,
+                datamodel.DeliveredLocations.coordinates,
+                datamodel.DeliveredLocations.referencesystem,
             )
-            .join(GroundwaterMonitoringTubesStatic.groundwater_monitoring_well)
-            .join(GroundwaterMonitoringTubesDynamic)
-            .join(DeliveredLocations)
+            .join(
+                datamodel.GroundwaterMonitoringTubesStatic.groundwater_monitoring_well
+            )
+            .join(datamodel.GroundwaterMonitoringTubesDynamic)
+            .join(datamodel.DeliveredLocations)
         )
         # tubes = pd.read_sql(stmt, con=engine)
-        gdf = gpd.GeoDataFrame.from_postgis(stmt, self.engine, geom_col="coordinates")
+        with self._engine().connect() as con:
+            gdf = gpd.GeoDataFrame.from_postgis(stmt, con=con, geom_col="coordinates")
         # for duplicates only keep the last combination of bro_id and tube_number
         gdf = gdf[~gdf.duplicated(subset=["bro_id", "tube_number"], keep="last")]
 
@@ -401,7 +404,8 @@ class DataSource:
         """Return a list of locations that contain groundwater level dossiers, where
         each location is defines by a tuple of length 2: bro-id and tube_id"""
         # get all grundwater level dossiers
-        df = pd.read_sql(select(GroundwaterLevelDossier), con=self.engine)
+        with self._engine().connect() as con:
+            df = pd.read_sql(select(datamodel.GroundwaterLevelDossier), con=con)
         # get unique combinations of gmw id and tube id
         loc_df = df[["gmw_bro_id", "tube_number"]].drop_duplicates()
         locations = [
@@ -411,10 +415,6 @@ class DataSource:
 
     def list_locations_sorted_by_distance(self, name):
         gdf = self.gmw_gdf.copy()
-        gdf = gdf.set_index("name")
-        # ic(gdf.head())
-        # ic(name)
-        # ic(gdf.loc[name, "coordinates"])
 
         p = gdf.loc[name, "coordinates"]
 
@@ -423,36 +423,32 @@ class DataSource:
         dist.name = "distance"
         distsorted = gdf.join(dist, how="right").sort_values("distance", ascending=True)
         return distsorted
-        # return list(
-        #     distsorted.loc[:, ["monitoring_well", "tube_nr"]]
-        #     .apply(tuple, axis=1)
-        #     .values
-        # )
 
     def get_timeseries(self, gmw_id: str, tube_id: int) -> pd.Series:
         """Return a Pandas Series for the measurements at the requested bro-id and
         tube-id, im m. Return None when there are no measurements."""
         stmt = (
             select(
-                MeasurementTvp.measurement_time,
-                MeasurementTvp.field_value,
-                MeasurementPointMetadata.qualifier_by_category,
-                MeasurementTvp.field_value_unit,
-                MeasurementTvp.measurement_tvp_id,
-                MeasurementTvp.measurement_point_metadata_id,
+                datamodel.MeasurementTvp.measurement_time,
+                datamodel.MeasurementTvp.field_value,
+                datamodel.MeasurementPointMetadata.qualifier_by_category,
+                datamodel.MeasurementTvp.field_value_unit,
+                datamodel.MeasurementTvp.measurement_tvp_id,
+                datamodel.MeasurementTvp.measurement_point_metadata_id,
             )
-            .join(MeasurementPointMetadata)
-            .join(Observation)
-            .join(ObservationMetadata)
-            .join(GroundwaterLevelDossier)
+            .join(datamodel.MeasurementPointMetadata)
+            .join(datamodel.Observation)
+            .join(datamodel.ObservationMetadata)
+            .join(datamodel.GroundwaterLevelDossier)
             .filter(
-                GroundwaterLevelDossier.gmw_bro_id.in_([gmw_id]),
-                GroundwaterLevelDossier.tube_number.in_([tube_id]),
-                ObservationMetadata.observation_type == "reguliereMeting",
+                datamodel.GroundwaterLevelDossier.gmw_bro_id.in_([gmw_id]),
+                datamodel.GroundwaterLevelDossier.tube_number.in_([tube_id]),
+                datamodel.ObservationMetadata.observation_type == "reguliereMeting",
             )
-            .order_by(MeasurementTvp.measurement_time)
+            .order_by(datamodel.MeasurementTvp.measurement_time)
         )
-        df = pd.read_sql(stmt, con=self.engine, index_col="measurement_time")
+        with self._engine().connect() as con:
+            df = pd.read_sql(stmt, con=con, index_col="measurement_time")
 
         # make sure all measurements are in m
         mask = df["field_value_unit"] == "cm"
@@ -480,36 +476,44 @@ class DataSource:
     def count_measurements_per_filter(self):
         stmt = (
             select(
-                GroundwaterLevelDossier.gmw_bro_id,
-                GroundwaterLevelDossier.tube_number,
-                func.count(MeasurementTvp.measurement_tvp_id).label("Metingen"),
+                datamodel.GroundwaterLevelDossier.gmw_bro_id,
+                datamodel.GroundwaterLevelDossier.tube_number,
+                func.count(datamodel.MeasurementTvp.measurement_tvp_id).label(
+                    "Metingen"
+                ),
             )
-            .join(MeasurementPointMetadata)
-            .join(Observation)
-            .join(ObservationMetadata)
-            .join(GroundwaterLevelDossier)
+            .join(datamodel.MeasurementPointMetadata)
+            .join(datamodel.Observation)
+            .join(datamodel.ObservationMetadata)
+            .join(datamodel.GroundwaterLevelDossier)
             .group_by(
-                GroundwaterLevelDossier.gmw_bro_id, GroundwaterLevelDossier.tube_number
+                datamodel.GroundwaterLevelDossier.gmw_bro_id,
+                datamodel.GroundwaterLevelDossier.tube_number,
             )
-            .filter(ObservationMetadata.observation_type == "reguliereMeting")
+            .filter(datamodel.ObservationMetadata.observation_type == "reguliereMeting")
         )
-        count = pd.read_sql(stmt, con=self.engine)
+        with self._engine().connect() as con:
+            count = pd.read_sql(stmt, con=con)
         return count
 
     def save_qualifier(self, df):
         param_columns = ["measurement_point_metadata_id", "qualifier_by_category"]
         params = df[param_columns].to_dict("records")
-        with Session(self.engine) as session:
-            session.execute(update(MeasurementPointMetadata), params)
+        with Session(self._engine()) as session:
+            session.execute(update(datamodel.MeasurementPointMetadata), params)
             session.commit()
 
     def set_qualifier(self, df, qualifier="goedgekeurd"):
         mask = df["qualifier_by_category"] != qualifier
         ids = list(df.loc[mask, "measurement_point_metadata_id"])
         stmt = (
-            update(MeasurementPointMetadata)
-            .where(MeasurementPointMetadata.measurement_point_metadata_id.in_(ids))
+            update(datamodel.MeasurementPointMetadata)
+            .where(
+                datamodel.MeasurementPointMetadata.measurement_point_metadata_id.in_(
+                    ids
+                )
+            )
             .values(qualifier_by_category=qualifier)
         )
-        with self.engine.begin() as conn:
+        with self._engine().begin() as conn:
             conn.execute(stmt)
