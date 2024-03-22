@@ -337,11 +337,61 @@ def register_result_callbacks(app, data):
         else:
             raise PreventUpdate
 
+    @app.callback(
+        Output(ids.QC_RESULT_TABLE, "data", allow_duplicate=True),
+        Output(ids.ALERT, "is_open", allow_duplicate=True),
+        Output(ids.ALERT, "color", allow_duplicate=True),
+        Output(ids.ALERT_BODY, "children", allow_duplicate=True),
+        Input({"type": ids.QC_RESULT_MARK_OBS_BUTTONS, "index": ALL}, "n_clicks"),
+        State(ids.QC_RESULT_TABLE, "derived_virtual_data"),
+        State(ids.QC_RESULT_CHART, "selectedData"),
+        prevent_initial_call=True,
+    )
+    def mark_obs(n, table_view, selected_points):
+        if any(v is not None for v in n):
+            if ctx.triggered_id["index"] == "reliable":
+                value = 1
+            elif ctx.triggered_id["index"] == "suspect":
+                value = 0
+            elif ctx.triggered_id["index"] == "unknown":
+                value = -1
+            else:
+                raise PreventUpdate
+            df = data.traval.traval_result
+            table = pd.DataFrame(table_view)
+            # if table is empty (because of filtering or whatever) do not allow updating
+            # labels
+            if table.empty:
+                return (
+                    no_update,
+                    True,
+                    "warning",
+                    i18n.t("general.alert_failed_labeling"),
+                )
+
+            selected_pts = pd.to_datetime(
+                pd.DataFrame(selected_points["points"])["x"]
+            ).tolist()
+
+            # if any observations are not listed in table do not allow update
+            if np.any(
+                ~np.isin(
+                    pd.to_datetime(selected_pts), pd.to_datetime(table["datetime"])
+                )
+            ):
+                return (
+                    no_update,
+                    True,
+                    "warning",
+                    i18n.t("general.alert_failed_labeling"),
+                )
+            df.loc[selected_pts, "reliable"] = value
+            t = table["datetime"].tolist()
+            return (
+                df.loc[t].reset_index(names="datetime").to_dict("records"),
+                False,
+                "success",
+                "",
+            )
         else:
-            selectedData = {}
-            active_selection = False
-            # ptspatch = Patch()
-            # # TODO: if no pastas model, the original series is trace 0
-            # ptspatch["data"][2]["selectedpoints"] = []
-            ptspatch = no_update
-        return selectedData, ptspatch, active_selection
+            raise PreventUpdate
