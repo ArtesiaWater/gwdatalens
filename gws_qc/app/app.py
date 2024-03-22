@@ -75,6 +75,7 @@ app = Dash(
     __name__,
     external_stylesheets=external_stylesheets,
     suppress_callback_exceptions=True,
+    background_callback_manager=background_callback_manager,
 )
 app.title = i18n.t("general.app_title")
 app.layout = create_layout(app, data)
