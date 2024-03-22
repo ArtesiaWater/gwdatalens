@@ -107,42 +107,195 @@ def register_result_callbacks(app, data):
                 else:
                     return query  # return current active query
 
-    @app.callback(
-        Output(ids.QC_RESULT_TABLE, "data", allow_duplicate=True),
-        Output(ids.RESULT_TABLE_SELECTION, "data", allow_duplicate=True),
-        Input(ids.QC_RESULT_CHART, "selectedData"),
-        State(ids.RESULT_TABLE_SELECTION, "data"),
-        prevent_initial_call=True,
-    )
-    def filter_table_from_result_chart(selected_data, table_selection):
-        if table_selection:
-            return no_update, False
-        if selected_data is not None and len(selected_data) > 0:
-            ic(selected_data)
-            pts = pd.DataFrame(selected_data["points"])
-            t = pts["x"].unique()
-            return (
-                data.traval.traval_result.loc[t].reset_index().to_dict("records"),
-                False,
-            )
-        elif data.traval.traval_result is not None:
-            return data.traval.traval_result.reset_index().to_dict("records"), False
-        else:
-            return no_update, False
+    # @app.callback(
+    #     Output(ids.QC_RESULT_TABLE, "data", allow_duplicate=True),
+    #     Output(ids.ACTIVE_TABLE_SELECTION_STORE, "data", allow_duplicate=True),
+    #     Output(
+    #         {"type": ids.QC_RESULT_MARK_OBS_BUTTONS, "index": ALL},
+    #         "disabled",
+    #         allow_duplicate=True,
+    #     ),
+    #     Input(ids.QC_RESULT_CHART, "selectedData"),
+    #     State(ids.ACTIVE_TABLE_SELECTION_STORE, "data"),
+    #     State(ids.QC_RESULT_TABLE, "selected_cells"),
+    #     prevent_initial_call=True,
+    # )
+    # def filter_table_from_result_chart(
+    #     selected_data, active_table_selection, table_selection
+    # ):
+    #     # ic(active_table_selection)
+    #     if active_table_selection:
+    #         # ic("Hit first trap")
+    #         return no_update, False, [no_update, no_update, no_update]
+    #     if table_selection is not None and len(table_selection) > 0:
+    #         return no_update, False, [no_update, no_update, no_update]
+    #     if selected_data is not None and len(selected_data) > 0:
+    #         pts = pd.DataFrame(selected_data["points"])
+    #         if pts.empty:
+    #             # ic("Hit second trap")
+    #             return (
+    #                 data.traval.traval_result.reset_index(names="datetime").to_dict(
+    #                     "records"
+    #                 ),
+    #                 False,
+    #                 [True, True, True],
+    #             )
+    #         t = pd.to_datetime(pts["x"].unique())
+    #         # mask = data.traval.traval_result["datetime"].isin(t)
+    #         return (
+    #             data.traval.traval_result.loc[t]
+    #             .reset_index(names="datetime")
+    #             .to_dict("records"),
+    #             False,
+    #             [False, False, False],
+    #         )
+    #     elif data.traval.traval_result is not None:
+    #         return (
+    #             data.traval.traval_result.reset_index(names="datetime").to_dict(
+    #                 "records"
+    #             ),
+    #             False,
+    #             [True, True, True],
+    #         )
+    #     else:
+    #         return no_update, False, [no_update, no_update, no_update]
+
+    # @app.callback(
+    #     Output(ids.QC_RESULT_CHART, "selectedData", allow_duplicate=True),
+    #     Output(ids.QC_RESULT_CHART, "figure", allow_duplicate=True),
+    #     Output(ids.ACTIVE_TABLE_SELECTION_STORE, "data", allow_duplicate=True),
+    #     Output(
+    #         {"type": ids.QC_RESULT_MARK_OBS_BUTTONS, "index": ALL},
+    #         "disabled",
+    #         allow_duplicate=True,
+    #     ),
+    #     Output(ids.QC_RESULT_CLEAR_TABLE_SELECTION, "disabled", allow_duplicate=True),
+    #     Input(ids.QC_RESULT_TABLE, "selected_cells"),
+    #     prevent_initial_call=True,
+    # )
+    # def select_points_in_chart_from_table(selected_cells):
+    #     ic(ctx.triggered_id)
+    #     if selected_cells is not None:
+    #         selected_row_ids = [c["row_id"] for c in selected_cells]
+    #         series = data.traval.traval_result
+
+    #         selectedData = {
+    #             "points": [
+    #                 {
+    #                     "curveNumber": 2,  # TODO: if no pastas model, the original series is trace 0
+    #                     "pointNumber": series["id"].iloc[i],
+    #                     "pointIndex": series["id"].iloc[i],
+    #                     "x": series.index[i],
+    #                     "y": series["values"].iloc[i],
+    #                 }
+    #                 for i in selected_row_ids
+    #             ]
+    #         }
+    #         ptspatch = Patch()
+    #         # TODO: if no pastas model, the original series is trace 0
+    #         ptspatch["data"][2]["selectedpoints"] = selected_row_ids
+    #         active_selection = len(selected_row_ids) > 0
+    #         disabled = len(selected_row_ids) == 0
+    #         disable_clearable = len(selected_row_ids) == 0
+    #     else:
+    #         selectedData = {}
+    #         active_selection = False
+    #         # ptspatch = Patch()
+    #         # # TODO: if no pastas model, the original series is trace 0
+    #         # ptspatch["data"][2]["selectedpoints"] = []
+    #         ptspatch = no_update
+    #         disabled = no_update
+    #         disable_clearable = True
+
+    #     # ic(active_selection)
+
+    #     return (
+    #         selectedData,
+    #         ptspatch,
+    #         active_selection,
+    #         [disabled, disabled, disabled],
+    #         disable_clearable,
+    #     )
 
     @app.callback(
-        Output(ids.QC_RESULT_CHART, "selectedData"),
-        Output(ids.QC_RESULT_CHART, "figure", allow_duplicate=True),
-        Output(ids.RESULT_TABLE_SELECTION, "data", allow_duplicate=True),
+        Output(ids.SELECTED_OBS_STORE, "data"),
+        Output(ids.QC_RESULT_CLEAR_TABLE_SELECTION, "disabled"),
+        Output(
+            {"type": ids.QC_RESULT_MARK_OBS_BUTTONS, "index": ALL},
+            "disabled",
+            allow_duplicate=True,
+        ),
         Input(ids.QC_RESULT_TABLE, "selected_cells"),
+        Input(ids.QC_RESULT_CHART, "selectedData"),
+        # State(ids.SELECTED_OBS_STORE, "data"),
         prevent_initial_call=True,
     )
-    def select_points_in_chart_from_table(selected_cells):
-        if selected_cells is not None:
-            selected_row_ids = [c["row_id"] for c in selected_cells]
+    def update_selected_observations(
+        table_selection,
+        chart_selection,
+        # current_selection_state,
+    ):
+        if table_selection is None and chart_selection is None:
+            return {"trigger": None, "selection": None}, True, [True] * 3
+        if ctx.triggered_id == ids.QC_RESULT_TABLE:
+            # if current_selection_state["trigger"] == ids.QC_RESULT_CHART:
+            #     raise PreventUpdate
+            trigger = ids.QC_RESULT_TABLE
+            if table_selection is None or len(table_selection) == 0:
+                return {"trigger": trigger, "selection": None}, True, [True] * 3
+            selection = [c["row_id"] for c in table_selection]
+        elif ctx.triggered_id == ids.QC_RESULT_CHART:
+            trigger = ids.QC_RESULT_CHART
+            # if current_selection_state["trigger"] == ids.QC_RESULT_TABLE:
+            #     raise PreventUpdate
+            if chart_selection is None or len(chart_selection) == 0:
+                return {"trigger": trigger, "selection": None}, True, [True] * 3
+            pts = pd.DataFrame(chart_selection["points"])
+            if pts.empty:
+                raise PreventUpdate
+            # TODO: if no pastas model, the original series is trace 0
+            selection = pts.loc[pts.curveNumber == 2, "pointIndex"].tolist()
+        else:
+            return {"trigger": None, "selection": None}, True, [True] * 3
+        return {"trigger": trigger, "selection": selection}, False, [False] * 3
+
+    @app.callback(
+        Output(ids.QC_RESULT_CHART, "figure", allow_duplicate=True),
+        Output(ids.QC_RESULT_CHART, "selectedData", allow_duplicate=True),
+        Output(ids.QC_RESULT_TABLE, "data", allow_duplicate=True),
+        Input(ids.SELECTED_OBS_STORE, "data"),
+        prevent_initial_call=True,
+    )
+    def synchronize_selections(selection):
+        if selection is None:
+            raise PreventUpdate
+
+        trigger = selection["trigger"]
+        selected_points = selection["selection"]
+
+        if selected_points is None or (len(selected_points) == 0):
+            update_figure = no_update
+            update_figure_selection = no_update
+            update_table = data.traval.traval_result.reset_index(
+                names="datetime"
+            ).to_dict("records")
+            return update_figure, update_figure_selection, update_table
+
+        if trigger == ids.QC_RESULT_CHART:
+            update_figure = no_update
+            update_figure_selection = no_update
+
+            update_table = (
+                data.traval.traval_result.iloc[np.sort(selected_points)]
+                .reset_index(names="datetime")
+                .to_dict("records")
+            )
+
+        elif trigger == ids.QC_RESULT_TABLE:
+            update_table = no_update
             series = data.traval.traval_result
 
-            selectedData = {
+            update_figure_selection = {
                 "points": [
                     {
                         "curveNumber": 2,  # TODO: if no pastas model, the original series is trace 0
@@ -151,13 +304,16 @@ def register_result_callbacks(app, data):
                         "x": series.index[i],
                         "y": series["values"].iloc[i],
                     }
-                    for i in selected_row_ids
+                    for i in selected_points
                 ]
             }
-            ptspatch = Patch()
+            update_figure = Patch()
             # TODO: if no pastas model, the original series is trace 0
-            ptspatch["data"][2]["selectedpoints"] = selected_row_ids
-            active_selection = True
+            update_figure["data"][2]["selectedpoints"] = selected_points
+        else:
+            raise PreventUpdate
+        return update_figure, update_figure_selection, update_table
+
         else:
             selectedData = {}
             active_selection = False
