@@ -174,7 +174,7 @@ class TravalInterface:
         return df, figure
 
     @staticmethod
-    def plot_traval_result(detector, model=None):
+    def plot_traval_result(detector, model=None, tmin=None, tmax=None, ignore=None):
         traces = []
 
         ts0 = detector.series
@@ -204,7 +204,15 @@ class TravalInterface:
         for step, corrections in detector.corrections.items():
             if isinstance(corrections, np.ndarray) or corrections.empty:
                 continue
-            ts_i = ts0.loc[corrections.index]
+            if ignore is not None:
+                idx = corrections.index.difference(ignore)
+            else:
+                idx = corrections.index
+
+            if idx.size == 0:
+                continue
+
+            ts_i = ts0.loc[idx]
             label = detector.ruleset.get_step_name(step)
             trace_i = go.Scattergl(
                 x=ts_i.index,
@@ -228,7 +236,9 @@ class TravalInterface:
                 ci = detector.ruleset.get_rule(stepname="pastas")["kwargs"]["ci"]
             except KeyError:
                 ci = 0.95
-            sim, pi = get_model_sim_pi(model, ts0, ci=ci, smoothfreq="30D")
+            sim, pi = get_model_sim_pi(
+                model, ts0, ci=ci, tmin=tmin, tmax=tmax, smoothfreq="30D"
+            )
             trace_sim = go.Scattergl(
                 x=sim.index,
                 y=sim.values,
@@ -281,7 +291,7 @@ class TravalInterface:
             },
             # "hovermode": "x",
             "dragmode": "pan",
-            # "margin": dict(t=70, b=40, l=40, r=10),
+            "margin": dict(l=50, r=20),
         }
 
         return dict(data=traces, layout=layout)
