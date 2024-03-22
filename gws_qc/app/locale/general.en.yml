@@ -1,5 +1,6 @@
 ---
 en:
+  cancel: "Cancel"
   app_title: QC Head Observations
   tab_overview: Overview
   tab_model: Time Series Model
@@ -32,13 +33,20 @@ en:
   datetime: Datetime
   observations: Observation
   comment: Comment
-  manual_check: Manual Check
   qc_label: QC label
   show_all: Show all observations
   show_all_tooltip: "Toggle to show all OR only suspect measurements."
   export_csv: Export CSV
   export_db: Export to DB
-  accept: Accept suggestion
-  reject: Reject suggestion
+  reliable: Reliable
+  unreliable: Unreliable
+  unknown: Unknown
   category: "Select an appropriate code/label according to QC Protocol."
-  
+  tmin: Start Date
+  tmax: End Date
+  mark_unreliable: "Mark unreliable"
+  mark_reliable: "Mark reliable"
+  clear_selection: "Deselect all in table"
+  alert_failed_labeling: Cannot update labels for observations not visisble in table. Toggle 'Show all measurements.
+  run_only_on_unvalidated: Run only for unvalidated observations
+  reset_status: Mark unknown

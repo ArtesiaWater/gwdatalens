@@ -1,5 +1,6 @@
 ---
 nl:
+  cancel: "Annuleren"
   app_title: QC Grondwaterstanden
   tab_overview: Overzicht
   tab_model: Tijdreeksmodel
@@ -31,7 +32,7 @@ nl:
   datetime: Datum
   observations: Meting
   comment: Opmerking
-  manual_check: Handmatige controle
+  reliable: Meting betrouwbaar
   qc_label: QC label
   show_all: Toon alle metingen
   show_all_tooltip: "Klik hier om alle OF alleen verdachte metingen weer te geven."
@@ -40,3 +41,11 @@ nl:
   accept: Accepteer suggestie
   reject: Afwijzen suggestie
   category: "Selecteer een passende code volgens het QC Protocol."
+  tmin: Startdatum
+  tmax: Einddatum
+  mark_unreliable: "Meting(en) onbetrouwbaar"
+  mark_reliable: "Meting(en) betrouwbaar"
+  clear_selection: "Deselecteer alles in tabel"
+  alert_failed_labeling: Kan labels niet updaten voor niet-zichtbare metingen in tabel. Gebruik 'Toon alle metingen' om alle metingen weer te geven.
+  run_only_on_unvalidated: Alleen niet beoordeelde metingen
+  reset_status: "Meting(en) onbekend"
