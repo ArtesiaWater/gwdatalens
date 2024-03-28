@@ -9,38 +9,44 @@ class Base(DeclarativeBase):
     pass
 
 
-class GroundwaterMonitoringWell(Base):
-    __tablename__ = "groundwater_monitoring_wells"
+class Well(Base):
+    __tablename__ = "groundwater_monitoring_well_static"
 
-    groundwater_monitoring_well_id: Mapped[int] = mapped_column(primary_key=True)
+    groundwater_monitoring_well_static_id: Mapped[int] = mapped_column(primary_key=True)
     bro_id: Mapped[str]
     nitg_code: Mapped[str]
-    tubes: Mapped[List["GroundwaterMonitoringTubesStatic"]] = relationship(
+    tubes: Mapped[List["TubeStatic"]] = relationship(
         back_populates="groundwater_monitoring_well", cascade="all, delete-orphan"
     )
+    coordinates: Mapped[str]
+    reference_system: Mapped[str]
 
     # groundwater_monitoring_tube_static_id: Mapped[int]
 
 
-class GroundwaterMonitoringTubesStatic(Base):
-    __tablename__ = "groundwater_monitoring_tubes_static"
+class TubeStatic(Base):
+    __tablename__ = "groundwater_monitoring_tube_static"
     groundwater_monitoring_tube_static_id: Mapped[int] = mapped_column(primary_key=True)
     screen_length: Mapped[float]
     tube_number: Mapped[int]
-    groundwater_monitoring_well_id: Mapped[int] = mapped_column(
-        ForeignKey("groundwater_monitoring_wells.groundwater_monitoring_well_id")
+    groundwater_monitoring_well_static_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            "groundwater_monitoring_well_static.groundwater_monitoring_well_static_id"
+        )
     )
-    groundwater_monitoring_well: Mapped["GroundwaterMonitoringWell"] = relationship(
-        back_populates="tubes"
+    groundwater_monitoring_well: Mapped["Well"] = relationship(back_populates="tubes")
+    dynamic: Mapped[List["TubeDynamic"]] = relationship(
+        back_populates="groundwater_monitoring_tube_static",
+        cascade="all, delete-orphan",
     )
-    dynamic: Mapped[List["GroundwaterMonitoringTubesDynamic"]] = relationship(
-        back_populates="groundwater_monitoring_tubes_static",
+    groundwater_level_dossiers: Mapped[List["GroundwaterLevelDossier"]] = relationship(
+        back_populates="groundwater_monitoring_tube_static",
         cascade="all, delete-orphan",
     )
 
 
-class GroundwaterMonitoringTubesDynamic(Base):
-    __tablename__ = "groundwater_monitoring_tubes_dynamic"
+class TubeDynamic(Base):
+    __tablename__ = "groundwater_monitoring_tube_dynamic"
     groundwater_monitoring_tube_dynamic_id: Mapped[int] = mapped_column(
         primary_key=True
     )
@@ -48,21 +54,11 @@ class GroundwaterMonitoringTubesDynamic(Base):
     plain_tube_part_length: Mapped[float]
     groundwater_monitoring_tube_static_id: Mapped[int] = mapped_column(
         ForeignKey(
-            "groundwater_monitoring_tubes_static.groundwater_monitoring_tube_static_id"
+            "groundwater_monitoring_tube_static.groundwater_monitoring_tube_static_id"
         )
     )
-    groundwater_monitoring_tubes_static: Mapped[
-        "GroundwaterMonitoringTubesStatic"
-    ] = relationship(back_populates="dynamic")
-
-
-class DeliveredLocations(Base):
-    __tablename__ = "delivered_locations"
-    location_id: Mapped[int] = mapped_column(primary_key=True)
-    coordinates: Mapped[str]
-    referencesystem: Mapped[str]
-    groundwater_monitoring_well_id: Mapped[int] = mapped_column(
-        ForeignKey("groundwater_monitoring_wells.groundwater_monitoring_well_id")
+    groundwater_monitoring_tube_static: Mapped["TubeStatic"] = relationship(
+        back_populates="dynamic"
     )
 
 
@@ -70,7 +66,15 @@ class GroundwaterLevelDossier(Base):
     __tablename__ = "groundwater_level_dossier"
     groundwater_level_dossier_id: Mapped[int] = mapped_column(primary_key=True)
     gmw_bro_id: Mapped[str]
-    tube_number: Mapped[int]
+    # tube_number: Mapped[int]
+    groundwater_monitoring_tube_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            "groundwater_monitoring_tube_static.groundwater_monitoring_tube_static_id"
+        )
+    )
+    groundwater_monitoring_tube_static: Mapped["TubeStatic"] = relationship(
+        back_populates="groundwater_level_dossiers"
+    )
 
 
 class Observation(Base):
@@ -107,4 +111,4 @@ class MeasurementTvp(Base):
 class MeasurementPointMetadata(Base):
     __tablename__ = "measurement_point_metadata"
     measurement_point_metadata_id: Mapped[int] = mapped_column(primary_key=True)
-    qualifier_by_category: Mapped[str]
+    status_quality_control: Mapped[str]

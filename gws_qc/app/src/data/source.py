@@ -156,7 +156,7 @@ class TravalInterface:
 
         # filter out observations that were already checked
         if only_unvalidated:
-            mask = df["qualifier_by_category"].isin(["goedgekeurd", "afgekeurd"])
+            mask = df["status_quality_control"].isin(["goedgekeurd", "afgekeurd"])
             df.loc[mask, "flagged"] = -1  # already checked
             df.loc[mask, "reliable"] = np.nan  # TODO: somehow pick this up from DB
             ignore = df.loc[mask].index
@@ -311,7 +311,7 @@ class DataSource:
             logger.error("Database not connected successfully")
 
         self.value_column = "field_value"
-        self.qualifier_column = "qualifier_by_category"
+        self.qualifier_column = "status_quality_control"
         self.source = "zeeland"
 
     def _engine(self):
@@ -341,20 +341,17 @@ class DataSource:
         """
         stmt = (
             select(
-                datamodel.GroundwaterMonitoringWell.bro_id,
-                datamodel.GroundwaterMonitoringWell.nitg_code,
-                datamodel.GroundwaterMonitoringTubesStatic.tube_number,
-                datamodel.GroundwaterMonitoringTubesDynamic.tube_top_position,
-                datamodel.GroundwaterMonitoringTubesDynamic.plain_tube_part_length,
-                datamodel.GroundwaterMonitoringTubesStatic.screen_length,
-                datamodel.DeliveredLocations.coordinates,
-                datamodel.DeliveredLocations.referencesystem,
+                datamodel.Well.bro_id,
+                datamodel.Well.nitg_code,
+                datamodel.TubeStatic.tube_number,
+                datamodel.TubeDynamic.tube_top_position,
+                datamodel.TubeDynamic.plain_tube_part_length,
+                datamodel.TubeStatic.screen_length,
+                datamodel.Well.coordinates,
+                datamodel.Well.reference_system,
             )
-            .join(
-                datamodel.GroundwaterMonitoringTubesStatic.groundwater_monitoring_well
-            )
-            .join(datamodel.GroundwaterMonitoringTubesDynamic)
-            .join(datamodel.DeliveredLocations)
+            .join(datamodel.TubeStatic.groundwater_monitoring_well)
+            .join(datamodel.TubeDynamic)
         )
         # tubes = pd.read_sql(stmt, con=engine)
         with self._engine().connect() as con:
@@ -364,7 +361,7 @@ class DataSource:
 
         # make sure all locations are in EPSG:28992
         msg = "Other coordinate reference systems than RD not supported yet"
-        assert (gdf["referencesystem"].str.lower() == "rd").all, msg
+        assert (gdf["reference_system"].str.lower() == "rd").all, msg
 
         # calculate top filter and bottom filter
         gdf["screen_top"] = gdf["tube_top_position"] - gdf["plain_tube_part_length"]
@@ -405,7 +402,13 @@ class DataSource:
         each location is defines by a tuple of length 2: bro-id and tube_id"""
         # get all grundwater level dossiers
         with self._engine().connect() as con:
-            df = pd.read_sql(select(datamodel.GroundwaterLevelDossier), con=con)
+            df = pd.read_sql(
+                select(
+                    datamodel.GroundwaterLevelDossier,
+                    datamodel.TubeStatic,
+                ).join(datamodel.TubeStatic),
+                con=con,
+            )
         # get unique combinations of gmw id and tube id
         loc_df = df[["gmw_bro_id", "tube_number"]].drop_duplicates()
         locations = [
@@ -431,7 +434,7 @@ class DataSource:
             select(
                 datamodel.MeasurementTvp.measurement_time,
                 datamodel.MeasurementTvp.field_value,
-                datamodel.MeasurementPointMetadata.qualifier_by_category,
+                datamodel.MeasurementPointMetadata.status_quality_control,
                 datamodel.MeasurementTvp.field_value_unit,
                 datamodel.MeasurementTvp.measurement_tvp_id,
                 datamodel.MeasurementTvp.measurement_point_metadata_id,
@@ -440,9 +443,10 @@ class DataSource:
             .join(datamodel.Observation)
             .join(datamodel.ObservationMetadata)
             .join(datamodel.GroundwaterLevelDossier)
+            .join(datamodel.TubeStatic)
             .filter(
                 datamodel.GroundwaterLevelDossier.gmw_bro_id.in_([gmw_id]),
-                datamodel.GroundwaterLevelDossier.tube_number.in_([tube_id]),
+                datamodel.TubeStatic.tube_number.in_([tube_id]),
                 datamodel.ObservationMetadata.observation_type == "reguliereMeting",
             )
             .order_by(datamodel.MeasurementTvp.measurement_time)
@@ -497,14 +501,14 @@ class DataSource:
         return count
 
     def save_qualifier(self, df):
-        param_columns = ["measurement_point_metadata_id", "qualifier_by_category"]
+        param_columns = ["measurement_point_metadata_id", "status_quality_control"]
         params = df[param_columns].to_dict("records")
         with Session(self._engine()) as session:
             session.execute(update(datamodel.MeasurementPointMetadata), params)
             session.commit()
 
     def set_qualifier(self, df, qualifier="goedgekeurd"):
-        mask = df["qualifier_by_category"] != qualifier
+        mask = df["status_quality_control"] != qualifier
         ids = list(df.loc[mask, "measurement_point_metadata_id"])
         stmt = (
             update(datamodel.MeasurementPointMetadata)
@@ -513,7 +517,7 @@ class DataSource:
                     ids
                 )
             )
-            .values(qualifier_by_category=qualifier)
+            .values(status_quality_control=qualifier)
         )
         with self._engine().begin() as conn:
             conn.execute(stmt)
