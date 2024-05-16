@@ -8,6 +8,7 @@ HELP_TITLE = "help-title"
 ALERT = "alert"
 ALERT_DIV = "alert-div"
 ALERT_BODY = "alert-body"
+# ALERT STORES
 ALERT_TIME_SERIES_CHART = "alert-time-series-chart"
 ALERT_DISPLAY_RULES_FOR_SERIES = "alert-display-rules-for-series"
 ALERT_GENERATE_MODEL = "alert-generate-model"
@@ -27,6 +28,16 @@ TRAVAL_RULESET_STORE = "traval-ruleset-values-store"
 TRAVAL_RESULT_FIGURE_STORE = "traval-result-figure-store"
 TRAVAL_RESULT_TABLE_STORE = "traval-result-table-store"
 SELECTED_OBS_STORE = "selected-obs-store"
+
+# DUPLICATE STORES
+QC_DROPDOWN_ADDITIONAL_DISABLED_1 = "qc-dropdown-additional-disabled-1"
+QC_DROPDOWN_ADDITIONAL_DISABLED_2 = "qc-dropdown-additional-disabled-2"
+MODEL_SAVE_BUTTON_1 = "model-save-button-1"
+MODEL_SAVE_BUTTON_2 = "model-save-button-2"
+MODEL_RESULTS_CHART_1 = "model-results-chart-1"
+MODEL_RESULTS_CHART_2 = "model-results-chart-2"
+MODEL_DIAGNOSTICS_CHART_1 = "model-diagnostics-chart-1"
+MODEL_DIAGNOSTICS_CHART_2 = "model-diagnostics-chart-2"
 
 # TABS
 TAB_CONTAINER = "tab-container"
