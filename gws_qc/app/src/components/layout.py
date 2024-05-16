@@ -39,6 +39,15 @@ def create_layout(app: Dash, data: DataInterface) -> html.Div:
             dcc.Store(id=ids.ALERT_EXPORT_TO_DB),
             dcc.Store(id=ids.ALERT_MARK_OBS),
             dcc.Store(id=ids.ALERT_LOAD_RULESET),
+            # duplicate containers
+            dcc.Store(id=ids.QC_DROPDOWN_ADDITIONAL_DISABLED_1),
+            dcc.Store(id=ids.QC_DROPDOWN_ADDITIONAL_DISABLED_2),
+            dcc.Store(id=ids.MODEL_RESULTS_CHART_1),
+            dcc.Store(id=ids.MODEL_RESULTS_CHART_2),
+            dcc.Store(id=ids.MODEL_DIAGNOSTICS_CHART_1),
+            dcc.Store(id=ids.MODEL_DIAGNOSTICS_CHART_2),
+            dcc.Store(id=ids.MODEL_SAVE_BUTTON_1),
+            dcc.Store(id=ids.MODEL_SAVE_BUTTON_2),
             # header + tabs
             html.Div(
                 id="header",
