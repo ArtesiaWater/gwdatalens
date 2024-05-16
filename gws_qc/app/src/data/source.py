@@ -70,10 +70,9 @@ class TravalInterface:
 
         ruleset.add_rule(
             "hardmax",
-            traval.rulelib.rule_ufunc_threshold,
+            traval.rulelib.rule_hardmax,
             apply_to=0,
             kwargs={
-                "ufunc": (np.greater,),
                 "threshold": get_tube_top_level,
             },
         )
@@ -305,7 +304,8 @@ class DataSource:
             self.engine = self._engine()
 
             logger.info("Database connected successfully")
-            self.engine.dispose()
+            # NOTE: use for background callbacks
+            # self.engine.dispose()
         except Exception as e:
             print(e)
             logger.error("Database not connected successfully")
@@ -315,6 +315,7 @@ class DataSource:
         self.source = "zeeland"
 
     def _engine(self):
+        # NOTE: return new engine for background callbacks (makes app slower though)
         return create_engine(
             f"postgresql+psycopg2://{config.user}:{config.password}@"
             f"{config.host}:{config.port}/{config.database}",
@@ -354,7 +355,7 @@ class DataSource:
             .join(datamodel.TubeDynamic)
         )
         # tubes = pd.read_sql(stmt, con=engine)
-        with self._engine().connect() as con:
+        with self.engine.connect() as con:
             gdf = gpd.GeoDataFrame.from_postgis(stmt, con=con, geom_col="coordinates")
         # for duplicates only keep the last combination of bro_id and tube_number
         gdf = gdf[~gdf.duplicated(subset=["bro_id", "tube_number"], keep="last")]
@@ -401,7 +402,7 @@ class DataSource:
         """Return a list of locations that contain groundwater level dossiers, where
         each location is defines by a tuple of length 2: bro-id and tube_id"""
         # get all grundwater level dossiers
-        with self._engine().connect() as con:
+        with self.engine.connect() as con:
             df = pd.read_sql(
                 select(
                     datamodel.GroundwaterLevelDossier,
@@ -451,7 +452,7 @@ class DataSource:
             )
             .order_by(datamodel.MeasurementTvp.measurement_time)
         )
-        with self._engine().connect() as con:
+        with self.engine.connect() as con:
             df = pd.read_sql(stmt, con=con, index_col="measurement_time")
 
         # make sure all measurements are in m
@@ -496,14 +497,14 @@ class DataSource:
             )
             .filter(datamodel.ObservationMetadata.observation_type == "reguliereMeting")
         )
-        with self._engine().connect() as con:
+        with self.engine.connect() as con:
             count = pd.read_sql(stmt, con=con)
         return count
 
     def save_qualifier(self, df):
         param_columns = ["measurement_point_metadata_id", "status_quality_control"]
         params = df[param_columns].to_dict("records")
-        with Session(self._engine()) as session:
+        with Session(self.engine) as session:
             session.execute(update(datamodel.MeasurementPointMetadata), params)
             session.commit()
 
@@ -519,5 +520,5 @@ class DataSource:
             )
             .values(status_quality_control=qualifier)
         )
-        with self._engine().begin() as conn:
+        with self.engine.begin() as conn:
             conn.execute(stmt)
