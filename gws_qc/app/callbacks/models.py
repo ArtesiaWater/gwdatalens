@@ -26,9 +26,7 @@ def register_model_callbacks(app, data):
         Output(ids.MODEL_DIAGNOSTICS_CHART, "figure", allow_duplicate=True),
         Output(ids.PASTAS_MODEL_STORE, "data"),
         Output(ids.MODEL_SAVE_BUTTON, "disabled", allow_duplicate=True),
-        Output(ids.ALERT, "is_open", allow_duplicate=True),
-        Output(ids.ALERT, "color", allow_duplicate=True),
-        Output(ids.ALERT_BODY, "children", allow_duplicate=True),
+        Output(ids.ALERT_GENERATE_MODEL, "data"),
         Input(ids.MODEL_GENERATE_BUTTON, "n_clicks"),
         State(ids.MODEL_DROPDOWN_SELECTION, "value"),
         State(ids.MODEL_DATEPICKER_TMIN, "date"),
@@ -61,7 +59,6 @@ def register_model_callbacks(app, data):
                         freq="D",
                         tmin=tmin,
                         tmax=tmax,
-                        noise=True,
                         report=False,
                         initial=False,
                     )
@@ -73,9 +70,11 @@ def register_model_callbacks(app, data):
                         ml.plotly.diagnostics(),
                         mljson,
                         False,  # enable save button
-                        True,  # show alert
-                        "success",  # alert color
-                        f"Created time series model for {value}.",  # empty alert message
+                        (
+                            True,  # show alert
+                            "success",  # alert color
+                            f"Created time series model for {value}.",
+                        ),  # empty alert message
                     )
                 except Exception as e:
                     return (
@@ -83,9 +82,11 @@ def register_model_callbacks(app, data):
                         no_update,
                         None,
                         True,  # disable save button
-                        True,  # show alert
-                        "danger",  # alert color
-                        f"Error {e}",  # alert message
+                        (
+                            True,  # show alert
+                            "danger",  # alert color
+                            f"Error {e}",  # alert message
+                        ),
                     )
             else:
                 raise PreventUpdate
@@ -93,9 +94,7 @@ def register_model_callbacks(app, data):
             raise PreventUpdate
 
     @app.callback(
-        Output(ids.ALERT, "is_open", allow_duplicate=True),
-        Output(ids.ALERT, "color", allow_duplicate=True),
-        Output(ids.ALERT_BODY, "children", allow_duplicate=True),
+        Output(ids.ALERT_SAVE_MODEL, "data"),
         Input(ids.MODEL_SAVE_BUTTON, "n_clicks"),
         State(ids.PASTAS_MODEL_STORE, "data"),
         prevent_initial_call=True,
@@ -128,9 +127,7 @@ def register_model_callbacks(app, data):
         Output(ids.MODEL_RESULTS_CHART, "figure", allow_duplicate=True),
         Output(ids.MODEL_DIAGNOSTICS_CHART, "figure", allow_duplicate=True),
         Output(ids.MODEL_SAVE_BUTTON, "disabled", allow_duplicate=True),
-        Output(ids.ALERT, "is_open", allow_duplicate=True),
-        Output(ids.ALERT, "color", allow_duplicate=True),
-        Output(ids.ALERT_BODY, "children", allow_duplicate=True),
+        Output(ids.ALERT_PLOT_MODEL_RESULTS, "data"),
         Output(ids.MODEL_DATEPICKER_TMIN, "date"),
         Output(ids.MODEL_DATEPICKER_TMAX, "date"),
         Input(ids.MODEL_DROPDOWN_SELECTION, "value"),
@@ -144,9 +141,11 @@ def register_model_callbacks(app, data):
                     ml.plotly.results(),
                     ml.plotly.diagnostics(),
                     True,
-                    True,  # show alert
-                    "success",  # alert color
-                    f"Loaded time series model '{value}' from PastaStore.",  # empty alert message
+                    (
+                        True,  # show alert
+                        "success",  # alert color
+                        f"Loaded time series model '{value}' from PastaStore.",
+                    ),
                     ml.settings["tmin"].to_pydatetime(),
                     ml.settings["tmax"].to_pydatetime(),
                 )
@@ -155,9 +154,11 @@ def register_model_callbacks(app, data):
                     {"layout": {"title": i18n.t("general.no_model")}},
                     {"layout": {"title": i18n.t("general.no_model")}},
                     True,
-                    True,  # show alert
-                    "warning",  # alert color
-                    f"No model available for {value}. Click 'Generate Model' to create one.",
+                    (
+                        True,  # show alert
+                        "warning",  # alert color
+                        f"No model available for {value}. Click 'Generate Model' to create one.",
+                    ),
                     None,
                     None,
                 )
@@ -166,9 +167,11 @@ def register_model_callbacks(app, data):
                 {"layout": {"title": i18n.t("general.no_model")}},
                 {"layout": {"title": i18n.t("general.no_model")}},
                 True,
-                False,  # show alert
-                "success",  # alert color
-                "",  # empty message
+                (
+                    False,  # show alert
+                    "success",  # alert color
+                    "",  # empty message
+                ),
                 None,
                 None,
             )
