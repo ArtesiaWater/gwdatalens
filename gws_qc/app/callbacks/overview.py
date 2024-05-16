@@ -41,20 +41,19 @@ def register_overview_callbacks(app, data):
             return None if current_value is None else current_value
 
     @app.callback(
-        Output(ids.SERIES_CHART, "figure", allow_duplicate=True),
-        Output(ids.OVERVIEW_TABLE, "data", allow_duplicate=True),
-        Output(ids.ALERT, "is_open", allow_duplicate=True),
-        Output(ids.ALERT, "color", allow_duplicate=True),
-        Output(ids.ALERT_BODY, "children", allow_duplicate=True),
+        Output(ids.SERIES_CHART, "figure"),
+        Output(ids.OVERVIEW_TABLE, "data"),
+        Output(ids.ALERT_TIME_SERIES_CHART, "data"),
         Output(ids.OVERVIEW_TABLE_SELECTION, "data", allow_duplicate=True),
         # Output(ids.UPDATE_OVERVIEW_TABLE, "data"),
         Input(ids.OVERVIEW_MAP, "selectedData"),
         State(ids.SELECTED_OSERIES_STORE, "data"),
         State(ids.OVERVIEW_TABLE_SELECTION, "data"),
-        background=True,
-        running=[
-            (Output(ids.OVERVIEW_CANCEL_BUTTON, "disabled"), False, True),
-        ],
+        background=False,
+        # NOTE: only used if background is True
+        # running=[
+        #     (Output(ids.OVERVIEW_CANCEL_BUTTON, "disabled"), False, True),
+        # ],
         cancel=[Input(ids.OVERVIEW_CANCEL_BUTTON, "n_clicks")],
         prevent_initial_call=True,
     )
@@ -94,24 +93,21 @@ def register_overview_callbacks(app, data):
                 table = (
                     data.db.gmw_gdf.loc[names, usecols].reset_index().to_dict("records")
                 )
+
             try:
                 chart = plot_obs(names, data)
                 if chart is not None:
                     return (
                         chart,
                         table,
-                        False,
-                        None,
-                        None,
+                        (False, None, None),
                         False,
                     )
                 else:
                     return (
                         {"layout": {"title": i18n.t("general.no_data_selection")}},
                         table,
-                        True,
-                        "warning",
-                        f"No data to plot for: {names}.",
+                        (True, "warning", f"No data to plot for: {names}."),
                         False,
                     )
             except Exception as e:
@@ -119,9 +115,11 @@ def register_overview_callbacks(app, data):
                 return (
                     {"layout": {"title": i18n.t("general.no_series")}},
                     data.db.gmw_gdf.loc[:, usecols].reset_index().to_dict("records"),
-                    True,  # show alert
-                    "danger",  # alert color
-                    f"Error! Something went wrong: {e}",  # alert message
+                    (
+                        True,  # show alert
+                        "danger",  # alert color
+                        f"Error! Something went wrong: {e}",  # alert message
+                    ),
                     False,
                 )
         elif selected_oseries is not None:
@@ -130,9 +128,7 @@ def register_overview_callbacks(app, data):
             return (
                 chart,
                 table,
-                False,
-                None,
-                None,
+                (False, None, None),
                 False,
             )
         else:
@@ -140,9 +136,7 @@ def register_overview_callbacks(app, data):
             return (
                 {"layout": {"title": i18n.t("general.no_series")}},
                 table,
-                False,
-                None,
-                None,
+                (False, None, None),
                 False,
             )
 
