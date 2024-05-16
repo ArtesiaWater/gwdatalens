@@ -6,7 +6,17 @@ HELP_TITLE = "help-title"
 
 # ALERT
 ALERT = "alert"
+ALERT_DIV = "alert-div"
 ALERT_BODY = "alert-body"
+ALERT_TIME_SERIES_CHART = "alert-time-series-chart"
+ALERT_DISPLAY_RULES_FOR_SERIES = "alert-display-rules-for-series"
+ALERT_GENERATE_MODEL = "alert-generate-model"
+ALERT_SAVE_MODEL = "alert-save-model"
+ALERT_PLOT_MODEL_RESULTS = "alert-plot-model-results"
+ALERT_LOAD_RULESET = "alert-load-ruleset"
+ALERT_EXPORT_TO_DB = "alert-export-to-db"
+ALERT_MARK_OBS = "alert-mark-obs"
+ALERT_LOAD_RULESET = "alert-load-ruleset"
 
 # STORES
 SELECTED_OSERIES_STORE = "selected-oseries-store"
@@ -41,6 +51,7 @@ MODEL_GENERATE_BUTTON = "model-generate-button"
 MODEL_SAVE_BUTTON = "model-save-button"
 MODEL_RESULTS_CHART = "model-results-chart"
 MODEL_DIAGNOSTICS_CHART = "model-diagnostics-chart"
+MODEL_USE_ONLY_VALIDATED = "model-use-only-validated-checkbox"
 
 # QC TAB
 QC_DROPDOWN_SELECTION = "qc-dropdown-selection"
