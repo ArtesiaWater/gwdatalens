@@ -98,10 +98,11 @@ def register_qc_callbacks(app, data):
         Output(ids.TRAVAL_RULES_FORM, "children", allow_duplicate=True),
         Output(ids.TRAVAL_RESET_RULESET_BUTTON, "disabled", allow_duplicate=True),
         Input({"type": "clear-button", "index": ALL}, "n_clicks"),
+        State({"type": "clear-button", "index": ALL}, "n_clicks"),
         State(ids.TRAVAL_RULES_FORM, "children"),
         prevent_initial_call=True,
     )
-    def delete_rule(n_clicks, rules):
+    def delete_rule(n_clicks, clickstate, rules):
         if all(v is None for v in n_clicks):
             raise PreventUpdate
         keep = []
