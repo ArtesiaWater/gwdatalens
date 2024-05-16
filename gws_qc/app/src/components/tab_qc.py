@@ -20,8 +20,10 @@ def render():
 def render_datepicker_tmin(data, selected_data):
     if selected_data is not None and len(selected_data) == 1:
         name = selected_data[0]
-        tmintmax = data.pstore.get_tmin_tmax("oseries", name)
-        start_date = tmintmax.loc[name, "tmin"].to_pydatetime()
+        gmw_id, tube_id = name.split("-")
+        # TODO: replace with get_tmin() from database
+        ts = data.db.get_timeseries(gmw_id, tube_id)
+        start_date = ts.index[0].to_pydatetime()
         disabled = False
     else:
         start_date = None
@@ -43,8 +45,10 @@ def render_datepicker_tmin(data, selected_data):
 def render_datepicker_tmax(data, selected_data):
     if selected_data is not None and len(selected_data) == 1:
         name = selected_data[0]
-        tmintmax = data.pstore.get_tmin_tmax("oseries", name)
-        end_date = tmintmax.loc[name, "tmax"].to_pydatetime()
+        gmw_id, tube_id = name.split("-")
+        # TODO: replace with get_tmax() from database
+        ts = data.db.get_timeseries(gmw_id, tube_id)
+        end_date = ts.index[-1].to_pydatetime()
         disabled = False
     else:
         end_date = None
@@ -99,12 +103,6 @@ def render_content(data: DataInterface, selected_data: List):
                     dbc.Col([qc_chart.render()], width=12),
                 ]
             ),
-            # dbc.Row(
-            #     [
-            #         dbc.Col([qc_rules.render(data)], width=6),
-            #         dbc.Col([qc_table.render()], width=6),
-            #     ]
-            # ),
             dbc.Row(
                 [
                     dbc.Col(
@@ -126,9 +124,9 @@ def render_content(data: DataInterface, selected_data: List):
                     dbc.Col(
                         [qc_traval_buttons.render_run_traval_button()], width="auto"
                     ),
-                    dbc.Col(
-                        [qc_traval_buttons.render_qc_cancel_button()], width="auto"
-                    ),
+                    # dbc.Col(
+                    #     [qc_traval_buttons.render_qc_cancel_button()], width="auto"
+                    # ),
                     dbc.Col(
                         [render_datepicker_tmin(data, selected_data)], width="auto"
                     ),
