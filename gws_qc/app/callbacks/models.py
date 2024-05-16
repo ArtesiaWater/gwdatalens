@@ -41,8 +41,21 @@ def register_model_callbacks(app, data):
                 try:
                     tmin = pd.Timestamp(tmin)
                     tmax = pd.Timestamp(tmax)
-                    ml = data.pstore.create_model(value, add_recharge=True)
-                    ml.solve(freq="D", tmin=tmin, tmax=tmax, report=False, noise=False)
+                    # get timeseries
+                    gmw_id, tube_id = value.split("-")
+                    ts = data.db.get_timeseries(gmw_id, tube_id)
+                    if use_only_validated:
+                        mask = ts.loc[:, data.db.qualifier_column] == "goedgekeurd"
+                        ts = ts.loc[mask, data.db.value_column]
+                    else:
+                        ts = ts.loc[:, data.db.value_column]
+                    # update stored copy
+                    data.pstore.update_oseries(ts, value)
+                    # create model
+                    ml = ps.Model(ts)
+                    data.pstore.add_recharge(ml)
+                    ml.solve(freq="D", tmin=tmin, tmax=tmax, report=False)
+                    ml.add_noisemodel(ps.ArNoiseModel())
                     ml.solve(
                         freq="D",
                         tmin=tmin,
