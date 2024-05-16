@@ -1,7 +1,7 @@
 ---
 en:
   cancel: "Cancel"
-  app_title: QC Head Observations
+  app_title: DataLens
   tab_overview: Overview
   tab_model: Time Series Model
   tab_qc: QC
@@ -50,3 +50,5 @@ en:
   alert_failed_labeling: Cannot update labels for observations not visisble in table. Toggle 'Show all measurements.
   run_only_on_unvalidated: Run only for unvalidated observations
   reset_status: Mark unknown
+  max_selection_warning: "Too many selected points! Maximum no. of selected points is 10!"
+  model_use_only_validated: "Use only validated observations"

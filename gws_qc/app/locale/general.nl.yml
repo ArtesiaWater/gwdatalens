@@ -1,7 +1,7 @@
 ---
 nl:
   cancel: "Annuleren"
-  app_title: QC Grondwaterstanden
+  app_title: DataLens
   tab_overview: Overzicht
   tab_model: Tijdreeksmodel
   tab_qc: QC
@@ -49,3 +49,5 @@ nl:
   alert_failed_labeling: Kan labels niet updaten voor niet-zichtbare metingen in tabel. Gebruik 'Toon alle metingen' om alle metingen weer te geven.
   run_only_on_unvalidated: Alleen niet beoordeelde metingen
   reset_status: "Meting(en) onbekend"
+  max_selection_warning: "Teveel meetpunten geselecteerd! Maximale aantal is 10!"
+  model_use_only_validated: "Gebruik alleen gevalideerde metingen"
