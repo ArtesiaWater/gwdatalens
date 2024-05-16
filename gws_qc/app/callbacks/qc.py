@@ -315,11 +315,12 @@ def register_qc_callbacks(app, data):
         filename = f"{timestr}_traval_ruleset_{name[0]}.pickle"
         if data.traval._ruleset is not None:
             ruleset = data.traval._ruleset.get_resolved_ruleset(name)
+            rules = ruleset.rules
 
             def to_pickle(f):
                 """Version of to_pickle that works with dcc Download component."""
-                ruleset["name"] = name
-                pickle.dump(ruleset, f)
+                rules["name"] = name
+                pickle.dump(rules, f)
 
             return dcc.send_bytes(to_pickle, filename=filename)
 
