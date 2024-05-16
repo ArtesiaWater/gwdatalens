@@ -24,7 +24,6 @@ def create_layout(app: Dash, data: DataInterface) -> html.Div:
         children=[
             dcc.Store(id=ids.SELECTED_OSERIES_STORE),
             dcc.Store(id=ids.PASTAS_MODEL_STORE),
-            dcc.Store(id=ids.OVERVIEW_TABLE_SELECTION),
             dcc.Store(id=ids.ACTIVE_TABLE_SELECTION_STORE),
             dcc.Store(id=ids.TRAVAL_RULESET_STORE),
             dcc.Store(id=ids.TRAVAL_RESULT_FIGURE_STORE),
@@ -48,6 +47,8 @@ def create_layout(app: Dash, data: DataInterface) -> html.Div:
             dcc.Store(id=ids.MODEL_DIAGNOSTICS_CHART_2),
             dcc.Store(id=ids.MODEL_SAVE_BUTTON_1),
             dcc.Store(id=ids.MODEL_SAVE_BUTTON_2),
+            dcc.Store(id=ids.OVERVIEW_TABLE_SELECTION_1),
+            dcc.Store(id=ids.OVERVIEW_TABLE_SELECTION_2),
             # header + tabs
             html.Div(
                 id="header",
