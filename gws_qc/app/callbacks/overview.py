@@ -79,6 +79,15 @@ def register_overview_callbacks(app, data):
                 names = pts["text"].tolist()
             else:
                 names = None
+
+            if len(names) > 10:
+                return (
+                    no_update,
+                    no_update,
+                    (True, "warning", i18n.t("general.max_selection_warning")),
+                    False,
+                )
+
             if table_selected:
                 table = no_update
             else:
