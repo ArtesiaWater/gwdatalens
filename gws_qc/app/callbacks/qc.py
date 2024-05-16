@@ -138,6 +138,7 @@ def register_qc_callbacks(app, data):
 
         func = getattr(rulelib, rule_to_add)
         rule = {"name": rule_to_add, "kwargs": generate_kwargs_from_func(func)}
+        rule["func"] = func
         irow = generate_traval_rule_components(rule, rule_number)
 
         # add to ruleset
@@ -166,9 +167,7 @@ def register_qc_callbacks(app, data):
             allow_duplicate=True,
         ),
         Output(ids.TRAVAL_RESET_RULESET_BUTTON, "disabled", allow_duplicate=True),
-        Output(ids.ALERT, "is_open", allow_duplicate=True),
-        Output(ids.ALERT, "color", allow_duplicate=True),
-        Output(ids.ALERT_BODY, "children", allow_duplicate=True),
+        Output(ids.ALERT_DISPLAY_RULES_FOR_SERIES, "data"),
         Input(ids.QC_DROPDOWN_SELECTION, "value"),
         prevent_initial_call=True,
     )
@@ -208,9 +207,11 @@ def register_qc_callbacks(app, data):
                 steps,
                 tooltips,
                 False,
-                True,
-                "danger",
-                f"Error! Could not load parameter(s) for: {[e[0] for e in errors]}",
+                (
+                    True,
+                    "danger",
+                    f"Error! Could not load parameter(s) for: {[e[0] for e in errors]}",
+                ),
             )
         else:
             return (
@@ -220,9 +221,7 @@ def register_qc_callbacks(app, data):
                 steps,
                 tooltips,
                 False,
-                False,
-                None,
-                None,
+                (False, None, None),
             )
 
     @app.callback(
@@ -258,9 +257,7 @@ def register_qc_callbacks(app, data):
 
     @app.callback(
         Output(ids.TRAVAL_RULES_FORM, "children", allow_duplicate=True),
-        Output(ids.ALERT, "is_open", allow_duplicate=True),
-        Output(ids.ALERT, "color", allow_duplicate=True),
-        Output(ids.ALERT_BODY, "children", allow_duplicate=True),
+        Output(ids.ALERT_LOAD_RULESET, "data"),
         Input(ids.TRAVAL_LOAD_RULESET_BUTTON, "contents"),
         prevent_initial_call=True,
     )
@@ -286,7 +283,7 @@ def register_qc_callbacks(app, data):
                 ruleset = traval.RuleSet(name=rules.pop("name"))
                 ruleset.rules.update(rules)
 
-                data.traval.ruleset = ruleset
+                # data.traval.ruleset = ruleset
                 data.traval._ruleset = ruleset
 
                 nrules = len(data.traval._ruleset.rules) - 1
@@ -298,9 +295,9 @@ def register_qc_callbacks(app, data):
                     form_components.append(irow)
                     idx += 1
 
-                return form_components, True, "success", "Loaded ruleset"
+                return form_components, (True, "success", "Loaded ruleset")
             except Exception as e:
-                return no_update, True, "warning", f"Could not load ruleset: {e}"
+                return no_update, (True, "warning", f"Could not load ruleset: {e}")
         elif contents is None:
             raise PreventUpdate
 
@@ -376,12 +373,13 @@ def register_qc_callbacks(app, data):
         State(ids.QC_DATEPICKER_TMIN, "date"),
         State(ids.QC_DATEPICKER_TMAX, "date"),
         State(ids.QC_RUN_ONLY_UNVALIDATED_CHECKBOX, "value"),
-        background=True,
-        running=[
-            (Output(ids.QC_RUN_TRAVAL_BUTTON, "disabled"), True, False),
-            (Output(ids.QC_CANCEL_BUTTON, "disabled"), False, True),
-        ],
-        cancel=[Input(ids.QC_CANCEL_BUTTON, "n_clicks")],
+        background=False,
+        # NOTE: only used if background is True
+        # running=[
+        #     (Output(ids.QC_RUN_TRAVAL_BUTTON, "disabled"), True, False),
+        #     (Output(ids.QC_CANCEL_BUTTON, "disabled"), False, True),
+        # ],
+        # cancel=[Input(ids.QC_CANCEL_BUTTON, "n_clicks")],
         prevent_initial_call=True,
     )
     def run_traval(n_clicks, name, tmin, tmax, only_unvalidated):
