@@ -1,4 +1,5 @@
-from dash import Input, Output, State
+import dash_bootstrap_components as dbc
+from dash import Input, Output, State, ctx, html
 from dash.exceptions import PreventUpdate
 
 try:
@@ -51,3 +52,36 @@ def register_general_callbacks(app, data):
             return tab_qc_result.render_content(data)
         else:
             raise PreventUpdate
+
+    @app.callback(
+        Output(ids.ALERT_DIV, "children"),
+        Input(ids.ALERT_TIME_SERIES_CHART, "data"),
+        Input(ids.ALERT_DISPLAY_RULES_FOR_SERIES, "data"),
+        Input(ids.ALERT_GENERATE_MODEL, "data"),
+        Input(ids.ALERT_SAVE_MODEL, "data"),
+        Input(ids.ALERT_PLOT_MODEL_RESULTS, "data"),
+        Input(ids.ALERT_LOAD_RULESET, "data"),
+        Input(ids.ALERT_EXPORT_TO_DB, "data"),
+    )
+    def show_alert(*args):
+        if any(args):
+            for i in range(len(ctx.inputs_list)):
+                if ctx.inputs_list[i]["id"] == ctx.triggered_id:
+                    break
+            alert_data = args[i]
+            is_open, color, message = alert_data
+        else:
+            raise PreventUpdate
+        return [
+            dbc.Alert(
+                children=[
+                    html.P(message, id=ids.ALERT_BODY),
+                ],
+                id=ids.ALERT,
+                color=color,
+                dismissable=True,
+                duration=4000,
+                fade=True,
+                is_open=is_open,
+            ),
+        ]
