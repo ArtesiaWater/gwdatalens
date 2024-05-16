@@ -79,9 +79,7 @@ def register_result_callbacks(app, data):
             return dcc.send_string(data.traval.traval_result.to_csv, filename=filename)
 
     @app.callback(
-        Output(ids.ALERT, "is_open", allow_duplicate=True),
-        Output(ids.ALERT, "color", allow_duplicate=True),
-        Output(ids.ALERT_BODY, "children", allow_duplicate=True),
+        Output(ids.ALERT_EXPORT_TO_DB, "data"),
         Input(ids.QC_RESULT_EXPORT_DB, "n_clicks"),
         State(ids.SELECTED_OSERIES_STORE, "data"),
         prevent_initial_call=True,
@@ -367,7 +365,7 @@ def register_result_callbacks(app, data):
             return (
                 [],  # selected cells in table
                 None,  # active cell in table
-                [True, True, True],
+                (True, True, True),
                 True,
             )
         else:
@@ -375,9 +373,7 @@ def register_result_callbacks(app, data):
 
     @app.callback(
         Output(ids.QC_RESULT_TABLE, "data", allow_duplicate=True),
-        Output(ids.ALERT, "is_open", allow_duplicate=True),
-        Output(ids.ALERT, "color", allow_duplicate=True),
-        Output(ids.ALERT_BODY, "children", allow_duplicate=True),
+        Output(ids.ALERT_MARK_OBS, "data"),
         Input({"type": ids.QC_RESULT_MARK_OBS_BUTTONS, "index": ALL}, "n_clicks"),
         State(ids.QC_RESULT_TABLE, "derived_virtual_data"),
         State(ids.QC_RESULT_CHART, "selectedData"),
@@ -400,9 +396,7 @@ def register_result_callbacks(app, data):
             if table.empty:
                 return (
                     no_update,
-                    True,
-                    "warning",
-                    i18n.t("general.alert_failed_labeling"),
+                    (True, "warning", i18n.t("general.alert_failed_labeling")),
                 )
 
             selected_pts = pd.to_datetime(
@@ -417,17 +411,13 @@ def register_result_callbacks(app, data):
             ):
                 return (
                     no_update,
-                    True,
-                    "warning",
-                    i18n.t("general.alert_failed_labeling"),
+                    (True, "warning", i18n.t("general.alert_failed_labeling")),
                 )
             df.loc[selected_pts, "reliable"] = value
             t = table["datetime"].tolist()
             return (
                 df.loc[t].reset_index(names="datetime").to_dict("records"),
-                False,
-                "success",
-                "",
+                (False, "success", ""),
             )
         else:
             raise PreventUpdate
