@@ -22,7 +22,6 @@ ALERT_LOAD_RULESET = "alert-load-ruleset"
 # STORES
 SELECTED_OSERIES_STORE = "selected-oseries-store"
 PASTAS_MODEL_STORE = "pastas-model-store"
-OVERVIEW_TABLE_SELECTION = "overview-table-selection"
 ACTIVE_TABLE_SELECTION_STORE = "qc-result-table-selection"
 TRAVAL_RULESET_STORE = "traval-ruleset-values-store"
 TRAVAL_RESULT_FIGURE_STORE = "traval-result-figure-store"
@@ -38,6 +37,8 @@ MODEL_RESULTS_CHART_1 = "model-results-chart-1"
 MODEL_RESULTS_CHART_2 = "model-results-chart-2"
 MODEL_DIAGNOSTICS_CHART_1 = "model-diagnostics-chart-1"
 MODEL_DIAGNOSTICS_CHART_2 = "model-diagnostics-chart-2"
+OVERVIEW_TABLE_SELECTION_1 = "overview-table-selection-1"
+OVERVIEW_TABLE_SELECTION_2 = "overview-table-selection-2"
 
 # TABS
 TAB_CONTAINER = "tab-container"
