@@ -75,6 +75,7 @@ def generate_traval_rule_components(rule, rule_number, series_name=None):
             "height": "30px",
             "width": "30px",
         },
+        type="button",
     )
     lbl = dbc.Label(name, width=1)
     info = dbc.Button(
@@ -131,6 +132,7 @@ def generate_traval_rule_components(rule, rule_number, series_name=None):
                 value=v,
                 disabled=disabled,
                 size="sm",
+                debounce=True,
             )
         )
         param_input.append(
