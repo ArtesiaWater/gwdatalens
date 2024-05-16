@@ -60,7 +60,7 @@ def render_content(data: DataInterface, selected_data: str):
                 ],
                 style={"height": "45vh"},
             ),
-            dbc.Row([render_cancel_button()]),
+            # dbc.Row([render_cancel_button()]),
             dbc.Row(
                 [
                     overview_chart.render(data, selected_data),
