@@ -33,9 +33,10 @@ def register_model_callbacks(app, data):
         State(ids.MODEL_DROPDOWN_SELECTION, "value"),
         State(ids.MODEL_DATEPICKER_TMIN, "date"),
         State(ids.MODEL_DATEPICKER_TMAX, "date"),
+        State(ids.MODEL_USE_ONLY_VALIDATED, "value"),
         prevent_initial_call=True,
     )
-    def generate_model(n_clicks, value, tmin, tmax):
+    def generate_model(n_clicks, value, tmin, tmax, use_only_validated):
         if n_clicks is not None:
             if value is not None:
                 try:
