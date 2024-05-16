@@ -189,7 +189,7 @@ def register_model_callbacks(app, data):
             figure = figs[i]
             return figure
         else:
-            return PreventUpdate
+            raise PreventUpdate
 
     @app.callback(
         Output(ids.MODEL_DIAGNOSTICS_CHART, "figure"),
@@ -204,7 +204,7 @@ def register_model_callbacks(app, data):
             figure = figs[i]
             return figure
         else:
-            return PreventUpdate
+            raise PreventUpdate
 
     @app.callback(
         Output(ids.MODEL_SAVE_BUTTON, "disabled"),
@@ -218,4 +218,4 @@ def register_model_callbacks(app, data):
                     break
             return b[i]
         else:
-            return PreventUpdate
+            raise PreventUpdate
