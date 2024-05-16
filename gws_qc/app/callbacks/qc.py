@@ -45,14 +45,6 @@ def register_qc_callbacks(app, data):
         else:
             return no_update
 
-    # @app.callback(
-    #     Output(ids.TRAVAL_OUTPUT, "children", allow_duplicate=True),
-    #     Input(ids.TRAVAL_RULES_FORM, "children"),
-    #     prevent_initial_call=True,
-    # )
-    # def update_ruleset(rules):
-    #     return data.traval._ruleset.to_json()
-
     @app.callback(
         Output(ids.QC_CHART, "figure"),
         Input(ids.QC_DROPDOWN_SELECTION, "value"),
@@ -76,7 +68,7 @@ def register_qc_callbacks(app, data):
             return plot_obs([name] + additional, data)
 
     @app.callback(
-        Output(ids.QC_DROPDOWN_ADDITIONAL, "disabled", allow_duplicate=True),
+        Output(ids.QC_DROPDOWN_ADDITIONAL_DISABLED_1, "data"),
         Output(ids.QC_DROPDOWN_ADDITIONAL, "options"),
         Input(ids.QC_DROPDOWN_SELECTION, "value"),
         prevent_initial_call=True,
@@ -367,7 +359,7 @@ def register_qc_callbacks(app, data):
         Output(ids.TRAVAL_RESULT_FIGURE_STORE, "data"),
         Output(ids.TRAVAL_RESULT_TABLE_STORE, "data"),
         Output(ids.QC_DROPDOWN_ADDITIONAL, "value"),
-        Output(ids.QC_DROPDOWN_ADDITIONAL, "disabled", allow_duplicate=True),
+        Output(ids.QC_DROPDOWN_ADDITIONAL_DISABLED_2, "data"),
         Input(ids.QC_RUN_TRAVAL_BUTTON, "n_clicks"),
         State(ids.QC_DROPDOWN_SELECTION, "value"),
         State(ids.QC_DATEPICKER_TMIN, "date"),
@@ -416,3 +408,17 @@ def register_qc_callbacks(app, data):
         else:
             # data.traval.traval_result = None
             return no_update
+
+    @app.callback(
+        Output(ids.QC_DROPDOWN_ADDITIONAL, "disabled"),
+        Input(ids.QC_DROPDOWN_ADDITIONAL_DISABLED_1, "data"),
+        Input(ids.QC_DROPDOWN_ADDITIONAL_DISABLED_2, "data"),
+    )
+    def toggle_qc_dropdown_additional(*disabled):
+        if any(disabled):
+            for i in range(len(ctx.inputs_list)):
+                if ctx.inputs_list[i]["id"] == ctx.triggered_id:
+                    break
+            return disabled[i]
+        else:
+            raise PreventUpdate
