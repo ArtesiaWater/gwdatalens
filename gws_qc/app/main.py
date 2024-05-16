@@ -26,7 +26,7 @@ def run(app, debug=False, port=8050):
 run_dashboard = run
 
 # set to True to run app in debug mode
-DEBUG = False
+DEBUG = True
 
 # %% Run app
 
