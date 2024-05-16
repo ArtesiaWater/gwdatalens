@@ -4,7 +4,7 @@ import os
 import i18n
 import pandas as pd
 import pastas as ps
-from dash import Input, Output, State, no_update
+from dash import Input, Output, State, ctx, no_update
 from dash.exceptions import PreventUpdate
 from pastas.extensions import register_plotly
 from pastas.io.pas import PastasEncoder
@@ -22,10 +22,10 @@ register_plotly()
 
 def register_model_callbacks(app, data):
     @app.callback(
-        Output(ids.MODEL_RESULTS_CHART, "figure", allow_duplicate=True),
-        Output(ids.MODEL_DIAGNOSTICS_CHART, "figure", allow_duplicate=True),
+        Output(ids.MODEL_RESULTS_CHART_1, "data"),
+        Output(ids.MODEL_DIAGNOSTICS_CHART_1, "data"),
         Output(ids.PASTAS_MODEL_STORE, "data"),
-        Output(ids.MODEL_SAVE_BUTTON, "disabled", allow_duplicate=True),
+        Output(ids.MODEL_SAVE_BUTTON_1, "data"),
         Output(ids.ALERT_GENERATE_MODEL, "data"),
         Input(ids.MODEL_GENERATE_BUTTON, "n_clicks"),
         State(ids.MODEL_DROPDOWN_SELECTION, "value"),
@@ -124,9 +124,9 @@ def register_model_callbacks(app, data):
             raise PreventUpdate
 
     @app.callback(
-        Output(ids.MODEL_RESULTS_CHART, "figure", allow_duplicate=True),
-        Output(ids.MODEL_DIAGNOSTICS_CHART, "figure", allow_duplicate=True),
-        Output(ids.MODEL_SAVE_BUTTON, "disabled", allow_duplicate=True),
+        Output(ids.MODEL_RESULTS_CHART_2, "data"),
+        Output(ids.MODEL_DIAGNOSTICS_CHART_2, "data"),
+        Output(ids.MODEL_SAVE_BUTTON_2, "data"),
         Output(ids.ALERT_PLOT_MODEL_RESULTS, "data"),
         Output(ids.MODEL_DATEPICKER_TMIN, "date"),
         Output(ids.MODEL_DATEPICKER_TMAX, "date"),
@@ -175,3 +175,47 @@ def register_model_callbacks(app, data):
                 None,
                 None,
             )
+
+    @app.callback(
+        Output(ids.MODEL_RESULTS_CHART, "figure"),
+        Input(ids.MODEL_RESULTS_CHART_1, "data"),
+        Input(ids.MODEL_RESULTS_CHART_2, "data"),
+    )
+    def update_model_results_chart(*figs):
+        if any(figs):
+            for i in range(len(ctx.inputs_list)):
+                if ctx.inputs_list[i]["id"] == ctx.triggered_id:
+                    break
+            figure = figs[i]
+            return figure
+        else:
+            return PreventUpdate
+
+    @app.callback(
+        Output(ids.MODEL_DIAGNOSTICS_CHART, "figure"),
+        Input(ids.MODEL_DIAGNOSTICS_CHART_1, "data"),
+        Input(ids.MODEL_DIAGNOSTICS_CHART_2, "data"),
+    )
+    def update_model_diagnostics_chart(*figs):
+        if any(figs):
+            for i in range(len(ctx.inputs_list)):
+                if ctx.inputs_list[i]["id"] == ctx.triggered_id:
+                    break
+            figure = figs[i]
+            return figure
+        else:
+            return PreventUpdate
+
+    @app.callback(
+        Output(ids.MODEL_SAVE_BUTTON, "disabled"),
+        Input(ids.MODEL_SAVE_BUTTON_1, "data"),
+        Input(ids.MODEL_SAVE_BUTTON_2, "data"),
+    )
+    def toggle_model_save_button(*b):
+        if any([boolean is not None for boolean in b]):
+            for i in range(len(ctx.inputs_list)):
+                if ctx.inputs_list[i]["id"] == ctx.triggered_id:
+                    break
+            return b[i]
+        else:
+            return PreventUpdate
