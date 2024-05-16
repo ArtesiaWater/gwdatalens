@@ -20,9 +20,13 @@ def render():
 def render_datepicker_tmin(data, selected_data):
     if selected_data is not None and len(selected_data) == 1:
         name = selected_data[0]
-        tmintmax = data.pstore.get_tmin_tmax("oseries", name)
-        start_date = tmintmax.loc[name, "tmin"].to_pydatetime()
-        disabled = False
+        try:
+            tmintmax = data.pstore.get_tmin_tmax("oseries", name)
+            start_date = tmintmax.loc[name, "tmin"].to_pydatetime()
+            disabled = False
+        except Exception:
+            start_date = None
+            disabled = True
     else:
         start_date = None
         disabled = True
@@ -43,9 +47,13 @@ def render_datepicker_tmin(data, selected_data):
 def render_datepicker_tmax(data, selected_data):
     if selected_data is not None and len(selected_data) == 1:
         name = selected_data[0]
-        tmintmax = data.pstore.get_tmin_tmax("oseries", name)
-        end_date = tmintmax.loc[name, "tmax"].to_pydatetime()
-        disabled = False
+        try:
+            tmintmax = data.pstore.get_tmin_tmax("oseries", name)
+            end_date = tmintmax.loc[name, "tmax"].to_pydatetime()
+            disabled = False
+        except Exception:
+            end_date = None
+            disabled = True
     else:
         end_date = None
         disabled = True
@@ -63,6 +71,14 @@ def render_datepicker_tmax(data, selected_data):
     )
 
 
+def render_checkbox():
+    return dbc.Checkbox(
+        id=ids.MODEL_USE_ONLY_VALIDATED,
+        label=i18n.t("general.model_use_only_validated"),
+        value=False,
+    )
+
+
 def render_content(data: DataInterface, selected_data: List):
     return dbc.Container(
         [
@@ -77,6 +93,7 @@ def render_content(data: DataInterface, selected_data: List):
                     ),
                     dbc.Col([model_buttons.render_generate_button()], width="auto"),
                     dbc.Col([model_buttons.render_save_button()], width="auto"),
+                    dbc.Col([render_checkbox()], width="auto"),
                     dbc.Col(
                         [
                             html.P(
