@@ -1,7 +1,8 @@
 import i18n
 import numpy as np
 import pandas as pd
-from dash import Input, Output, Patch, State, no_update
+from dash import Input, Output, Patch, State, ctx, no_update
+from dash.exceptions import PreventUpdate
 
 try:
     from .src.components import ids
@@ -44,11 +45,12 @@ def register_overview_callbacks(app, data):
         Output(ids.SERIES_CHART, "figure"),
         Output(ids.OVERVIEW_TABLE, "data"),
         Output(ids.ALERT_TIME_SERIES_CHART, "data"),
-        Output(ids.OVERVIEW_TABLE_SELECTION, "data", allow_duplicate=True),
+        Output(ids.OVERVIEW_TABLE_SELECTION_1, "data"),
         # Output(ids.UPDATE_OVERVIEW_TABLE, "data"),
         Input(ids.OVERVIEW_MAP, "selectedData"),
         State(ids.SELECTED_OSERIES_STORE, "data"),
-        State(ids.OVERVIEW_TABLE_SELECTION, "data"),
+        State(ids.OVERVIEW_TABLE_SELECTION_1, "data"),
+        State(ids.OVERVIEW_TABLE_SELECTION_2, "data"),
         background=False,
         # NOTE: only used if background is True
         # running=[
@@ -57,7 +59,9 @@ def register_overview_callbacks(app, data):
         cancel=[Input(ids.OVERVIEW_CANCEL_BUTTON, "n_clicks")],
         prevent_initial_call=True,
     )
-    def plot_overview_time_series(selectedData, selected_oseries, table_selected):
+    def plot_overview_time_series(
+        selectedData, selected_oseries, table_selected_1, table_selected_2
+    ):
         usecols = [
             "id",
             "bro_id",
@@ -69,6 +73,17 @@ def register_overview_callbacks(app, data):
             "y",
             "metingen",
         ]
+
+        # check for newest entry whether selection was made from table
+        date = pd.Timestamp("1900-01-01 00:00:00")  # some early date
+        for value in [table_selected_1, table_selected_2]:
+            if value is None:
+                continue
+            else:
+                d, t = value
+            if pd.Timestamp(d) > date:
+                table_selected = t
+                date = pd.Timestamp(d)
 
         if selectedData is not None:
             pts = pd.DataFrame(selectedData["points"])
@@ -84,7 +99,7 @@ def register_overview_callbacks(app, data):
                     no_update,
                     no_update,
                     (True, "warning", i18n.t("general.max_selection_warning")),
-                    False,
+                    (pd.Timestamp.now().isoformat(), False),
                 )
 
             if table_selected:
@@ -101,14 +116,14 @@ def register_overview_callbacks(app, data):
                         chart,
                         table,
                         (False, None, None),
-                        False,
+                        (pd.Timestamp.now().isoformat(), False),
                     )
                 else:
                     return (
                         {"layout": {"title": i18n.t("general.no_data_selection")}},
                         table,
                         (True, "warning", f"No data to plot for: {names}."),
-                        False,
+                        (pd.Timestamp.now().isoformat(), False),
                     )
             except Exception as e:
                 raise e
@@ -120,7 +135,7 @@ def register_overview_callbacks(app, data):
                         "danger",  # alert color
                         f"Error! Something went wrong: {e}",  # alert message
                     ),
-                    False,
+                    (pd.Timestamp.now().isoformat(), False),
                 )
         elif selected_oseries is not None:
             chart = plot_obs(selected_oseries, data)
@@ -129,7 +144,7 @@ def register_overview_callbacks(app, data):
                 chart,
                 table,
                 (False, None, None),
-                False,
+                (pd.Timestamp.now().isoformat(), False),
             )
         else:
             table = data.db.gmw_gdf.loc[:, usecols].reset_index().to_dict("records")
@@ -137,20 +152,20 @@ def register_overview_callbacks(app, data):
                 {"layout": {"title": i18n.t("general.no_series")}},
                 table,
                 (False, None, None),
-                False,
+                (pd.Timestamp.now().isoformat(), False),
             )
 
     @app.callback(
         Output(ids.OVERVIEW_MAP, "selectedData"),
         Output(ids.OVERVIEW_MAP, "figure"),
-        Output(ids.OVERVIEW_TABLE_SELECTION, "data", allow_duplicate=True),
+        Output(ids.OVERVIEW_TABLE_SELECTION_2, "data"),
         Input(ids.OVERVIEW_TABLE, "selected_cells"),
         State(ids.OVERVIEW_TABLE, "derived_virtual_data"),
         prevent_initial_call=True,
     )
     def highlight_point_on_map_from_table(selected_cells, table):
         if selected_cells is None:
-            return no_update, no_update, False
+            return no_update, no_update, (pd.Timestamp.now().isoformat(), False)
 
         rows = np.unique([cell["row"] for cell in selected_cells]).tolist()
         df = pd.DataFrame.from_dict(table, orient="columns")
@@ -182,5 +197,5 @@ def register_overview_callbacks(app, data):
                 ]
             },
             mappatch,
-            True,
+            (pd.Timestamp.now().isoformat(), True),
         )
