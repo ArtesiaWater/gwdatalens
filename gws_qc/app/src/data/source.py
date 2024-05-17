@@ -464,7 +464,7 @@ class DataSource:
             df.loc[mask, "field_value_unit"] = "m"
 
         # convert all other measurements to NaN
-        mask = df["field_value_unit"] != "m"
+        mask = ~(df["field_value_unit"].isna() | (df["field_value_unit"] == "m"))
         if mask.any():
             df.loc[mask, self.value_column] = np.nan
         # msg = "Other units than m or cm not supported yet"
