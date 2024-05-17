@@ -428,7 +428,9 @@ class DataSource:
         distsorted = gdf.join(dist, how="right").sort_values("distance", ascending=True)
         return distsorted
 
-    def get_timeseries(self, gmw_id: str, tube_id: int) -> pd.Series:
+    def get_timeseries(
+        self, gmw_id: str, tube_id: int, observation_type="reguliereMeting"
+    ) -> pd.Series:
         """Return a Pandas Series for the measurements at the requested bro-id and
         tube-id, im m. Return None when there are no measurements."""
         stmt = (
@@ -448,7 +450,7 @@ class DataSource:
             .filter(
                 datamodel.GroundwaterLevelDossier.gmw_bro_id.in_([gmw_id]),
                 datamodel.TubeStatic.tube_number.in_([tube_id]),
-                datamodel.ObservationMetadata.observation_type == "reguliereMeting",
+                datamodel.ObservationMetadata.observation_type == observation_type,
             )
             .order_by(datamodel.MeasurementTvp.measurement_time)
         )
