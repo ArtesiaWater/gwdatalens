@@ -1,8 +1,8 @@
 import i18n
 import numpy as np
 import pandas as pd
-from dash import Input, Output, Patch, State, ctx, no_update
-from dash.exceptions import PreventUpdate
+import tomli
+from dash import Input, Output, Patch, State, no_update
 
 try:
     from .src.components import ids
@@ -10,6 +10,12 @@ try:
 except ImportError:
     from src.components import ids
     from src.components.overview_chart import plot_obs
+
+
+# %% load settings
+with open("config.toml", "rb") as f:
+    config = tomli.load(f)
+    settings = config["settings"]
 
 
 def register_overview_callbacks(app, data):
@@ -56,7 +62,7 @@ def register_overview_callbacks(app, data):
         # running=[
         #     (Output(ids.OVERVIEW_CANCEL_BUTTON, "disabled"), False, True),
         # ],
-        cancel=[Input(ids.OVERVIEW_CANCEL_BUTTON, "n_clicks")],
+        # cancel=[Input(ids.OVERVIEW_CANCEL_BUTTON, "n_clicks")],
         prevent_initial_call=True,
     )
     def plot_overview_time_series(
@@ -94,11 +100,16 @@ def register_overview_callbacks(app, data):
             else:
                 names = None
 
-            if len(names) > 10:
+            if len(names) > settings["SERIES_LOAD_LIMIT"]:
                 return (
                     no_update,
                     no_update,
-                    (True, "warning", i18n.t("general.max_selection_warning")),
+                    (
+                        True,
+                        "warning",
+                        i18n.t("general.max_selection_warning")
+                        % settings["SERIES_LOAD_LIMIT"],
+                    ),
                     (pd.Timestamp.now().isoformat(), False),
                 )
 
@@ -126,7 +137,7 @@ def register_overview_callbacks(app, data):
                         (pd.Timestamp.now().isoformat(), False),
                     )
             except Exception as e:
-                raise e
+                # raise e
                 return (
                     {"layout": {"title": i18n.t("general.no_series")}},
                     data.db.gmw_gdf.loc[:, usecols].reset_index().to_dict("records"),

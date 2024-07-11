@@ -40,16 +40,19 @@ def register_general_callbacks(app, data):
         Output(ids.TAB_CONTENT, "children"),
         Input(ids.TAB_CONTAINER, "value"),
         State(ids.SELECTED_OSERIES_STORE, "data"),
+        State(ids.TRAVAL_RESULT_FIGURE_STORE, "data"),
     )
-    def render_tab_content(tab, selected_data):
+    def render_tab_content(tab, selected_data, figure):
         if tab == ids.TAB_OVERVIEW:
             return tab_overview.render_content(data, selected_data)
-        elif tab == ids.TAB_QC:
-            return tab_qc.render_content(data, selected_data)
         elif tab == ids.TAB_MODEL:
             return tab_model.render_content(data, selected_data)
+        elif tab == ids.TAB_QC:
+            return tab_qc.render_content(data, selected_data)
         elif tab == ids.TAB_QC_RESULT:
-            return tab_qc_result.render_content(data)
+            return tab_qc_result.render_content(
+                data, figure[1] if figure is not None else None
+            )
         else:
             raise PreventUpdate
 
@@ -62,11 +65,22 @@ def register_general_callbacks(app, data):
         Input(ids.ALERT_PLOT_MODEL_RESULTS, "data"),
         Input(ids.ALERT_LOAD_RULESET, "data"),
         Input(ids.ALERT_EXPORT_TO_DB, "data"),
+        Input(ids.ALERT_MARK_OBS, "data"),
+        Input(ids.ALERT_LABEL_OBS, "data"),
+        prevent_initial_call=True,
     )
-    def show_alert(*args):
+    def show_alert(*args, **kwargs):
+        if len(kwargs) > 0:
+            ctx_ = kwargs["callback_context"]
+            triggered_id = ctx_.triggered[0]["prop_id"].split(".")[0]
+            inputs_list = ctx_.inputs_list
+        else:
+            triggered_id = ctx.triggered_id
+            inputs_list = ctx.inputs_list
+
         if any(args):
-            for i in range(len(ctx.inputs_list)):
-                if ctx.inputs_list[i]["id"] == ctx.triggered_id:
+            for i in range(len(inputs_list)):
+                if inputs_list[i]["id"] == triggered_id:
                     break
             alert_data = args[i]
             is_open, color, message = alert_data

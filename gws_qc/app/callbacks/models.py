@@ -180,11 +180,19 @@ def register_model_callbacks(app, data):
         Output(ids.MODEL_RESULTS_CHART, "figure"),
         Input(ids.MODEL_RESULTS_CHART_1, "data"),
         Input(ids.MODEL_RESULTS_CHART_2, "data"),
+        prevent_initial_call=True,
     )
-    def update_model_results_chart(*figs):
+    def update_model_results_chart(*figs, **kwargs):
+        if len(kwargs) > 0:
+            ctx_ = kwargs["callback_context"]
+            triggered_id = ctx_.triggered[0]["prop_id"].split(".")[0]
+            inputs_list = ctx_.inputs_list
+        else:
+            triggered_id = ctx.triggered_id
+            inputs_list = ctx.inputs_list
         if any(figs):
-            for i in range(len(ctx.inputs_list)):
-                if ctx.inputs_list[i]["id"] == ctx.triggered_id:
+            for i in range(len(inputs_list)):
+                if inputs_list[i]["id"] == triggered_id:
                     break
             figure = figs[i]
             return figure
@@ -195,11 +203,20 @@ def register_model_callbacks(app, data):
         Output(ids.MODEL_DIAGNOSTICS_CHART, "figure"),
         Input(ids.MODEL_DIAGNOSTICS_CHART_1, "data"),
         Input(ids.MODEL_DIAGNOSTICS_CHART_2, "data"),
+        prevent_initial_call=True,
     )
-    def update_model_diagnostics_chart(*figs):
+    def update_model_diagnostics_chart(*figs, **kwargs):
+        if len(kwargs) > 0:
+            ctx_ = kwargs["callback_context"]
+            triggered_id = ctx_.triggered[0]["prop_id"].split(".")[0]
+            inputs_list = ctx_.inputs_list
+        else:
+            triggered_id = ctx.triggered_id
+            inputs_list = ctx.inputs_list
+
         if any(figs):
-            for i in range(len(ctx.inputs_list)):
-                if ctx.inputs_list[i]["id"] == ctx.triggered_id:
+            for i in range(len(inputs_list)):
+                if inputs_list[i]["id"] == triggered_id:
                     break
             figure = figs[i]
             return figure
@@ -210,11 +227,20 @@ def register_model_callbacks(app, data):
         Output(ids.MODEL_SAVE_BUTTON, "disabled"),
         Input(ids.MODEL_SAVE_BUTTON_1, "data"),
         Input(ids.MODEL_SAVE_BUTTON_2, "data"),
+        prevent_initial_call=True,
     )
-    def toggle_model_save_button(*b):
+    def toggle_model_save_button(*b, **kwargs):
+        if len(kwargs) > 0:
+            ctx_ = kwargs["callback_context"]
+            triggered_id = ctx_.triggered[0]["prop_id"].split(".")[0]
+            inputs_list = ctx_.inputs_list
+        else:
+            triggered_id = ctx.triggered_id
+            inputs_list = ctx.inputs_list
+
         if any([boolean is not None for boolean in b]):
-            for i in range(len(ctx.inputs_list)):
-                if ctx.inputs_list[i]["id"] == ctx.triggered_id:
+            for i in range(len(inputs_list)):
+                if inputs_list[i]["id"] == triggered_id:
                     break
             return b[i]
         else:
