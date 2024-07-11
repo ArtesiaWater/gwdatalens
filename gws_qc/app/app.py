@@ -4,6 +4,7 @@ import os
 import dash_bootstrap_components as dbc
 import i18n
 import pastastore as pst
+import tomli
 from callbacks import register_callbacks
 from dash import CeleryManager, Dash, DiskcacheManager
 
@@ -25,24 +26,31 @@ external_stylesheets = [
     "https://use.fontawesome.com/releases/v6.5.1/css/all.css",
 ]
 
+# %% load settings
+with open("config.toml", "rb") as f:
+    config = tomli.load(f)
+    settings = config["settings"]
+
 # %% main app
 
 # %% set the locale and load the translations
-LOCALE = "en"
-
-i18n.set("locale", LOCALE)
-i18n.load_path.append("locale")
+i18n.set("locale", settings["LOCALE"])
+i18n.load_path.append(os.path.join(os.path.dirname(__file__), "locale"))
 
 # %% Set up backend
 
-# connect to the database
+# connect to database
 db = DataSource()
 # data = DataSourceHydropandas(fname="obs_collection_dino.pickle")
 
 # load pastastore
 # name = "zeeland"
-name = "zeeland_bro"
-conn = pst.ArcticDBConnector(name=name, uri="lmdb://../../traval_scripts/pastasdb/")
+name = config["pastastore"]["name"]
+pastastore_path = os.path.join(
+    os.path.dirname(__file__),
+    config["pastastore"]["path"],
+)
+conn = pst.ArcticDBConnector(name=name, uri=f"lmdb://{pastastore_path}")
 pstore = pst.PastaStore(conn)
 print(pstore)
 
@@ -52,46 +60,74 @@ traval_interface = TravalInterface(db, pstore)
 # add all components to our data interface object
 data = DataInterface(db=db, pstore=pstore, traval=traval_interface)
 
-# %%
+# %% background callbacks (for cancelling workflows)
+# NOTE: still some difficulty remaining with database engine with multiple processes,
+# causing performance issues.
 
-if "REDIS_URL" in os.environ:
-    # Use Redis & Celery if REDIS_URL set as an env variable
-    from celery import Celery
+if settings["BACKGROUND_CALLBACKS"]:
+    if "REDIS_URL" in os.environ:
+        # Use Redis & Celery if REDIS_URL set as an env variable
+        from celery import Celery
 
-    celery_app = Celery(
-        __name__,
-        broker=os.environ["REDIS_URL"],
-        backend=os.environ["REDIS_URL"],
-    )
-    background_callback_manager = CeleryManager(celery_app)
+        celery_app = Celery(
+            __name__,
+            broker=os.environ["REDIS_URL"],
+            backend=os.environ["REDIS_URL"],
+        )
+        background_callback_manager = CeleryManager(celery_app)
 
+    else:
+        # Diskcache for non-production apps when developing locally
+        import diskcache
+
+        callback_cache = diskcache.Cache("./.cache")
+        background_callback_manager = DiskcacheManager(callback_cache)
 else:
-    # Diskcache for non-production apps when developing locally
-    import diskcache
-
-    callback_cache = diskcache.Cache("./.cache")
-    background_callback_manager = DiskcacheManager(callback_cache)
+    background_callback_manager = None
 
 # %% build app
 
-# create app
-app = Dash(
-    __name__,
-    external_stylesheets=external_stylesheets,
-    suppress_callback_exceptions=True,
-    background_callback_manager=background_callback_manager,
-)
-app.title = i18n.t("general.app_title")
-app.layout = create_layout(app, data)
 
-# register callbacks
-register_callbacks(app, data)
+if settings["DJANGO_APP"]:
+    from django_plotly_dash import DjangoDash
 
-# initialize cache
-cache.init_app(
-    app.server,
-    config={
-        "CACHE_TYPE": "filesystem",
-        "CACHE_DIR": ".cache",
-    },
-)
+    # create app
+    app = DjangoDash(
+        i18n.t("general.app_title").replace(" ", ""),
+        external_stylesheets=external_stylesheets,
+        suppress_callback_exceptions=True,
+        add_bootstrap_links=True,
+        # background_callback_manager=background_callback_manager,
+    )
+    app.title = i18n.t("general.app_title")
+    app.layout = create_layout(app, data)
+    app.css.append_css(
+        {
+            "external_url": "/static/assets/dash/custom.css",  # TODO: partially working?
+        }
+    )
+
+    # register callbacks
+    register_callbacks(app, data)
+else:
+    # create app
+    app = Dash(
+        __name__,
+        external_stylesheets=external_stylesheets,
+        suppress_callback_exceptions=True,
+        background_callback_manager=background_callback_manager,
+    )
+    app.title = i18n.t("general.app_title")
+    app.layout = create_layout(app, data)
+
+    # register callbacks
+    register_callbacks(app, data)
+
+    # initialize cache
+    cache.init_app(
+        app.server,
+        config={
+            "CACHE_TYPE": "filesystem",
+            "CACHE_DIR": ".cache",
+        },
+    )
