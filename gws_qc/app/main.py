@@ -1,6 +1,7 @@
 from app import app
 from icecream import ic
 from waitress import serve
+import tomli
 
 try:
     from .src.cache import cache
@@ -25,13 +26,14 @@ def run(app, debug=False, port=8050):
 # define alias
 run_dashboard = run
 
-# set to True to run app in debug mode
-DEBUG = True
+with open("config.toml", "rb") as f:
+    settings = tomli.load(f)["settings"]
 
 # %% Run app
 
 if __name__ == "__main__":
-    if DEBUG:
+    if settings["DEBUG"]:
         app.run_server(debug=True)
     else:
+        # app.run_server(debug=False)
         run(app)
