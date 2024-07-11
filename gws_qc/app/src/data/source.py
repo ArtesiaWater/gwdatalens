@@ -369,7 +369,7 @@ class DataSource:
         gdf["screen_bot"] = gdf["screen_top"] - gdf["screen_length"]
 
         gdf["name"] = gdf.loc[:, ["bro_id", "tube_number"]].apply(
-            lambda p: f"{p[0]}-{p[1]:03g}", axis=1
+            lambda p: f"{p.iloc[0]}-{p.iloc[1]:03g}", axis=1
         )
 
         # set bro_id and tube_number as index
@@ -503,7 +503,12 @@ class DataSource:
 
     def save_qualifier(self, df):
         param_columns = ["measurement_point_metadata_id", "status_quality_control"]
+        
+        # TODO: measurementtvp: corrected_value, correction_time, correction_reason
+        # TODO: measurementpointmetadata: censor_reason, censor_reason_artesia, value_limit
+
         params = df[param_columns].to_dict("records")
+        ic(df)
         with Session(self.engine) as session:
             session.execute(update(datamodel.MeasurementPointMetadata), params)
             session.commit()
