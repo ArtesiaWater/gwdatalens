@@ -42,7 +42,7 @@ def render_additional_series_dropdown(data: DataInterface, selected_data):
             for i, row in locs.iterrows()
         ]
     else:
-        options = None
+        options = []
     return html.Div(
         children=[
             dcc.Dropdown(
