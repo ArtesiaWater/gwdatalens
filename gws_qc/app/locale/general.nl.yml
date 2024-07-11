@@ -1,11 +1,11 @@
 ---
 nl:
   cancel: "Annuleren"
-  app_title: DataLens
+  app_title: GW DataLens
   tab_overview: Overzicht
   tab_model: Tijdreeksmodel
-  tab_qc: QC
-  tab_qc_result: QC Resultaat
+  tab_qc: Foutdetectie
+  tab_qc_result: Handmatige Beoordeling
   no_data: Geen data
   no_data_selection: Geen data in geselecteerde tijdreeks.
   no_selection: Geen tijdreeks geselecteerd.
@@ -51,3 +51,6 @@ nl:
   reset_status: "Meting(en) onbekend"
   max_selection_warning: "Teveel meetpunten geselecteerd! Maximale aantal is 10!"
   model_use_only_validated: "Gebruik alleen gevalideerde metingen"
+  select_qc_label: QC label toepassen
+  clear_qc_label: Wis QC label
+  select_all: Selecteer alles in tabel
