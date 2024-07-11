@@ -351,8 +351,9 @@ class DataSource:
                 datamodel.Well.coordinates,
                 datamodel.Well.reference_system,
             )
-            .join(datamodel.TubeStatic.groundwater_monitoring_well)
+            .join(datamodel.TubeStatic)
             .join(datamodel.TubeDynamic)
+            .select_from(datamodel.Well)
         )
         # tubes = pd.read_sql(stmt, con=engine)
         with self.engine.connect() as con:
@@ -402,16 +403,25 @@ class DataSource:
         """Return a list of locations that contain groundwater level dossiers, where
         each location is defines by a tuple of length 2: bro-id and tube_id"""
         # get all grundwater level dossiers
-        with self.engine.connect() as con:
-            df = pd.read_sql(
-                select(
-                    datamodel.GroundwaterLevelDossier,
-                    datamodel.TubeStatic,
-                ).join(datamodel.TubeStatic),
-                con=con,
+        stmt = (
+            select(
+                datamodel.Well.bro_id,
+                datamodel.TubeStatic.tube_number,
+                func.count(
+                    datamodel.GroundwaterLevelDossier.groundwater_level_dossier_id
+                ).label("Number of glds"),
             )
-        # get unique combinations of gmw id and tube id
-        loc_df = df[["gmw_bro_id", "tube_number"]].drop_duplicates()
+            .join(datamodel.TubeStatic)
+            .join(datamodel.Well)
+            .group_by(
+                datamodel.Well.bro_id,
+                datamodel.TubeStatic.tube_number,
+            )
+            .select_from(datamodel.GroundwaterLevelDossier)
+        )
+        with self.engine.connect() as con:
+            count = pd.read_sql(stmt, con=con)
+        loc_df = count.loc[count["Number of glds"] > 0][["bro_id", "tube_number"]]
         locations = [
             f"{t[0]}-{t[1]:03g}" for t in loc_df.itertuples(index=False, name=None)
         ]
@@ -428,7 +438,9 @@ class DataSource:
         distsorted = gdf.join(dist, how="right").sort_values("distance", ascending=True)
         return distsorted
 
-    def get_timeseries(self, gmw_id: str, tube_id: int) -> pd.Series:
+    def get_timeseries(
+        self, gmw_id: str, tube_id: int, observation_type="reguliereMeting"
+    ) -> pd.Series:
         """Return a Pandas Series for the measurements at the requested bro-id and
         tube-id, im m. Return None when there are no measurements."""
         stmt = (
@@ -445,10 +457,11 @@ class DataSource:
             .join(datamodel.ObservationMetadata)
             .join(datamodel.GroundwaterLevelDossier)
             .join(datamodel.TubeStatic)
+            .join(datamodel.Well)
             .filter(
-                datamodel.GroundwaterLevelDossier.gmw_bro_id.in_([gmw_id]),
+                datamodel.Well.bro_id.in_([gmw_id]),
                 datamodel.TubeStatic.tube_number.in_([tube_id]),
-                datamodel.ObservationMetadata.observation_type == "reguliereMeting",
+                datamodel.ObservationMetadata.observation_type == observation_type,
             )
             .order_by(datamodel.MeasurementTvp.measurement_time)
         )
@@ -462,7 +475,7 @@ class DataSource:
             df.loc[mask, "field_value_unit"] = "m"
 
         # convert all other measurements to NaN
-        mask = df["field_value_unit"] != "m"
+        mask = ~(df["field_value_unit"].isna() | (df["field_value_unit"] == "m"))
         if mask.any():
             df.loc[mask, self.value_column] = np.nan
         # msg = "Other units than m or cm not supported yet"
@@ -481,8 +494,8 @@ class DataSource:
     def count_measurements_per_filter(self):
         stmt = (
             select(
-                datamodel.GroundwaterLevelDossier.gmw_bro_id,
-                datamodel.GroundwaterLevelDossier.tube_number,
+                datamodel.Well.bro_id,
+                datamodel.TubeStatic.tube_number,
                 func.count(datamodel.MeasurementTvp.measurement_tvp_id).label(
                     "Metingen"
                 ),
@@ -491,9 +504,11 @@ class DataSource:
             .join(datamodel.Observation)
             .join(datamodel.ObservationMetadata)
             .join(datamodel.GroundwaterLevelDossier)
+            .join(datamodel.TubeStatic)
+            .join(datamodel.Well)
             .group_by(
-                datamodel.GroundwaterLevelDossier.gmw_bro_id,
-                datamodel.GroundwaterLevelDossier.tube_number,
+                datamodel.Well.bro_id,
+                datamodel.TubeStatic.tube_number,
             )
             .filter(datamodel.ObservationMetadata.observation_type == "reguliereMeting")
         )
@@ -503,7 +518,7 @@ class DataSource:
 
     def save_qualifier(self, df):
         param_columns = ["measurement_point_metadata_id", "status_quality_control"]
-        
+
         # TODO: measurementtvp: corrected_value, correction_time, correction_reason
         # TODO: measurementpointmetadata: censor_reason, censor_reason_artesia, value_limit
 
