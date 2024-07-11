@@ -20,6 +20,12 @@ def render(data):
         df = data.traval.traval_result.copy()
         df_records = df.reset_index(names="datetime").to_dict("records")
 
+    options = [
+        {"label": v + f" ({k})", "value": v + f"({k})"}
+        for k, v in qc_categories.items()
+    ]
+    # options = [{"label": i18n.t("general.clear_qc_label"), "value": ""}] + options
+
     return html.Div(
         id="qc-table-div",
         children=[
@@ -50,27 +56,21 @@ def render(data):
                         "id": "reliable",
                         "name": i18n.t("general.reliable"),
                         "type": "numeric",
-                        "editable": True,
+                        "editable": False,
                         # "on_change": {"action": "validate", "failure": "accept"},
                         # "validation": {"default": 1},
                     },
                     {
                         "id": "category",
                         "name": i18n.t("general.qc_label"),
-                        "editable": True,
+                        "editable": False,
+                        "type": "text",
                         "presentation": "dropdown",
                     },
                 ],
-                editable=True,
+                editable=False,
                 fixed_rows={"headers": True},
-                dropdown={
-                    "category": {
-                        "options": [
-                            {"label": v + f" ({k})", "value": v + f"({k})"}
-                            for k, v in qc_categories.items()
-                        ]
-                    },
-                },
+                dropdown={"category": {"options": options}},
                 page_action="none",
                 filter_action="native",
                 filter_query='{comment} != ""',
@@ -119,9 +119,9 @@ def render(data):
                         # "use_with": "both",
                         "type": "markdown",
                         "value": (
-                            f"1 = {i18n.t('general.reliable')}\n"
-                            f"0 = {i18n.t('general.unreliable')}"
-                            f"-1 = {i18n.t('general.unknown')}"
+                            f"{i18n.t('general.reliable')} = 1 \n"
+                            f"{i18n.t('general.unreliable')} = 0 \n"
+                            f"{i18n.t('general.unknown')} = -1"
                         ),
                     },
                     "category": {
