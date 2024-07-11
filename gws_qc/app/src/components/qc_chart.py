@@ -14,6 +14,7 @@ def render():
                 type="dot",
                 style={"position": "absolute", "align-self": "center"},
                 parent_className="loading-wrapper",
+                # delay_show=100,
                 children=[
                     dcc.Graph(
                         id=ids.QC_CHART,

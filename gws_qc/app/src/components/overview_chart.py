@@ -14,6 +14,7 @@ def render(data, selected_data):
                 type="dot",
                 style={"position": "absolute", "align-self": "center"},
                 parent_className="loading-wrapper",
+                delay_show=500,
                 children=[
                     dcc.Graph(
                         figure=plot_obs(selected_data, data),
@@ -65,7 +66,6 @@ def plot_obs(names, data):
         df.loc[:, data.db.qualifier_column] = df.loc[
             :, data.db.qualifier_column
         ].fillna("")
-
         if len(names) == 1:
             title = None
             ts = df[data.db.value_column]
