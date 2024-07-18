@@ -1,7 +1,9 @@
 The GW DataLens dashboard can be used to validate groundwater measurements.
+
 ---
 
 The validation process consists of the following steps:
+
    1. The tool loads groundwater observations from a database. ([Overview](#overview-tab))
    2. A set of error-detection rules is run to identify potentially suspect measurements. ([Error Detection](#error-detection-tab))
    3. The time series is manually reviewed (accepting or rejecting) suggestions made by the  error detection algorithm. ([Manual Review](#error-detection-tab))
@@ -10,12 +12,14 @@ Optionally, time series models can be inspected or created using the [Time Serie
 
 ### Overview tab
 
-The overview tab consists of three elements: 
+The overview tab consists of three elements:
+
    * Map view showing measurement locations (top left)
    * Table showing measurement location metadata (top right)
    * Chart showing time series (bottom)
 
 There are two ways of plotting head time series:
+
    * Select one or multiple (up to 10) measurement locations on the map using your 
      mouse or the rectangle selection tool 
    * Click on a row in the table
@@ -35,8 +39,9 @@ comprise the error detection algorithm are shown in the expandable section at th
 bottom. The error detection rules that are applied can be modified or adjusted. 
 
 Steps:
+
    1. Use the first dropdown to select or search for any time series in the database.
-   2. Optionally use the second dropdown to plot additional time series for comparison purposes.
+   2. Optionally modify the rules or parameters used for error detection under the `Show Parameters` button.
    3. Press the "Run TRAVAL" button.
    4. The chart will update showing the original time series and the measurements that were deemed suspect by the error detection algorithm. If available a pastas model simulation and prediction interval are also shown in the chart.
 
@@ -48,6 +53,7 @@ commit your manual review to the database, or download the results as a CSV file
 
 
 ### References
+
    - Documentation for [traval](https://traval.readthedocs.io/en/latest/).
    - Documentation for [pastas](https://pastas.dev/).
    - Documentation for [pastastore](https://pastastore.readthedocs.io/en/latest/).
