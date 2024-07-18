@@ -161,3 +161,4 @@ db/
 data/20231109_dinoloket.zip
 *.pkl
 *.pas
+.vscode/
