@@ -1,4 +1,4 @@
-name: gws_qc
+name: datalens
 channels:
   - conda-forge
 dependencies:
