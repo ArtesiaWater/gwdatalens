@@ -1,10 +1,12 @@
 from dash import dcc, html
+from datalens.app.settings import settings
 
-from ..cache import cache, TIMEOUT
+from ..cache import TIMEOUT, cache
 from . import ids
+from .utils import conditional_cache
 
 
-@cache.memoize(timeout=TIMEOUT)
+@conditional_cache(cache.memoize, not settings["DJANGO_APP"], timeout=TIMEOUT)
 def render():
     return html.Div(
         id="series-chart-div",
