@@ -10,7 +10,7 @@ from pastas.extensions import register_plotly
 from pastas.io.pas import PastasEncoder
 
 try:
-    from .src.components import ids
+    from datalens.app.src.components import ids
 except ImportError:
     from src.components import ids
 

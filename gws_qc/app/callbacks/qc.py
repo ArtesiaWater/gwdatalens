@@ -12,29 +12,33 @@ from dash import (
     MATCH,
     Input,
     Output,
-    Patch,
     State,
     ctx,
     dcc,
     html,
     no_update,
-    set_props,
 )
+from dash import __version__ as DASH_VERSION
 from dash.exceptions import PreventUpdate
-from icecream import ic
-from src.components.qc_rules_form import (
-    derive_form_parameters,
-    generate_kwargs_from_func,
-    generate_traval_rule_components,
-)
+from packaging.version import parse as parse_version
 from traval import rulelib
 
 try:
-    from .src.components import ids
-    from .src.components.overview_chart import plot_obs
+    from datalens.app.src.components import ids
+    from datalens.app.src.components.overview_chart import plot_obs
+    from datalens.app.src.components.qc_rules_form import (
+        derive_form_parameters,
+        generate_kwargs_from_func,
+        generate_traval_rule_components,
+    )
 except ImportError:
     from src.components import ids
     from src.components.overview_chart import plot_obs
+    from src.components.qc_rules_form import (
+        derive_form_parameters,
+        generate_kwargs_from_func,
+        generate_traval_rule_components,
+    )
 
 
 # %% TRAVAL TAB

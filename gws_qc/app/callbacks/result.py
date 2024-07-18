@@ -6,14 +6,9 @@ from dash.exceptions import PreventUpdate
 from icecream import ic
 
 try:
-    from ..src.cache import cache
-    from ..src.components import ids
-    from ..src.components.overview_chart import plot_obs
-
+    from datalens.app.src.components import ids
 except ImportError:
-    from src.cache import cache
     from src.components import ids
-    from src.components.overview_chart import plot_obs
 
 
 def register_result_callbacks(app, data):
