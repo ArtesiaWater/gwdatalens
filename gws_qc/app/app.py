@@ -4,18 +4,24 @@ import os
 import dash_bootstrap_components as dbc
 import i18n
 import pastastore as pst
-import tomli
-from callbacks import register_callbacks
 from dash import CeleryManager, Dash, DiskcacheManager
 
 try:
-    from .src.cache import cache
-    from .src.components.layout import create_layout
-    from .src.data.source import DataInterface
+    # DJANGO APP imports
+    from datalens.app.callbacks import register_callbacks
+    from datalens.app.settings import LOCALE_PATH, config, settings
+
+    # from datalens.app.src.cache import cache
+    from datalens.app.src.components.layout import create_layout
+    from datalens.app.src.data.source import DataInterface, DataSource, TravalInterface
 except ImportError:  # if running app.py directly
-    from src.cache import cache
-    from src.components.layout import create_layout
-    from src.data.source import DataInterface, DataSource, TravalInterface
+    # Stand-alone imports
+    from app.callbacks import register_callbacks
+    from app.settings import LOCALE_PATH, config, settings
+
+    from app.src.cache import cache
+    from app.src.components.layout import create_layout
+    from app.src.data.source import DataInterface, DataSource, TravalInterface
 
 logger = logging.getLogger("waitress")
 logger.setLevel(logging.ERROR)
@@ -26,16 +32,11 @@ external_stylesheets = [
     "https://use.fontawesome.com/releases/v6.5.1/css/all.css",
 ]
 
-# %% load settings
-with open("config.toml", "rb") as f:
-    config = tomli.load(f)
-    settings = config["settings"]
-
 # %% main app
 
 # %% set the locale and load the translations
 i18n.set("locale", settings["LOCALE"])
-i18n.load_path.append(os.path.join(os.path.dirname(__file__), "locale"))
+i18n.load_path.append(LOCALE_PATH)
 
 # %% Set up backend
 
@@ -93,7 +94,7 @@ if settings["DJANGO_APP"]:
 
     # create app
     app = DjangoDash(
-        i18n.t("general.app_title").replace(" ", ""),
+        "datalens",
         external_stylesheets=external_stylesheets,
         suppress_callback_exceptions=True,
         add_bootstrap_links=True,
@@ -112,7 +113,7 @@ if settings["DJANGO_APP"]:
 else:
     # create app
     app = Dash(
-        __name__,
+        "datalens",
         external_stylesheets=external_stylesheets,
         suppress_callback_exceptions=True,
         background_callback_manager=background_callback_manager,
