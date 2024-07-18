@@ -183,10 +183,25 @@ def register_result_callbacks(app, data):
         Input(ids.QC_RESULT_TABLE, "selected_cells"),
         Input(ids.QC_RESULT_CHART, "selectedData"),
         Input(ids.QC_RESULT_CLEAR_TABLE_SELECTION, "n_clicks"),
+        Input(ids.QC_RESULT_TABLE_SELECT_ALL, "n_clicks"),
+        State(ids.QC_RESULT_TABLE, "derived_virtual_data"),
         prevent_initial_call=True,
     )
-    def synchronize_selected_observations(table_selection, chart_selection, n_clicks):
-        if n_clicks and ctx.triggered_id == ids.QC_RESULT_CLEAR_TABLE_SELECTION:
+    def synchronize_selected_observations(
+        table_selection,
+        chart_selection,
+        click_clear,
+        click_select,
+        current_table,
+        **kwargs,
+    ):
+        if len(kwargs) > 0:
+            ctx_ = kwargs["callback_context"]
+            triggered_id = ctx_.triggered[0]["prop_id"].split(".")[0]
+        else:
+            triggered_id = ctx.triggered_id
+
+        if click_clear and triggered_id == ids.QC_RESULT_CLEAR_TABLE_SELECTION:
             update_figure = Patch()
             # TODO: if no pastas model, the original series is trace 0
             update_figure["data"][2]["selectedpoints"] = []
@@ -197,7 +212,7 @@ def register_result_callbacks(app, data):
             ).to_dict("records")
             update_table_selection = []
             disable_deselect = True
-            disable_select = True
+            disable_select = False
             disable_mark_buttons = True
             disable_qc_label_dropdown = True
             return (
@@ -211,6 +226,47 @@ def register_result_callbacks(app, data):
                 [disable_mark_buttons] * 3,
                 disable_qc_label_dropdown,
             )
+        if click_select and triggered_id == ids.QC_RESULT_TABLE_SELECT_ALL:
+            selection = [row["id"] for row in current_table]
+            series = data.traval.traval_result
+            update_figure_selection = {
+                "points": [
+                    {
+                        # TODO: if no pastas model, the original series is trace 0
+                        "curveNumber": 2,
+                        "pointNumber": series["id"].iloc[i],
+                        "pointIndex": series["id"].iloc[i],
+                        "x": series.index[i],
+                        "y": series["values"].iloc[i],
+                    }
+                    for i in selection
+                ]
+            }
+            update_figure = Patch()
+            # TODO: if no pastas model, the original series is trace 0
+            update_figure["data"][2]["selectedpoints"] = []
+            update_table = no_update
+            new_table_selection = [
+                {"column": 0, "column_id": "datetime", "row": i, "row_id": rowid}
+                for i, rowid in enumerate(selection)
+            ]
+            update_table_selection = new_table_selection
+            disable_deselect = False
+            disable_select = True
+            disable_mark_buttons = False
+            disable_qc_label_dropdown = False
+            return (
+                update_figure,
+                update_figure_selection,
+                update_table,
+                update_table_selection,
+                None,
+                disable_deselect,
+                disable_select,
+                [disable_mark_buttons] * 3,
+                disable_qc_label_dropdown,
+            )
+
         # determine trigger and selection
         if table_selection is None and chart_selection is None:
             trigger = None
@@ -218,7 +274,7 @@ def register_result_callbacks(app, data):
             disable_qc_label_dropdown = True
 
         # if table get selection from table
-        if ctx.triggered_id == ids.QC_RESULT_TABLE:
+        if triggered_id == ids.QC_RESULT_TABLE:
             # if current_selection_state["trigger"] == ids.QC_RESULT_CHART:
             #     raise PreventUpdate
             trigger = ids.QC_RESULT_TABLE
@@ -228,7 +284,7 @@ def register_result_callbacks(app, data):
                 selection = [c["row_id"] for c in table_selection]
 
         # if chart get selected pts from chart
-        elif ctx.triggered_id == ids.QC_RESULT_CHART:
+        elif triggered_id == ids.QC_RESULT_CHART:
             trigger = ids.QC_RESULT_CHART
             # if current_selection_state["trigger"] == ids.QC_RESULT_TABLE:
             #     raise PreventUpdate
@@ -310,6 +366,7 @@ def register_result_callbacks(app, data):
         else:
             raise PreventUpdate
 
+        disable_select = False
         disable_deselect = table_selection is None
         disable_mark_buttons = table_selection is None
         disable_qc_label_dropdown = table_selection is None
@@ -334,7 +391,14 @@ def register_result_callbacks(app, data):
         State(ids.QC_RESULT_CHART, "selectedData"),
         prevent_initial_call=True,
     )
-    def mark_obs(n, table_view, selected_points):
+    def mark_obs(n, table_view, selected_points, **kwargs):
+        if len(kwargs) > 0:
+            ctx_ = kwargs["callback_context"]
+            ic(ctx_.triggered_id)
+            raise PreventUpdate
+        else:
+            triggered_id_index = ctx.triggered_id["index"]
+
         if any(v is not None for v in n):
             if ctx.triggered_id["index"] == "reliable":
                 value = 1
@@ -384,10 +448,18 @@ def register_result_callbacks(app, data):
         Input(ids.QC_RESULT_TABLE_STORE_3, "data"),
         prevent_initial_call=True,
     )
-    def update_results_table_data(*tables):
+    def update_results_table_data(*tables, **kwargs):
+        if len(kwargs) > 0:
+            ctx_ = kwargs["callback_context"]
+            triggered_id = ctx_.triggered[0]["prop_id"].split(".")[0]
+            inputs_list = ctx_.inputs_list
+        else:
+            triggered_id = ctx.triggered_id
+            inputs_list = ctx.inputs_list
+
         if any(tables):
-            for i in range(len(ctx.inputs_list)):
-                if ctx.inputs_list[i]["id"] == ctx.triggered_id:
+            for i in range(len(inputs_list)):
+                if inputs_list[i]["id"] == triggered_id:
                     break
             return tables[i]
         else:
