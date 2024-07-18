@@ -479,12 +479,12 @@ class DataSource:
                 df.loc[mask, "field_value"] /= 100
                 df.loc[mask, "field_value_unit"] = "m"
 
-            # convert all other measurements to NaN
-            mask = ~(df["field_value_unit"].isna() | (df["field_value_unit"] == "m"))
-            if mask.any():
-                df.loc[mask, "field_value"] = np.nan
-            # msg = "Other units than m or cm not supported yet"
-            # assert (mtvp["field_value_unit"] == "m").all(), msg
+        # convert all other measurements to NaN
+        mask = ~(df["field_value_unit"].isna() | (df["field_value_unit"] == "m"))
+        if mask.any():
+            df.loc[mask, self.value_column] = np.nan
+        # msg = "Other units than m or cm not supported yet"
+        # assert (mtvp["field_value_unit"] == "m").all(), msg
 
         # make index DateTimeIndex
         if df.index.dtype == "O":
