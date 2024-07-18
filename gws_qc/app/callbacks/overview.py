@@ -1,21 +1,14 @@
 import i18n
 import numpy as np
 import pandas as pd
-import tomli
 from dash import Input, Output, Patch, State, no_update
 
 try:
-    from .src.components import ids
-    from .src.components.overview_chart import plot_obs
+    from datalens.app.src.components import ids
+    from datalens.app.src.components.overview_chart import plot_obs
 except ImportError:
     from src.components import ids
     from src.components.overview_chart import plot_obs
-
-
-# %% load settings
-with open("config.toml", "rb") as f:
-    config = tomli.load(f)
-    settings = config["settings"]
 
 
 def register_overview_callbacks(app, data):

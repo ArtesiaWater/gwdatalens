@@ -432,7 +432,11 @@ def register_qc_callbacks(app, data):
     )
     def run_traval(n_clicks, name, tmin, tmax, only_unvalidated):
         if n_clicks:
-            set_props(ids.LOADING_QC_CHART, {"display": "show"})
+            if DASH_VERSION >= parse_version("2.17.0"):
+                from dash import set_props
+
+                set_props(ids.LOADING_QC_CHART, {"display": "show"})
+
             gmw_id, tube_id = name.split("-")
             result, figure = data.traval.run_traval(
                 gmw_id, tube_id, tmin=tmin, tmax=tmax, only_unvalidated=only_unvalidated
