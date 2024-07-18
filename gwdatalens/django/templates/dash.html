@@ -1,0 +1,9 @@
+{% extends 'admin/base.html' %}
+{% load static %}
+{% block content %}
+
+{% load plotly_dash%}
+
+{%plotly_app_bootstrap name="gwdatalens" aspect="16by9" %}
+
+{% endblock %}
