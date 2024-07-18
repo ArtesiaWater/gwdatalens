@@ -1,11 +1,12 @@
 from app import app
 from icecream import ic
 from waitress import serve
-import tomli
 
 try:
-    from .src.cache import cache
+    from datalens.app.settings import settings
+    from datalens.app.src.cache import cache
 except ImportError:  # if running app.py directly
+    from settings import settings
     from src.cache import cache
 
 ic.configureOutput(includeContext=True)
@@ -25,9 +26,6 @@ def run(app, debug=False, port=8050):
 
 # define alias
 run_dashboard = run
-
-with open("config.toml", "rb") as f:
-    settings = tomli.load(f)["settings"]
 
 # %% Run app
 
