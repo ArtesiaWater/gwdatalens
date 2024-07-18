@@ -2,18 +2,21 @@ import i18n
 import numpy as np
 import plotly.graph_objs as go
 from dash import dcc
+from datalens.app.settings import MAPBOX_ACCESS_TOKEN
+from datalens.app.settings import settings
 
-from ..cache import cache, TIMEOUT
+from ..cache import TIMEOUT, cache
 from ..data.source import DataInterface
 from . import ids
+from .utils import conditional_cache
 
 try:
-    mapbox_access_token = open("./assets/.mapbox_access_token", "r").read()
+    mapbox_access_token = open(MAPBOX_ACCESS_TOKEN, "r").read()
 except FileNotFoundError:
     mapbox_access_token = None
 
 
-@cache.memoize(timeout=TIMEOUT)
+@conditional_cache(cache.memoize, not settings["DJANGO_APP"], timeout=TIMEOUT)
 def render(
     data: DataInterface,
     selected_data=None,
