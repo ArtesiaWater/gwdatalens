@@ -1,6 +1,9 @@
 import dash_bootstrap_components as dbc
 import i18n
+from dash import __version__ as DASH_VERSION
 from dash import dcc, html
+from packaging.version import parse as parse_version
+
 from ..data.qc_definitions import qc_categories
 from ..data.source import DataInterface
 from . import ids, qc_results_table
@@ -170,6 +173,13 @@ def render_qc_chart(figure: dict):
         figure = {"layout": {"title": "No traval result."}}
     else:
         figure["layout"]["dragmode"] = "select"
+
+    kwargs = (
+        {"delay_show": 500}
+        if parse_version(DASH_VERSION) >= parse_version("2.17.0")
+        else {}
+    )
+
     return html.Div(
         id="series-chart-div",
         children=[
@@ -178,7 +188,6 @@ def render_qc_chart(figure: dict):
                 type="dot",
                 style={"position": "absolute", "align-self": "center"},
                 parent_className="loading-wrapper-qc-result",
-                delay_show=500,
                 children=[
                     dcc.Graph(
                         id=ids.QC_RESULT_CHART,
@@ -194,6 +203,7 @@ def render_qc_chart(figure: dict):
                         },
                     ),
                 ],
+                **kwargs,
             ),
         ],
         style={
