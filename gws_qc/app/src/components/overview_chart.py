@@ -1,11 +1,18 @@
 import i18n
 import plotly.graph_objs as go
+from dash import __version__ as DASH_VERSION
 from dash import dcc, html
+from packaging.version import parse as parse_version
 
 from . import ids
 
 
 def render(data, selected_data):
+    kwargs = (
+        {"delay_show": 500}
+        if parse_version(DASH_VERSION) >= parse_version("2.17.0")
+        else {}
+    )
     return html.Div(
         id="series-chart-div",
         children=[
@@ -14,7 +21,6 @@ def render(data, selected_data):
                 type="dot",
                 style={"position": "absolute", "align-self": "center"},
                 parent_className="loading-wrapper",
-                delay_show=500,
                 children=[
                     dcc.Graph(
                         figure=plot_obs(selected_data, data),
@@ -30,6 +36,7 @@ def render(data, selected_data):
                         },
                     ),
                 ],
+                **kwargs,
             ),
         ],
         style={
@@ -66,6 +73,7 @@ def plot_obs(names, data):
         df.loc[:, data.db.qualifier_column] = df.loc[
             :, data.db.qualifier_column
         ].fillna("")
+
         if len(names) == 1:
             title = None
             ts = df[data.db.value_column]
@@ -107,6 +115,22 @@ def plot_obs(names, data):
                     legendrank=legendrank,
                 )
                 traces.append(trace_i)
+            # add controle metingen
+            manual_obs = data.db.get_timeseries(
+                monitoring_well, tube_nr, observation_type="controlemeting"
+            )
+            if not manual_obs.empty:
+                trace_mo = go.Scattergl(
+                    x=manual_obs.index,
+                    y=manual_obs[data.db.value_column],
+                    mode="markers",
+                    marker={"color": "red", "size": 7},
+                    name="manual observations",
+                    legendgroup="manual obs",
+                    showlegend=True,
+                    legendrank=1001,
+                )
+                traces.append(trace_mo)
         else:
             ts = df[data.db.value_column]
             trace_i = go.Scattergl(
