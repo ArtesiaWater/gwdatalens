@@ -319,7 +319,7 @@ class DataSource:
         return create_engine(
             f"postgresql+psycopg2://{config.user}:{config.password}@"
             f"{config.host}:{config.port}/{config.database}",
-            connect_args={"options": "-csearch_path=gmw,gld"},
+            connect_args={"options": "-csearch_path=gmw,gld,public"},
         )
 
     @cached_property
