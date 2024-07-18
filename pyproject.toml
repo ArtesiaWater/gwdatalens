@@ -1,0 +1,87 @@
+[build-system]
+# Minimum requirements for the build system to execute
+requires = ["setuptools>64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gwdatalens"
+dynamic = ["version"]
+description = "Dashboard for data validation."
+license = { file = "LICENSE" }
+readme = "README.md"
+authors = [{ name = "D.A. Brakenhoff" }, { name = "R.C. Caljé" }]
+maintainers = [
+    { name = "D.A. Brakenhoff", email = "d.brakenhoff@artesia-water.nl" },
+]
+requires-python = ">= 3.10"
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "tqdm",
+    "dash",
+    "dash-bootstrap-components",
+    "waitress",
+]
+
+keywords = [
+    "hydrology",
+    "dashboard",
+    "time series",
+    "error detection",
+    "validation",
+    "analysis",
+    "plotly",
+    "dash",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Other Audience",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Operating System :: MacOS",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering :: Hydrology",
+]
+
+[project.urls]
+homepage = "https://github.com/ArtesiaWater/gws_qc"
+repository = "https://github.com/ArtesiaWater/gws_qc"
+
+[project.optional-dependencies]
+lint = ["black", "flake8", "isort", "docformatter"]
+
+[project.scripts]
+gwdatalens = "gwdatalens.cli:cli_main"
+
+[tool.setuptools]
+packages = ["gwdatalens"]
+
+[tool.setuptools.dynamic]
+version = { attr = "gwdatalens.version.__version__" }
+
+[tool.ruff]
+line-length = 88
+extend-include = ["*.ipynb"]
+
+[tool.ruff.lint]
+# See: https://docs.astral.sh/ruff/rules/
+select = [
+    "C4",  # flake8-comprehensions
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "I",   # isort
+    "PT",  # pytest-style
+    "D",   # pydocstyle
+    "B",   # flake8-bugbear
+    "NPY", # numpy
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
