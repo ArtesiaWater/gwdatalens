@@ -75,6 +75,7 @@ class MeasurementTvp(Base):
     measurement_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     field_value: Mapped[float]
     field_value_unit: Mapped[str]
+    calculated_value: Mapped[float]
     observation_id: Mapped[int] = mapped_column(
         ForeignKey("observation.observation_id")
     )
@@ -87,3 +88,6 @@ class MeasurementPointMetadata(Base):
     __tablename__ = "measurement_point_metadata"
     measurement_point_metadata_id: Mapped[int] = mapped_column(primary_key=True)
     status_quality_control: Mapped[str]
+    censor_reason: Mapped[str]
+    censor_reason_artesia: Mapped[str]
+    value_limit: Mapped[float]

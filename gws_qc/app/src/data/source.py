@@ -130,7 +130,7 @@ class TravalInterface:
             ts = ts.loc[tmin:]
         if tmax is not None:
             ts = ts.loc[:tmax]
-        series = ts.loc[:, self.db.value_column]
+        series = ts.loc[:, self.value_column]
         series.name = f"{gmw_id}-{tube_id}"
         detector = traval.Detector(series)
         ruleset = self._ruleset
@@ -155,7 +155,7 @@ class TravalInterface:
 
         # filter out observations that were already checked
         if only_unvalidated:
-            mask = df["status_quality_control"].isin(["goedgekeurd", "afgekeurd"])
+            mask = df[self.qualifier_column].isin(["goedgekeurd", "afgekeurd"])
             df.loc[mask, "flagged"] = -1  # already checked
             df.loc[mask, "reliable"] = np.nan  # TODO: somehow pick this up from DB
             ignore = df.loc[mask].index
@@ -310,7 +310,7 @@ class DataSource:
             print(e)
             logger.error("Database not connected successfully")
 
-        self.value_column = "field_value"
+        self.value_column = "calculated_value"
         self.qualifier_column = "status_quality_control"
         self.source = "zeeland"
 
@@ -447,7 +447,11 @@ class DataSource:
             select(
                 datamodel.MeasurementTvp.measurement_time,
                 datamodel.MeasurementTvp.field_value,
+                datamodel.MeasurementTvp.calculated_value,
                 datamodel.MeasurementPointMetadata.status_quality_control,
+                datamodel.MeasurementPointMetadata.censor_reason_artesia,
+                datamodel.MeasurementPointMetadata.censor_reason,
+                datamodel.MeasurementPointMetadata.value_limit,
                 datamodel.MeasurementTvp.field_value_unit,
                 datamodel.MeasurementTvp.measurement_tvp_id,
                 datamodel.MeasurementTvp.measurement_point_metadata_id,
@@ -468,18 +472,19 @@ class DataSource:
         with self.engine.connect() as con:
             df = pd.read_sql(stmt, con=con, index_col="measurement_time")
 
-        # make sure all measurements are in m
-        mask = df["field_value_unit"] == "cm"
-        if mask.any():
-            df.loc[mask, self.value_column] /= 100
-            df.loc[mask, "field_value_unit"] = "m"
+        if False:
+            # make sure all measurements are in m
+            mask = df["field_value_unit"] == "cm"
+            if mask.any():
+                df.loc[mask, "field_value"] /= 100
+                df.loc[mask, "field_value_unit"] = "m"
 
-        # convert all other measurements to NaN
-        mask = ~(df["field_value_unit"].isna() | (df["field_value_unit"] == "m"))
-        if mask.any():
-            df.loc[mask, self.value_column] = np.nan
-        # msg = "Other units than m or cm not supported yet"
-        # assert (mtvp["field_value_unit"] == "m").all(), msg
+            # convert all other measurements to NaN
+            mask = ~(df["field_value_unit"].isna() | (df["field_value_unit"] == "m"))
+            if mask.any():
+                df.loc[mask, "field_value"] = np.nan
+            # msg = "Other units than m or cm not supported yet"
+            # assert (mtvp["field_value_unit"] == "m").all(), msg
 
         # make index DateTimeIndex
         if df.index.dtype == "O":
@@ -517,10 +522,15 @@ class DataSource:
         return count
 
     def save_qualifier(self, df):
-        param_columns = ["measurement_point_metadata_id", "status_quality_control"]
+        param_columns = [
+            "measurement_point_metadata_id",
+            self.qualifier_column,
+            "censor_reason_artesia",
+            "censor_reason",
+            "value_limit",
+        ]
 
         # TODO: measurementtvp: corrected_value, correction_time, correction_reason
-        # TODO: measurementpointmetadata: censor_reason, censor_reason_artesia, value_limit
 
         params = df[param_columns].to_dict("records")
         ic(df)
@@ -528,17 +538,11 @@ class DataSource:
             session.execute(update(datamodel.MeasurementPointMetadata), params)
             session.commit()
 
-    def set_qualifier(self, df, qualifier="goedgekeurd"):
-        mask = df["status_quality_control"] != qualifier
-        ids = list(df.loc[mask, "measurement_point_metadata_id"])
-        stmt = (
-            update(datamodel.MeasurementPointMetadata)
-            .where(
-                datamodel.MeasurementPointMetadata.measurement_point_metadata_id.in_(
-                    ids
-                )
-            )
-            .values(status_quality_control=qualifier)
-        )
-        with self.engine.begin() as conn:
-            conn.execute(stmt)
+    def approve_measurements(self, df, mask=None):
+        if mask is None:
+            mask = df.index
+        df.loc[mask, self.qualifier_column] = "goedgekeurd"
+        df.loc[mask, "censor_reason_artesia"] = None
+        df.loc[mask, "censor_reason"] = None
+        df.loc[mask, "value_limit"] = None
+        return df
