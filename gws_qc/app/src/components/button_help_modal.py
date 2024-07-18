@@ -1,10 +1,11 @@
 import dash_bootstrap_components as dbc
 from dash import dcc, html
+from datalens.app.settings import ASSETS_PATH
 
 from . import ids
 
 # load Modal helper text from MarkDown
-with open("./assets/qc_dashboard_help.md", "r") as f:
+with open(ASSETS_PATH / "qc_dashboard_help.md", "r") as f:
     help_md = dcc.Markdown("".join(f.readlines()), mathjax=True)
 
 
@@ -24,7 +25,7 @@ def render():
                     dbc.ModalHeader(
                         dbc.ModalTitle(
                             html.H3(
-                                "About the QC Dashboard",
+                                "About GW DataLens",
                                 id=ids.HELP_TITLE,
                             ),
                         ),
@@ -34,7 +35,7 @@ def render():
                         [
                             html.I(
                                 "Developed by D.A. Brakenhoff "
-                                "and R.C. Caljé, Artesia, 2023"
+                                "and R.C. Caljé, Artesia, 2024"
                             ),
                             dbc.Button(
                                 "Close",
