@@ -7,4 +7,4 @@ SERIES_LOAD_LIMIT = 10       # number of observations to load and plot simultane
 
 [pastastore]
 name = "zeeland_bro"
-path = "../../traval_scripts/pastasdb/" # path to pastas model database
+path = "/home/david/github/gws_qc/traval_scripts/pastasdb/" # path to pastas model database
