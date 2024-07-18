@@ -1,10 +1,12 @@
 import dash_bootstrap_components as dbc
 import i18n
 from dash import dcc, html
+from datalens.app.settings import settings
 
 from ..cache import TIMEOUT, cache
 from ..data.source import DataInterface
 from . import ids, overview_chart, overview_map, overview_table
+from .utils import conditional_cache
 
 
 def render():
@@ -39,7 +41,7 @@ def render_cancel_button():
     )
 
 
-@cache.memoize(timeout=TIMEOUT)
+@conditional_cache(cache.memoize, not settings["DJANGO_APP"], timeout=TIMEOUT)
 def render_content(data: DataInterface, selected_data: str):
     return dbc.Container(
         [
