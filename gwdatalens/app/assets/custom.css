@@ -12,14 +12,14 @@
     font-weight: 500;
 }
 
-#button-open-help {
+#help-button-open {
     background-color: #006f92;
     margin-left: auto;
     font-size: medium;
     /* Push this element to the right */
 }
 
-#button-close-help {
+#help-button-close {
     background-color: #006f92;
     font-size: medium;
     /* Push this element to the right */
