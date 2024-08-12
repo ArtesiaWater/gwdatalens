@@ -2,22 +2,13 @@ import dash_bootstrap_components as dbc
 from dash import Input, Output, State, ctx, html
 from dash.exceptions import PreventUpdate
 
-try:
-    from gwdatalens.app.src.components import (
-        ids,
-        tab_model,
-        tab_overview,
-        tab_qc,
-        tab_qc_result,
-    )
-except ImportError:
-    from src.components import (
-        ids,
-        tab_model,
-        tab_overview,
-        tab_qc,
-        tab_qc_result,
-    )
+from gwdatalens.app.src.components import (
+    ids,
+    tab_model,
+    tab_overview,
+    tab_qc,
+    tab_qc_result,
+)
 
 
 def register_general_callbacks(app, data):

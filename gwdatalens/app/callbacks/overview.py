@@ -3,12 +3,9 @@ import numpy as np
 import pandas as pd
 from dash import Input, Output, Patch, State, no_update
 
-try:
-    from gwdatalens.app.src.components import ids
-    from gwdatalens.app.src.components.overview_chart import plot_obs
-except ImportError:
-    from src.components import ids
-    from src.components.overview_chart import plot_obs
+from gwdatalens.app.settings import settings
+from gwdatalens.app.src.components import ids
+from gwdatalens.app.src.components.overview_chart import plot_obs
 
 
 def register_overview_callbacks(app, data):
@@ -93,7 +90,7 @@ def register_overview_callbacks(app, data):
             else:
                 names = None
 
-            if names is not None and len(names) > data.settings["SERIES_LOAD_LIMIT"]:
+            if names is not None and len(names) > settings["SERIES_LOAD_LIMIT"]:
                 return (
                     no_update,
                     no_update,
@@ -101,7 +98,7 @@ def register_overview_callbacks(app, data):
                         True,
                         "warning",
                         i18n.t("general.max_selection_warning")
-                        % data.settings["SERIES_LOAD_LIMIT"],
+                        % settings["SERIES_LOAD_LIMIT"],
                     ),
                     (pd.Timestamp.now().isoformat(), False),
                 )

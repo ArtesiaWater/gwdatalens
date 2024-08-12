@@ -23,22 +23,13 @@ from dash.exceptions import PreventUpdate
 from packaging.version import parse as parse_version
 from traval import rulelib
 
-try:
-    from gwdatalens.app.src.components import ids
-    from gwdatalens.app.src.components.overview_chart import plot_obs
-    from gwdatalens.app.src.components.qc_rules_form import (
-        derive_form_parameters,
-        generate_kwargs_from_func,
-        generate_traval_rule_components,
-    )
-except ImportError:
-    from src.components import ids
-    from src.components.overview_chart import plot_obs
-    from src.components.qc_rules_form import (
-        derive_form_parameters,
-        generate_kwargs_from_func,
-        generate_traval_rule_components,
-    )
+from gwdatalens.app.src.components import ids
+from gwdatalens.app.src.components.overview_chart import plot_obs
+from gwdatalens.app.src.components.qc_rules_form import (
+    derive_form_parameters,
+    generate_kwargs_from_func,
+    generate_traval_rule_components,
+)
 
 
 # %% TRAVAL TAB
@@ -147,7 +138,6 @@ def register_qc_callbacks(app, data):
                 rulelib.rule_combine_nan_or,
                 apply_to=tuple(range(1, len(keep) + 1)),
             )
-        # ic([rule["props"]["id"]["index"] for rule in keep])
         return keep, False
 
     @app.callback(
@@ -421,6 +411,7 @@ def register_qc_callbacks(app, data):
         State(ids.QC_DATEPICKER_TMIN, "date"),
         State(ids.QC_DATEPICKER_TMAX, "date"),
         State(ids.QC_RUN_ONLY_UNVALIDATED_CHECKBOX, "value"),
+        running=[(Output(ids.LOADING_QC_CHART, "display"), "show", "auto")],
         background=False,
         # NOTE: only used if background is True
         # running=[
@@ -465,12 +456,12 @@ def register_qc_callbacks(app, data):
             df = pd.DataFrame(table).set_index("datetime")
             df.index = pd.to_datetime(df.index)
             data.traval.traval_result = df
+            _, figure = figure
             return (
-                figure[1],
+                figure,
                 # "hide",
             )
         else:
-            # data.traval.traval_result = None
             return (
                 no_update,
                 # "hide",
@@ -559,8 +550,6 @@ def register_qc_callbacks(app, data):
     #     else:
     #         triggered_id = ctx.triggered_id
     #         inputs_list = ctx.inputs_list
-    #     ic(triggered_id)
-    #     ic(states)
     #     if any(states):
     #         for i in range(len(ctx.inputs_list)):
     #             if inputs_list[i]["id"] == triggered_id:
@@ -589,6 +578,10 @@ def register_qc_callbacks(app, data):
             for i in range(len(inputs_list)):
                 if inputs_list[i]["id"] == triggered_id:
                     break
-            return figures[i], "auto"
+            fig = figures[i]
+            # NOTE: not sure how it can ever become a list, but it sometimes does...
+            if isinstance(fig, list):
+                fig = fig[0]
+            return fig, "auto"
         else:
             raise PreventUpdate

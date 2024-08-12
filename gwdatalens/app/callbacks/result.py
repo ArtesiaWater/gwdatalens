@@ -5,11 +5,8 @@ from dash import ALL, Input, Output, Patch, State, ctx, dcc, no_update
 from dash.exceptions import PreventUpdate
 from icecream import ic
 
-try:
-    from gwdatalens.app.src.components import ids
-except ImportError:
-    from src.components import ids
-
+from gwdatalens.app.settings import settings
+from gwdatalens.app.src.components import ids
 
 ic.configureOutput(includeContext=True)
 
@@ -111,19 +108,42 @@ def register_result_callbacks(app, data):
         Output(ids.ALERT_EXPORT_TO_DB, "data"),
         Input(ids.QC_RESULT_EXPORT_DB, "n_clicks"),
         State(ids.SELECTED_OSERIES_STORE, "data"),
+        State(ids.QC_RESULT_EXPORT_QC_STATUS_FLAG, "value"),
         prevent_initial_call=True,
     )
-    def export_to_db(n_clicks, name):
+    def export_to_db(n_clicks, name, non_flagged_reliable):
         if n_clicks:
             if data.traval.traval_result is not None:
                 df = data.traval.traval_result.copy()
-                mask = df["reliable"] == 1
-                df.loc[mask, "status_quality_control"] = "goedgekeurd"
-                mask = df["reliable"] == 0
-                df.loc[mask, "status_quality_control"] = "afgekeurd"
-                mask = df["reliable"] == -1
-                df.loc[mask, "status_quality_control"] = "onbekend"
-                data.db.save_qualifier(df)
+
+                if settings["LOCALE"] == "en":
+                    bro_en_to_nl = {
+                        "": "",
+                        "unknown": "onbekend",
+                        "undecided": "onbeslist",
+                        "unreliable": "afgekeurd",
+                        "reliable": "goedgekeurd",
+                        "onbekend": "onbekend",
+                        "onbeslist": "onbeslist",
+                        "afgekeurd": "afgekeurd",
+                        "goedgekeurd": "goedgekeurd",
+                    }
+                    df["status_quality_control"] = df["status_quality_control"].apply(
+                        lambda v: bro_en_to_nl[v]
+                    )
+                    df["incoming_status_quality_control"] = df[
+                        "incoming_status_quality_control"
+                    ].apply(lambda v: bro_en_to_nl[v])
+
+                    mask = df["status_quality_control"] == ""
+
+                if non_flagged_reliable:
+                    df.loc[mask, "status_quality_control"] = "goedgekeurd"
+                else:
+                    df.loc[mask, "status_quality_control"] = df.loc[
+                        mask, "incoming_status_quality_control"
+                    ]
+
                 try:
                     data.db.save_qualifier(df)
                     return (
@@ -226,7 +246,7 @@ def register_result_callbacks(app, data):
                 None,
                 disable_deselect,
                 disable_select,
-                [disable_mark_buttons] * 3,
+                [disable_mark_buttons] * 4,
                 disable_qc_label_dropdown,
             )
         if click_select and triggered_id == ids.QC_RESULT_TABLE_SELECT_ALL:
@@ -266,7 +286,7 @@ def register_result_callbacks(app, data):
                 None,
                 disable_deselect,
                 disable_select,
-                [disable_mark_buttons] * 3,
+                [disable_mark_buttons] * 4,
                 disable_qc_label_dropdown,
             )
 
@@ -326,7 +346,7 @@ def register_result_callbacks(app, data):
                 None,
                 disable_deselect,
                 disable_select,
-                [disable_mark_buttons] * 3,
+                [disable_mark_buttons] * 4,
                 disable_qc_label_dropdown,
             )
 
@@ -382,7 +402,7 @@ def register_result_callbacks(app, data):
             no_update,
             disable_deselect,
             disable_select,
-            [disable_mark_buttons] * 3,
+            [disable_mark_buttons] * 4,
             disable_qc_label_dropdown,
         )
 
@@ -404,11 +424,13 @@ def register_result_callbacks(app, data):
 
         if any(v is not None for v in n):
             if ctx.triggered_id["index"] == "reliable":
-                value = 1
-            elif ctx.triggered_id["index"] == "suspect":
-                value = 0
+                value = i18n.t("general.reliable")
+            elif ctx.triggered_id["index"] == "unreliable":
+                value = i18n.t("general.unreliable")
             elif ctx.triggered_id["index"] == "unknown":
-                value = -1
+                value = i18n.t("general.unknown")
+            elif ctx.triggered_id["index"] == "undecided":
+                value = i18n.t("general.undecided")
             else:
                 raise PreventUpdate
             df = data.traval.traval_result
@@ -435,7 +457,7 @@ def register_result_callbacks(app, data):
                     no_update,
                     (True, "warning", i18n.t("general.alert_failed_labeling")),
                 )
-            df.loc[selected_pts, "reliable"] = value
+            df.loc[selected_pts, "status_quality_control"] = value
             t = table["datetime"].tolist()
             return (
                 df.loc[t].reset_index(names="datetime").to_dict("records"),

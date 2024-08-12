@@ -9,10 +9,7 @@ from dash.exceptions import PreventUpdate
 from pastas.extensions import register_plotly
 from pastas.io.pas import PastasEncoder
 
-try:
-    from gwdatalens.app.src.components import ids
-except ImportError:
-    from src.components import ids
+from gwdatalens.app.src.components import ids
 
 register_plotly()
 
