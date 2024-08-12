@@ -1,7 +1,7 @@
 from dash import dash_table, html
 from dash.dash_table.Format import Format
 
-from ..data.source import DataInterface
+from ..data.interface import DataInterface
 from . import ids
 from .styling import DATA_TABLE_HEADER_BGCOLOR
 
