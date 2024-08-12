@@ -1,6 +1,6 @@
 from dash import Dash, dcc, html
 
-from ..data.source import DataInterface
+from ..data import DataInterface
 from . import button_help_modal, ids, tabs
 
 
