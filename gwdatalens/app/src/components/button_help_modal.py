@@ -1,5 +1,6 @@
 import dash_bootstrap_components as dbc
 from dash import dcc, html
+
 from gwdatalens.app.settings import ASSETS_PATH
 
 from . import ids
@@ -19,6 +20,7 @@ def render():
                     n_clicks=0,
                 ),
                 id=ids.HELP_BUTTON_OPEN,
+                class_name="ms-auto",
             ),
             dbc.Modal(
                 [
