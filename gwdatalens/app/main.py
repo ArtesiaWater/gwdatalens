@@ -1,7 +1,4 @@
-try:
-    from gwdatalens.app.settings import settings
-except ImportError:  # if running app.py directly
-    from settings import settings
+from gwdatalens.app.settings import settings
 
 
 def get_app():
@@ -15,7 +12,7 @@ def get_app():
 def run(debug=settings["DEBUG"], port=settings["PORT"]):
     app = get_app()
     if debug:
-        app.run_server(debug=debug)
+        app.run_server(debug=debug, port=port)
     else:
         from waitress import serve
 
