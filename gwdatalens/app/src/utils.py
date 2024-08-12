@@ -1,6 +1,3 @@
-from functools import partial
-
-
 def conditional_cache(dec, condition, **kwargs):
     def decorator(func):
         if not condition:
