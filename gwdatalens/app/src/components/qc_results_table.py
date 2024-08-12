@@ -11,7 +11,7 @@ from .styling import DATA_TABLE_HEADER_BGCOLOR
 def render(data):
     if data.traval.traval_result is None:
         df = pd.DataFrame(
-            columns=["id", "value", "comment", "reliable", "category"],
+            columns=["id", "value", "comment", "status_quality_control", "category"],
         )
         df.index.name = "datetime"
         df = df.reset_index(names="datetime")
@@ -53,9 +53,17 @@ def render(data):
                         "editable": False,
                     },
                     {
-                        "id": "reliable",
-                        "name": i18n.t("general.reliable"),
-                        "type": "numeric",
+                        "id": "incoming_status_quality_control",
+                        "name": "Incoming QC Status",
+                        "type": "text",
+                        "editable": False,
+                        # "on_change": {"action": "validate", "failure": "accept"},
+                        # "validation": {"default": 1},
+                    },
+                    {
+                        "id": "status_quality_control",
+                        "name": "Update QC Status",
+                        "type": "text",
                         "editable": False,
                         # "on_change": {"action": "validate", "failure": "accept"},
                         # "validation": {"default": 1},
@@ -91,11 +99,15 @@ def render(data):
                     for c in ["datetime", "comment"]
                 ]
                 + [
-                    {"if": {"column_id": "datetime"}, "width": "20%"},
-                    {"if": {"column_id": "values"}, "width": "20%"},
-                    {"if": {"column_id": "comment"}, "width": "20%"},
-                    {"if": {"column_id": "reliable"}, "width": "20%"},
-                    {"if": {"column_id": "category"}, "width": "20%"},
+                    {"if": {"column_id": "datetime"}, "width": "16.5%"},
+                    {"if": {"column_id": "values"}, "width": "16.5%"},
+                    {"if": {"column_id": "comment"}, "width": "16.5%"},
+                    {
+                        "if": {"column_id": "incoming_status_quality_control"},
+                        "width": "16.5%",
+                    },
+                    {"if": {"column_id": "status_quality_control"}, "width": "16.5%"},
+                    {"if": {"column_id": "category"}, "width": "16.5%"},
                 ],
                 style_data_conditional=[
                     {
@@ -109,20 +121,21 @@ def render(data):
                 },
                 style_header_conditional=[
                     {
-                        "if": {"column_id": ["reliable", "category"]},
+                        "if": {"column_id": ["status_quality_control", "category"]},
                         "textDecoration": "underline",
                         "textDecorationStyle": "dotted",
                     }
                 ],
                 tooltip_header={
-                    "reliable": {
+                    "incoming_status_quality_control": {
                         # "use_with": "both",
                         "type": "markdown",
-                        "value": (
-                            f"{i18n.t('general.reliable')} = 1 \n"
-                            f"{i18n.t('general.unreliable')} = 0 \n"
-                            f"{i18n.t('general.unknown')} = -1"
-                        ),
+                        "value": i18n.t("general.incoming_qc_status"),
+                    },
+                    "status_quality_control": {
+                        # "use_with": "both",
+                        "type": "markdown",
+                        "value": i18n.t("general.qc_status"),
                     },
                     "category": {
                         # "use_with": "both",
