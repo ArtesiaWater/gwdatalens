@@ -6,27 +6,14 @@ import i18n
 import pastastore as pst
 from dash import CeleryManager, Dash, DiskcacheManager
 
-try:
-    # DJANGO APP imports
-    from gwdatalens.app.callbacks import register_callbacks
-    from gwdatalens.app.settings import LOCALE_PATH, config, settings
-    from gwdatalens.app.src.cache import cache
-    from gwdatalens.app.src.components.layout import create_layout
-    from gwdatalens.app.src.data.source import (
-        DataInterface,
-        DataSource,
-        TravalInterface,
-    )
-except ImportError:  # if running app.py directly
-    # Stand-alone imports
-    from app.callbacks import register_callbacks
-    from app.settings import LOCALE_PATH, config, settings
-    from app.src.cache import cache
-    from app.src.components.layout import create_layout
-    from app.src.data.source import DataInterface, DataSource, TravalInterface
+from gwdatalens.app.callbacks import register_callbacks
+from gwdatalens.app.settings import CUSTOM_CSS_PATH, LOCALE_PATH, config, settings
+from gwdatalens.app.src.cache import cache
+from gwdatalens.app.src.components.layout import create_layout
+from gwdatalens.app.src.data import DataInterface, DataSource, TravalInterface
 
 logger = logging.getLogger("waitress")
-logger.setLevel(logging.ERROR)
+logger.setLevel(logging.DEBUG)
 
 # %% set some variables
 external_stylesheets = [
