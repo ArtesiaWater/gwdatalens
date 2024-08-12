@@ -178,21 +178,22 @@
 
 }
 
+/* selected cells */
+.dbc .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner td.cell--selected {
+    background-color: #0070921a !important;
+}
+
 /* active cell */
 .dbc .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner td.focused {
-    background-color: rgb(var(--bs-primary-rgb) 0.2) !important;
-    outline: 1px solid var(--bs-primary);
+    background-color: #00709249 !important;
+    outline: 1px solid var(--bs-blue);
 }
 
 /* active cell when cell is  editable */
-.dbc .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner input:not([type="radio"], [type="checkbox"]) {
-    background-color: transparent !important;
-}
 
-/* selected cells */
-.dbc .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner td.cell--selected {
-    background-color: rgb(var(--bs-primary-rgb) 0.2) !important;
-}
+/* .dbc .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner input:not([type="radio"], [type="checkbox"]) {
+    background-color: transparent !important;
+} */
 
 /*  dropdown inside datatable */
 .dbc .dash-table-container .dash-spreadsheet .Select-menu-outer {
