@@ -94,7 +94,7 @@ if settings["DJANGO_APP"]:
     app.layout = create_layout(app, data)
     app.css.append_css(
         {
-            "external_url": "/static/assets/dash/custom.css",  # TODO: partially working?
+            "external_url": CUSTOM_CSS_PATH,
         }
     )
 
@@ -104,7 +104,7 @@ else:
     # create app
     app = Dash(
         "gwdatalens",
-        external_stylesheets=external_stylesheets,
+        external_stylesheets=external_stylesheets + [CUSTOM_CSS_PATH],
         suppress_callback_exceptions=True,
         background_callback_manager=background_callback_manager,
     )
