@@ -6,7 +6,7 @@ from gwdatalens.app.settings import settings
 
 def cli_main():
     """GW DataLens dashboard command-line interface.
-    
+
     Usage
     -----
     Run Dashboard with::
@@ -18,6 +18,10 @@ def cli_main():
     parser = argparse.ArgumentParser(
         description="Run GW DataLens dashboard on localhost.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Note: To configure the dashboard see the "
+            "gwdatalens/app/config.toml file."
+        ),
     )
 
     parser.add_argument(
@@ -34,9 +38,10 @@ def cli_main():
         help=f"Port to run the dashboard on (default: {settings['PORT']})",
     )
 
-    args = vars(parser.parse_args())
+    kwargs = vars(parser.parse_args())
+
     try:
-        run_dashboard(**args)
+        run_dashboard(**kwargs)
     except (EOFError, KeyboardInterrupt):
         sys.exit(f" cancelling '{sys.argv[0]}'")
 
