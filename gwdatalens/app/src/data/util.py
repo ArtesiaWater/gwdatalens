@@ -1,6 +1,10 @@
+import logging
+
 import numpy as np
 import pandas as pd
 import traval
+
+logger = logging.getLogger("__name__")
 
 # NOTE: this is the correct epsg:28992 definition for plotting backgroundmaps in RD
 EPSG_28992 = (
@@ -13,8 +17,26 @@ EPSG_28992 = (
 WGS84 = "proj=longlat datum=WGS84 no_defs ellps=WGS84 towgs84=0,0,0"
 
 
-def get_model_sim_pi(ml, raw, ci=0.99, tmin=None, tmax=None, smoothfreq=None):
-    if ml is not None:
+def get_model_sim_pi(
+    ml, raw, ci=0.99, tmin=None, tmax=None, smoothfreq=None, savedir=None
+):
+    if savedir is not None and ml is not None:
+        logger.debug(f"Load prediction interval from file: pi_{ml.name}.pkl")
+        sim = ml.simulate(tmin=tmin, tmax=tmax)
+        new_idx = raw.index.union(sim.index)
+        df_pi = pd.read_pickle(savedir / f"pi_{ml.name}.pkl")
+        pi = pd.DataFrame(index=new_idx, columns=df_pi.columns)
+        for i in range(2):
+            pi.iloc[:, i] = traval.ts_utils.interpolate_series_to_new_index(
+                df_pi.iloc[:, i], new_idx
+            )
+        # interpolate to observations index
+        sim_interp = traval.ts_utils.interpolate_series_to_new_index(sim, new_idx)
+        sim_i = pd.Series(index=new_idx, data=sim_interp)
+        sim_i.name = "sim"
+
+    elif ml is not None:
+        logger.debug(f"Compute prediction interval with model: {ml.name}")
         alpha = 1 - float(ci)
 
         # get prediction interval
