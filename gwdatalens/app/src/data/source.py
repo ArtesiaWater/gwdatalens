@@ -1,308 +1,96 @@
 import logging
-from copy import deepcopy
+import os
+import pickle
+from abc import ABC, abstractmethod
 from functools import cached_property, lru_cache
-from typing import List
+from typing import List, Tuple
 
 import geopandas as gpd
+import i18n
 import numpy as np
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objs as go
-import traval
-from icecream import ic
 from pyproj import Transformer
 from sqlalchemy import create_engine, func, select, update
 from sqlalchemy.orm import Session
 
 from . import datamodel
-from .util import EPSG_28992, WGS84, get_model_sim_pi
-
-try:
-    from . import config
-except ImportError:
-    import config
+from .util import EPSG_28992, WGS84
 
 logger = logger = logging.getLogger(__name__)
 
 
-class DataInterface:
-    def __init__(self, db=None, pstore=None, traval=None):
-        self.db = db
-        self.pstore = pstore
-        self.traval = traval
+class DataSourceTemplate(ABC):
+    @property
+    @abstractmethod
+    def gmw_gdf(self) -> gpd.GeoDataFrame:
+        """Get head observations metadata as GeoDataFrame.
 
-    def attach_pastastore(self, pstore):
-        self.pstore = pstore
+        Returns
+        -------
+        gpd.GeoDataFrame
+            GeoDataFrame containing head observations locations and metadata.
+        """
 
-    def attach_traval(self, traval):
-        self.traval = traval
+    @abstractmethod
+    def list_locations(self) -> List[str]:
+        """List of measurement location names.
 
+        Returns
+        -------
+        List[str]
+            List of measurement location names.
+        """
 
-class TravalInterface:
-    def __init__(self, db, pstore=None):
-        self.db = db
-        self.pstore = pstore
-        self.ruleset = None
-        self._ruleset = None
+    @abstractmethod
+    def list_locations_sorted_by_distance(self, name) -> List[str]:
+        """List of measurement location names, sorted by distance.
 
-        self.traval_result = None
-        self.traval_figure = None
+        Parameters
+        ----------
+        name : str
+            name of location to compute distances from
 
-        # set ruleset in data object
-        self.ruleset = self.get_default_ruleset()
-        self._ruleset = deepcopy(self.ruleset)
+        Returns
+        -------
+        List[str]
+            List of measurement location names, sorted by distance from `name`.
+        """
 
-    def get_default_ruleset(self):
-        # ruleset
-        # initialize RuleSet object
-        ruleset = traval.RuleSet(name="default")
+    @abstractmethod
+    def get_timeseries(self, gmw_id: str, tube_id: int) -> pd.Series:
+        """Get time series.
 
-        # add rules
-        ruleset.add_rule(
-            "spikes",
-            traval.rulelib.rule_spike_detection,
-            apply_to=0,
-            kwargs={"threshold": 0.40, "spike_tol": 0.20, "max_gap": "30D"},
-        )
+        Parameters
+        ----------
+        gmw_id : str
+            id of the observation well
+        tube_id : int
+            tube number of the observation well
 
-        def get_tube_top_level(name):
-            return self.db.gmw_gdf.loc[name, "tube_top_position"].item()
+        Returns
+        -------
+        pd.Series
+            time series of head observations.
+        """
 
-        ruleset.add_rule(
-            "hardmax",
-            traval.rulelib.rule_hardmax,
-            apply_to=0,
-            kwargs={
-                "threshold": get_tube_top_level,
-            },
-        )
-        ruleset.add_rule(
-            "flat_signal",
-            traval.rulelib.rule_flat_signal,
-            apply_to=0,
-            kwargs={"window": 100, "min_obs": 5, "std_threshold": 2e-2},
-        )
-        # ruleset.add_rule(
-        #     "offsets",
-        #     traval.rulelib.rule_offset_detection,
-        #     apply_to=0,
-        #     kwargs={
-        #         "threshold": 0.5,
-        #         "updown_diff": 0.5,
-        #         "max_gap": "100D",
-        #         "search_method": "time",
-        #     },
-        # )
-        ci = 0.99
-        ruleset.add_rule(
-            "pastas",
-            traval.rulelib.rule_pastas_outside_pi,
-            apply_to=0,
-            kwargs={
-                "ml": lambda name: self.pstore.models[name],
-                "ci": ci,
-                "min_ci": 0.1,
-                "smoothfreq": "30D",
-                "verbose": True,
-            },
-        )
-        ruleset.add_rule(
-            "combine_results",
-            traval.rulelib.rule_combine_nan_or,
-            apply_to=(1, 2, 3),
-        )
-        return ruleset
+    @abstractmethod
+    def save_qualifier(self, df: pd.DataFrame) -> None:
+        """Save error detection (traval) result after manual review.
 
-    def run_traval(
-        self,
-        gmw_id,
-        tube_id,
-        ruleset=None,
-        tmin=None,
-        tmax=None,
-        only_unvalidated=False,
-    ):
-        name = f"{gmw_id}-{int(tube_id):03g}"
-        ic(f"Running traval for {name}...")
-        ts = self.db.get_timeseries(gmw_id, tube_id)
-
-        if tmin is not None:
-            ts = ts.loc[tmin:]
-        if tmax is not None:
-            ts = ts.loc[:tmax]
-        series = ts.loc[:, self.value_column]
-        series.name = f"{gmw_id}-{tube_id}"
-        detector = traval.Detector(series)
-        ruleset = self._ruleset
-        detector.apply_ruleset(ruleset)
-
-        # TODO: store detector for now to inspect result
-        self.detector = detector
-
-        comments = detector.get_comment_series()
-
-        df = detector.series.to_frame().loc[comments.index]
-        df = ts.join(detector.get_results_dataframe())
-        df["flagged"] = df.isna().any(axis=1)
-        df["comment"] = ""
-        df.loc[comments.index, "comment"] = comments
-        df.rename(columns={"base series": "values"}, inplace=True)
-
-        df.index.name = "datetime"
-        df["id"] = range(df.index.size)
-        df["reliable"] = (~df["flagged"]).astype(int)  # column for manual validation
-        df["category"] = ""  # for QC Protocol category
-
-        # filter out observations that were already checked
-        if only_unvalidated:
-            mask = df[self.qualifier_column].isin(["goedgekeurd", "afgekeurd"])
-            df.loc[mask, "flagged"] = -1  # already checked
-            df.loc[mask, "reliable"] = np.nan  # TODO: somehow pick this up from DB
-            ignore = df.loc[mask].index
-        else:
-            ignore = None
-
-        try:
-            ml = self.pstore.get_models(series.name)
-        except Exception as e:
-            ic(e)
-            ml = None
-        figure = self.plot_traval_result(
-            detector, ml, tmin=tmin, tmax=tmax, ignore=ignore
-        )
-        return df, figure
-
-    @staticmethod
-    def plot_traval_result(detector, model=None, tmin=None, tmax=None, ignore=None):
-        traces = []
-
-        ts0 = detector.series
-
-        trace_0 = go.Scattergl(
-            x=ts0.index,
-            y=ts0.values,
-            mode="markers+lines",
-            line={
-                "width": 1,
-                "color": "gray",
-            },
-            marker={
-                "size": 3,
-                "line_color": "gray",
-            },
-            name=ts0.name,
-            legendgroup=ts0.name,
-            showlegend=True,
-            selected={"marker": {"opacity": 1.0, "size": 6, "color": "black"}},
-            unselected={"marker": {"opacity": 1.0, "size": 3, "color": "gray"}},
-            selectedpoints=[],
-        )
-        traces.append(trace_0)
-
-        colors = px.colors.qualitative.Dark24
-        for step, corrections in detector.corrections.items():
-            if isinstance(corrections, np.ndarray) or corrections.empty:
-                continue
-            if ignore is not None:
-                idx = corrections.index.difference(ignore)
-            else:
-                idx = corrections.index
-
-            if idx.size == 0:
-                continue
-
-            ts_i = ts0.loc[idx]
-            label = detector.ruleset.get_step_name(step)
-            trace_i = go.Scattergl(
-                x=ts_i.index,
-                y=ts_i.values,
-                mode="markers",
-                marker={
-                    "size": 8,
-                    "symbol": "x-thin",
-                    "line_width": 2,
-                    "line_color": colors[(step - 1) % len(colors)],
-                },
-                name=label,
-                legendgroup=label,
-                showlegend=True,
-                legendrank=1003,
-            )
-            traces.append(trace_i)
-
-        if model is not None:
-            try:
-                ci = detector.ruleset.get_rule(stepname="pastas")["kwargs"]["ci"]
-            except KeyError:
-                ci = 0.95
-            sim, pi = get_model_sim_pi(
-                model, ts0, ci=ci, tmin=tmin, tmax=tmax, smoothfreq="30D"
-            )
-            trace_sim = go.Scattergl(
-                x=sim.index,
-                y=sim.values,
-                mode="lines",
-                line={
-                    "width": 1,
-                    "color": "cornflowerblue",
-                },
-                name="model simulation",
-                legendgroup="model simulation",
-                showlegend=True,
-                legendrank=1001,
-            )
-            trace_lower = go.Scattergl(
-                x=pi.index,
-                y=pi.iloc[:, 0].values,
-                mode="lines",
-                line={"width": 0.5, "color": "rgba(100,149,237,0.35)"},
-                name=f"PI ({ci:.1%})",
-                legendgroup="PI",
-                showlegend=False,
-                fill="tonexty",
-                legendrank=1005,
-            )
-            trace_upper = go.Scattergl(
-                x=sim.index,
-                y=pi.iloc[:, 1].values,
-                mode="lines",
-                line={"width": 0.5, "color": "rgba(100,149,237,0.35)"},
-                name=f"PI ({ci:.1%})",
-                legendgroup="PI",
-                showlegend=True,
-                fill="tonexty",
-                fillcolor="rgba(100,149,237,0.1)",
-                legendrank=1002,
-            )
-
-            traces = [trace_lower, trace_upper] + traces + [trace_sim]
-
-        layout = {
-            # "xaxis": {"range": [sim.index[0], sim.index[-1]]},
-            "yaxis": {"title": "(m NAP)"},
-            "legend": {
-                "traceorder": "reversed+grouped",
-                "orientation": "h",
-                "xanchor": "left",
-                "yanchor": "bottom",
-                "x": 0.0,
-                "y": 1.02,
-            },
-            # "hovermode": "x",
-            "dragmode": "pan",
-            "margin": dict(l=50, r=20),
-        }
-
-        return dict(data=traces, layout=layout)
+        Parameters
+        ----------
+        df : pd.DataFrame
+            dataframe containig error detection results after manual review.
+        """
 
 
-class DataSource:
-    def __init__(self):
+class DataSource(DataSourceTemplate):
+    def __init__(self, config):
         # init connection to database OR just read in some data from somewhere
         # Connect to database using psycopg2
+        self.config = config
         try:
             self.engine = self._engine()
-
             logger.info("Database connected successfully")
             # NOTE: use for background callbacks
             # self.engine.dispose()
@@ -315,15 +103,16 @@ class DataSource:
         self.source = "zeeland"
 
     def _engine(self):
-        # NOTE: return new engine for background callbacks (makes app slower though)
+        # NOTE: could theoretically be used to return new engine for
+        # background callbacks (but this approach made app slower on Windows though)
         return create_engine(
-            f"postgresql+psycopg2://{config.user}:{config.password}@"
-            f"{config.host}:{config.port}/{config.database}",
+            f"postgresql+psycopg2://{self.config['user']}:{self.config['password']}@"
+            f"{self.config['host']}:{self.config['port']}/{self.config['database']}",
             connect_args={"options": "-csearch_path=gmw,gld,public"},
         )
 
     @cached_property
-    def gmw_gdf(self):
+    def gmw_gdf(self) -> gpd.GeoDataFrame:
         return self._gmw_to_gdf()
 
     def _gmw_to_gdf(self):
@@ -401,7 +190,8 @@ class DataSource:
     @lru_cache
     def list_locations(self) -> List[str]:
         """Return a list of locations that contain groundwater level dossiers, where
-        each location is defines by a tuple of length 2: bro-id and tube_id"""
+        each location is defines by a tuple of length 2: bro-id and tube_id
+        """
         # get all grundwater level dossiers
         stmt = (
             select(
@@ -427,7 +217,7 @@ class DataSource:
         ]
         return locations
 
-    def list_locations_sorted_by_distance(self, name):
+    def list_locations_sorted_by_distance(self, name) -> List[str]:
         gdf = self.gmw_gdf.copy()
 
         p = gdf.loc[name, "coordinates"]
@@ -442,7 +232,8 @@ class DataSource:
         self, gmw_id: str, tube_id: int, observation_type="reguliereMeting"
     ) -> pd.Series:
         """Return a Pandas Series for the measurements at the requested bro-id and
-        tube-id, im m. Return None when there are no measurements."""
+        tube-id, im m. Return None when there are no measurements.
+        """
         stmt = (
             select(
                 datamodel.MeasurementTvp.measurement_time,
@@ -479,12 +270,12 @@ class DataSource:
                 df.loc[mask, "field_value"] /= 100
                 df.loc[mask, "field_value_unit"] = "m"
 
-        # convert all other measurements to NaN
-        mask = ~(df["field_value_unit"].isna() | (df["field_value_unit"] == "m"))
-        if mask.any():
-            df.loc[mask, self.value_column] = np.nan
-        # msg = "Other units than m or cm not supported yet"
-        # assert (mtvp["field_value_unit"] == "m").all(), msg
+            # convert all other measurements to NaN
+            mask = ~(df["field_value_unit"].isna() | (df["field_value_unit"] == "m"))
+            if mask.any():
+                df.loc[mask, self.value_column] = np.nan
+            # msg = "Other units than m or cm not supported yet"
+            # assert (mtvp["field_value_unit"] == "m").all(), msg
 
         # make index DateTimeIndex
         if df.index.dtype == "O":
@@ -496,7 +287,7 @@ class DataSource:
 
         return df
 
-    def count_measurements_per_filter(self):
+    def count_measurements_per_filter(self) -> pd.Series:
         stmt = (
             select(
                 datamodel.Well.bro_id,
@@ -522,6 +313,8 @@ class DataSource:
         return count
 
     def save_qualifier(self, df):
+        df = self.set_qc_fields_for_database(df)
+
         param_columns = [
             "measurement_point_metadata_id",
             self.qualifier_column,
@@ -529,20 +322,129 @@ class DataSource:
             "censor_reason",
             "value_limit",
         ]
-
-        # TODO: measurementtvp: corrected_value, correction_time, correction_reason
-
         params = df[param_columns].to_dict("records")
-        ic(df)
         with Session(self.engine) as session:
             session.execute(update(datamodel.MeasurementPointMetadata), params)
             session.commit()
 
-    def approve_measurements(self, df, mask=None):
+    def set_qc_fields_for_database(self, df, mask=None):
         if mask is None:
-            mask = df.index
-        df.loc[mask, self.qualifier_column] = "goedgekeurd"
-        df.loc[mask, "censor_reason_artesia"] = None
-        df.loc[mask, "censor_reason"] = None
-        df.loc[mask, "value_limit"] = None
+            mask = np.ones(df.index.size, dtype=bool)
+        # approved obs
+        mask2 = df.loc[:, self.qualifier_column].isin(
+            [
+                i18n.t("general.reliable"),
+                i18n.t("general.unknown"),
+            ]
+        )
+        if mask.any():
+            df.loc[mask & mask2, "censor_reason_artesia"] = None
+            df.loc[mask & mask2, "censor_reason"] = None
+            df.loc[mask & mask2, "value_limit"] = None
+
+        # flagged obs: create censor_reason_artesia
+        mask2 = df.loc[:, self.qualifier_column].isin(
+            [
+                i18n.t("general.unreliable"),
+                i18n.t("general.undecided"),
+            ]
+        )
+        if mask2.any():
+            df.loc[mask & mask2, "censor_reason_artesia"] = df.loc[
+                mask & mask2, ["comment", "category"]
+            ].apply(lambda s: ",".join(s), axis=1)
         return df
+
+
+class DataSourceHydropandas(DataSourceTemplate):
+    def __init__(self, extent=None, oc=None, fname=None, source="dino", **kwargs):
+        if oc is None:
+            if fname is None:
+                fname = "obs_collection.pickle"
+            if os.path.isfile(fname):
+                with open(fname, "rb") as file:
+                    oc = pickle.load(file)
+            else:
+                import hydropandas as hpd
+
+                if source == "bro":
+                    oc = hpd.read_bro(extent, **kwargs)
+                    with open(fname, "wb") as file:
+                        pickle.dump(oc, file)
+                else:
+                    raise ValueError(
+                        f"Automatic download for source='{source}' not supported."
+                    )
+
+        self.source = source
+        if self.source == "bro":
+            self.value_column = "values"
+            self.qualifier_column = "qualifier"
+        else:
+            self.value_column = "stand_m_tov_nap"
+            self.qualifier_column = "bijzonderheid"
+
+        self.oc = oc
+
+    @cached_property
+    def gmw_gdf(self) -> gpd.GeoDataFrame:
+        return self._gmw_to_gdf()
+
+    def _gmw_to_gdf(self):
+        """Return all groundwater monitoring wells (gmw) as a GeoDataFrame"""
+        oc = self.oc
+        gdf = gpd.GeoDataFrame(oc, geometry=gpd.points_from_xy(oc.x, oc.y))
+        columns = {
+            "monitoring_well": "bro_id",
+            "screen_bottom": "screen_bot",
+            "tube_nr": "tube_number",
+        }
+        gdf = gdf.rename(columns=columns)
+        gdf["nitg_code"] = ""
+
+        # add number of measurements
+        gdf["metingen"] = self.oc.stats.n_observations
+        gdf["bro_id"] = gdf.index.tolist()
+
+        return gdf
+
+    @lru_cache
+    def list_locations(self) -> List[Tuple[str, int]]:
+        """Return a list of locations that contain groundwater level dossiers, where
+        each location is defines by a tuple of length 2: bro-id and tube_id
+        """
+        oc = self.oc
+        locations = []
+        mask = [not x.loc[:, self.value_column].dropna().empty for x in oc["obs"]]
+        for index in oc[mask].index:
+            locations.append(tuple(oc.loc[index, ["monitoring_well", "tube_nr"]]))
+        return locations
+
+    def list_locations_sorted_by_distance(self, name):
+        gdf = self.gmw_gdf.copy()
+        p = gdf.loc[name, "geometry"]
+        gdf.drop(name, inplace=True)
+        dist = gdf.distance(p)
+        dist.name = "distance"
+        distsorted = self.oc.join(dist, how="right").sort_values(
+            "distance", ascending=True
+        )
+        return distsorted
+
+    def get_timeseries(self, gmw_id: str, tube_nr: int) -> pd.Series:
+        """Return a Pandas Series for the measurements at the requested gmw_id and
+        tube_id, im m. Return None when there are no measurements.
+        """
+        if self.source == "bro":
+            name = f"{gmw_id}_{tube_nr}"  # bro
+        elif self.source == "dino":
+            name = f"{gmw_id}-{tube_nr}"  # dino
+        else:
+            raise ValueError
+
+        columns = [self.value_column, self.qualifier_column]
+        df = pd.DataFrame(self.oc.loc[name, "obs"].loc[:, columns])
+        return df
+
+    def save_qualifier(self, df: pd.DataFrame) -> None:
+        raise NotImplementedError("Not connected to a database. Use CSV export!")
