@@ -160,5 +160,12 @@ traval_scripts/pastasdb/
 db/
 data/20231109_dinoloket.zip
 *.pkl
+*.pickle
 *.pas
 .vscode/
+./data/
+gwdatalens/app/database.toml
+gwdatalens/node_modules/
+gwdatalens/package-lock.json
+gwdatalens/package.json
+gwdatalens/.stylelintrc.json
