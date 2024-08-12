@@ -1,9 +1,10 @@
 from dash import dcc, html
+
 from gwdatalens.app.settings import settings
 
 from ..cache import TIMEOUT, cache
-from . import ids
 from ..utils import conditional_cache
+from . import ids
 
 
 @conditional_cache(cache.memoize, not settings["DJANGO_APP"], timeout=TIMEOUT)
