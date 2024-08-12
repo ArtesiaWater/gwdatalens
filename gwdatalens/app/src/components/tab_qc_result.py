@@ -84,7 +84,7 @@ def render_mark_selection_reliable_button():
     )
 
 
-def render_mark_selection_suspect_button():
+def render_mark_selection_unreliable_button():
     return html.Div(
         dbc.Button(
             html.Span(
@@ -100,18 +100,18 @@ def render_mark_selection_suspect_button():
                 "margin-bottom": 10,
             },
             disabled=True,
-            id={"type": ids.QC_RESULT_MARK_OBS_BUTTONS, "index": "suspect"},
+            id={"type": ids.QC_RESULT_MARK_OBS_BUTTONS, "index": "unreliable"},
         ),
     )
 
 
-def render_reset_qualifier_button():
+def render_mark_selection_unknown_button():
     return html.Div(
         dbc.Button(
             html.Span(
                 [
                     html.I(className="fa-solid fa-delete-left"),
-                    " " + i18n.t("general.reset_status"),
+                    " " + i18n.t("general.mark_unknown"),
                 ],
                 id="span-export-db",
                 n_clicks=0,
@@ -122,6 +122,27 @@ def render_reset_qualifier_button():
             },
             disabled=True,
             id={"type": ids.QC_RESULT_MARK_OBS_BUTTONS, "index": "unknown"},
+        ),
+    )
+
+
+def render_mark_selection_undecided_button():
+    return html.Div(
+        dbc.Button(
+            html.Span(
+                [
+                    html.I(className="fa-regular fa-circle-question"),
+                    " " + i18n.t("general.mark_undecided"),
+                ],
+                id="span-export-db",
+                n_clicks=0,
+            ),
+            style={
+                "margin-top": 10,
+                "margin-bottom": 10,
+            },
+            disabled=True,
+            id={"type": ids.QC_RESULT_MARK_OBS_BUTTONS, "index": "undecided"},
         ),
     )
 
@@ -232,6 +253,21 @@ def render_qc_label_dropdown():
     )
 
 
+def render_export_checkbox_and_tooltip():
+    return [
+        dbc.Checkbox(
+            id=ids.QC_RESULT_EXPORT_QC_STATUS_FLAG,
+            label=i18n.t("general.qc_export_status_flag"),
+            value=True,
+        ),
+        dbc.Tooltip(
+            i18n.t("general.qc_export_status_flag_tooltip"),
+            id=ids.QC_RESULT_EXPORT_QC_STATUS_FLAG + "_tooltip",
+            target=ids.QC_RESULT_EXPORT_QC_STATUS_FLAG,
+        ),
+    ]
+
+
 def render_content(data: DataInterface, figure: dict):
     disabled = figure is None
     return dbc.Container(
@@ -261,9 +297,12 @@ def render_content(data: DataInterface, figure: dict):
                     ),
                     dbc.Col([render_select_all_in_table_button()], width="auto"),
                     dbc.Col([render_clear_table_selection_button()], width="auto"),
-                    dbc.Col([render_mark_selection_suspect_button()], width="auto"),
+                    dbc.Col([html.Div(className="col-right-border")], width="auto"),
                     dbc.Col([render_mark_selection_reliable_button()], width="auto"),
-                    dbc.Col([render_reset_qualifier_button()], width="auto"),
+                    dbc.Col([render_mark_selection_unreliable_button()], width="auto"),
+                    dbc.Col([render_mark_selection_undecided_button()], width="auto"),
+                    dbc.Col([render_mark_selection_unknown_button()], width="auto"),
+                    dbc.Col([html.Div(className="col-right-border")], width="auto"),
                     dbc.Col([render_qc_label_dropdown()], width=2),
                 ],
             ),
@@ -272,6 +311,7 @@ def render_content(data: DataInterface, figure: dict):
                 [
                     dbc.Col([render_export_to_csv_button(disabled)], width="auto"),
                     dbc.Col([render_export_to_database_button(disabled)], width="auto"),
+                    dbc.Col(render_export_checkbox_and_tooltip(), width="auto"),
                 ]
             ),
         ],
