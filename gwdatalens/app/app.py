@@ -48,7 +48,7 @@ else:
 traval_interface = TravalInterface(db, pstore)
 
 # add all components to our data interface object
-data = DataInterface(db=db, pstore=pstore, traval=traval_interface, settings=settings)
+data = DataInterface(db=db, pstore=pstore, traval=traval_interface)
 
 # %% background callbacks (for cancelling workflows)
 # NOTE: still some difficulty remaining with database engine with multiple processes,
