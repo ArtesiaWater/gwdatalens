@@ -71,7 +71,7 @@ def render_checkbox():
     return dbc.Checkbox(
         id=ids.QC_RUN_ONLY_UNVALIDATED_CHECKBOX,
         label=i18n.t("general.run_only_on_unvalidated"),
-        value=False,
+        value=True,
     )
 
 
@@ -179,12 +179,6 @@ def render_content(data: DataInterface, selected_data: List):
                 is_open=False,
                 id=ids.QC_COLLAPSE_CONTENT,
             ),
-            # NOTE: use below for showing JSON of current traval ruleset
-            # dbc.Row(
-            #     [
-            #         html.Pre(id=ids.TRAVAL_OUTPUT, lang="JSON", style={"fontSize": 8}),
-            #     ]
-            # ),
         ],
         fluid=True,
     )
