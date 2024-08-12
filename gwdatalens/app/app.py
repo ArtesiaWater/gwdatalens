@@ -30,7 +30,7 @@ i18n.load_path.append(LOCALE_PATH)
 # %% Set up backend
 
 # connect to database
-db = DataSource()
+db = DataSource(config=config["database"])
 
 # load pastastore
 # name = "zeeland"
