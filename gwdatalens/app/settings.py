@@ -13,7 +13,7 @@ with open(DATALENS_APP_PATH / "config.toml", "rb") as f:
 
 with open(DATALENS_APP_PATH / "database.toml", "rb") as f:
     dbase = tomli.load(f)
-    config["database"] = dbase
+    config["database"] = dbase["database"]
 
 # %% set paths accordingly
 
