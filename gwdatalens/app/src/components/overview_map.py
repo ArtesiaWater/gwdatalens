@@ -2,13 +2,12 @@ import i18n
 import numpy as np
 import plotly.graph_objs as go
 from dash import dcc
-from gwdatalens.app.settings import MAPBOX_ACCESS_TOKEN
-from gwdatalens.app.settings import settings
 
-from ..cache import TIMEOUT, cache
-from ..data.source import DataInterface
-from . import ids
-from ..utils import conditional_cache
+from gwdatalens.app.settings import MAPBOX_ACCESS_TOKEN, settings
+from gwdatalens.app.src.cache import TIMEOUT, cache
+from gwdatalens.app.src.components import ids
+from gwdatalens.app.src.data import DataInterface
+from gwdatalens.app.src.utils import conditional_cache
 
 try:
     mapbox_access_token = open(MAPBOX_ACCESS_TOKEN, "r").read()
@@ -226,7 +225,6 @@ def get_plotting_zoom_level_and_center_coordinates(longitudes=None, latitudes=No
     dict
         dictionary containing lat/lon coordinates of center point.
     """
-
     # Check whether both latitudes and longitudes have been passed,
     # or if the list lenghts don't match
     if (latitudes is None or longitudes is None) or (len(latitudes) != len(longitudes)):
