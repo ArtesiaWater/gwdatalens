@@ -38,14 +38,14 @@ en:
   show_all_tooltip: "Toggle to show all OR only suspect measurements."
   export_csv: Export CSV
   export_db: Export to DB
-  reliable: Reliable
-  unreliable: Unreliable
   unknown: Unknown
   category: "Select an appropriate code/label according to QC Protocol."
   tmin: Start Date
   tmax: End Date
-  mark_unreliable: "Mark unreliable"
   mark_reliable: "Mark reliable"
+  mark_unreliable: "Mark unreliable"
+  mark_undecided: "Mark undecided"
+  mark_unknown: "Mark unknown"
   clear_selection: "Deselect all in table"
   alert_failed_labeling: Cannot update labels for observations not visisble in table. Toggle 'Show all measurements'.
   run_only_on_unvalidated: Run only for unvalidated observations
@@ -55,3 +55,12 @@ en:
   select_qc_label: Apply QC label
   clear_qc_label: Clear QC label
   select_all: Select all in table
+  unknown: unknown
+  undecided: undecided
+  unreliable: unreliable
+  reliable: reliable
+  qc_status: "Update status of quality control of observation: ['unknown', 'undecided', 'unreliable', 'reliable', '']. If blank use incoming status."
+  incoming_qc_status: "Current status of of observation in database: ['unknown', 'undecided', 'unreliable', 'reliable']."
+  manual_observations: "manual observations"
+  qc_export_status_flag: "Non-flagged = reliable"
+  qc_export_status_flag_tooltip: "When checked, export non-flagged observations as reliable. Turn off when you only want to update the QC status of suspect observations. In that case the incoming QC status is used for all non-flagged observations."

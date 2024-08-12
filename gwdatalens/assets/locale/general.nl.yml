@@ -43,8 +43,10 @@ nl:
   category: "Selecteer een passende code volgens het QC Protocol."
   tmin: Startdatum
   tmax: Einddatum
-  mark_unreliable: "Meting(en) onbetrouwbaar"
-  mark_reliable: "Meting(en) betrouwbaar"
+  mark_reliable: "Meting(en) goedgekeurd"
+  mark_unreliable: "Meting(en) afgekeurd"
+  mark_undecided: "Meting(en) onbeslist"
+  mark_unknown: "Meting(en) onbekend"
   clear_selection: "Deselecteer alles in tabel"
   alert_failed_labeling: Kan labels niet updaten voor niet-zichtbare metingen in tabel. Gebruik 'Toon alle metingen' om alle metingen weer te geven.
   run_only_on_unvalidated: Alleen niet beoordeelde metingen
@@ -54,3 +56,12 @@ nl:
   select_qc_label: QC label toepassen
   clear_qc_label: Wis QC label
   select_all: Selecteer alles in tabel
+  unknown: onbekend
+  undecided: onbeslist
+  unreliable: afgekeurd
+  reliable: goedgekeurd
+  qc_status: "Update status kwaliteitscontrole meting: ['onbekend', 'onbeslist', 'afgekeurd', 'goedgekeurd', '']. Als leeg, behoudt dan huidige waarde."
+  incoming_qc_status: "Huidige status kwaliteitscontrole meting in database: ['onbekend', 'onbeslist', 'afgekeurd', 'goedgekeurd']."
+  manual_observations: "controle metingen"
+  qc_export_status_flag: "Niet-gesignaleerd = betrouwbaar"
+  qc_export_status_flag_tooltip: "Als dit vakje is aangevinkt, exporteer niet-gesignaleerd metingen als goedgekeurd. Zet dit uit als je alleen de QC status van verdachte metingen wilt opslaan. In dat geval wordt de inkomende QC status gebruikt voor alle niet-gesignaleerde metingen."
