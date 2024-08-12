@@ -4,12 +4,15 @@ import dash_bootstrap_components as dbc
 import numpy as np
 from dash import html
 
-from ..data.source import DataInterface
-from ..data.qc_definitions import rule_explanation_nl as rule_explanation
+from gwdatalens.app.settings import settings
 
-# TODO: obtain rule explanations through i18n as well?
-# from ..data.qc_definitions import rule_explanation_en as rule_explanation  # ruff:noqa
+from ..data import DataInterface
 from . import ids
+
+if settings["LOCALE"] == "en":
+    from ..data.qc_definitions import rule_explanation_en as rule_explanation
+elif settings["LOCALE"] == "nl":
+    from ..data.qc_definitions import rule_explanation_nl as rule_explanation
 
 
 def generate_kwargs_from_func(func):

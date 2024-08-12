@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 import i18n
 from dash import dcc, html
 
-from ..data.source import DataInterface
+from ..data.interface import DataInterface
 from . import ids, model_buttons, model_dropdown, model_plots
 
 

@@ -4,7 +4,7 @@ import i18n
 from dash import dcc, html
 from traval import rulelib
 
-from ..data.source import DataInterface
+from ..data.interface import DataInterface
 from . import ids
 
 

@@ -4,8 +4,8 @@ from dash import __version__ as DASH_VERSION
 from dash import dcc, html
 from packaging.version import parse as parse_version
 
+from ..data.interface import DataInterface
 from ..data.qc_definitions import qc_categories
-from ..data.source import DataInterface
 from . import ids, qc_results_table
 
 
