@@ -95,13 +95,13 @@ def plot_obs(names, data):
                 legendrank = 1000
                 if qualifier in ["goedgekeurd"]:
                     color = "green"
-                elif qualifier == "nogNietBeoordeeld":
+                elif qualifier in ["onbeslist"]:
                     color = "orange"
+                elif qualifier in ["afgekeurd"]:
+                    color = "red"
                 elif qualifier == "":
                     color = "#636EFA"
                     # legendrank = 999
-                elif qualifier in ["afgekeurd"]:
-                    color = "red"
                 else:
                     color = "gray"
                 trace_i = go.Scattergl(
@@ -125,7 +125,7 @@ def plot_obs(names, data):
                     y=manual_obs[data.db.value_column],
                     mode="markers",
                     marker={"color": "red", "size": 7},
-                    name="manual observations",
+                    name=i18n.t("general.manual_observations"),
                     legendgroup="manual obs",
                     showlegend=True,
                     legendrank=1001,
