@@ -116,6 +116,9 @@ def register_result_callbacks(app, data):
             if data.traval.traval_result is not None:
                 df = data.traval.traval_result.copy()
 
+                mask_incoming_not_error = ~df["incoming_status_quality_control"].isin(
+                    ["afgekeurd", "onbeslist"]
+                )
                 if settings["LOCALE"] == "en":
                     bro_en_to_nl = {
                         "": "",
@@ -135,14 +138,26 @@ def register_result_callbacks(app, data):
                         "incoming_status_quality_control"
                     ].apply(lambda v: bro_en_to_nl[v])
 
-                    mask = df["status_quality_control"] == ""
-
-                if non_flagged_reliable:
-                    df.loc[mask, "status_quality_control"] = "goedgekeurd"
-                else:
+                mask = df["status_quality_control"] == ""
+                if non_flagged_reliable == "all":
+                    # overwrite status to reliable for all except obs
+                    # already flagged as error
+                    df.loc[
+                        mask & mask_incoming_not_error, "status_quality_control"
+                    ] = "goedgekeurd"
+                    # set status of incoming errors
+                    df.loc[~mask_incoming_not_error, "status_quality_control"] = df.loc[
+                        ~mask_incoming_not_error, "incoming_status_quality_control"
+                    ]
+                elif non_flagged_reliable == "suspect":
+                    # only overwrite status to suspect for erroneous obs
                     df.loc[mask, "status_quality_control"] = df.loc[
                         mask, "incoming_status_quality_control"
                     ]
+                else:
+                    raise ValueError(
+                        f"Invalid value {non_flagged_reliable} for non_flagged_reliable"
+                    )
 
                 try:
                     data.db.save_qualifier(df)
@@ -164,7 +179,7 @@ def register_result_callbacks(app, data):
                     "No QC result to export.",
                 )
         else:
-            return no_update
+            return no_update, no_update
 
     @app.callback(
         Output(ids.QC_RESULT_TABLE, "filter_query"),
