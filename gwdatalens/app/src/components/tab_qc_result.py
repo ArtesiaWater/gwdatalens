@@ -259,12 +259,16 @@ def render_export_dropdown_and_tooltip():
             id=ids.QC_RESULT_EXPORT_QC_STATUS_FLAG,
             options=[
                 {
-                    "label": i18n.t("general.qc_export_status_flag_all"),
-                    "value": "all",
-                },
-                {
                     "label": i18n.t("general.qc_export_status_flag_suspect"),
                     "value": "suspect",
+                },
+                {
+                    "label": i18n.t("general.qc_export_status_flag_all_not_suspect"),
+                    "value": "all_not_suspect",
+                },
+                {
+                    "label": i18n.t("general.qc_export_status_flag_all"),
+                    "value": "all",
                 },
             ],
             value="suspect",
