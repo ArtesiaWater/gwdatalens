@@ -98,7 +98,7 @@ class DataSource(DataSourceTemplate):
             print(e)
             logger.error("Database not connected successfully")
 
-        self.value_column = "calculated_value"
+        self.value_column = "field_value"
         self.qualifier_column = "status_quality_control"
         self.source = "zeeland"
 
@@ -263,7 +263,15 @@ class DataSource(DataSourceTemplate):
         with self.engine.connect() as con:
             df = pd.read_sql(stmt, con=con, index_col="measurement_time")
 
-        if False:
+        if (
+            df.loc[:, self.value_column].isna().all()
+            and observation_type != "controlemeting"
+        ):
+            logger.warning(
+                f"Timeseries {gmw_id}-{tube_id} has no data " f"in {self.value_column}!"
+            )
+
+        if self.value_column == "field_value":
             # make sure all measurements are in m
             mask = df["field_value_unit"] == "cm"
             if mask.any():
@@ -275,7 +283,7 @@ class DataSource(DataSourceTemplate):
             if mask.any():
                 df.loc[mask, self.value_column] = np.nan
             # msg = "Other units than m or cm not supported yet"
-            # assert (mtvp["field_value_unit"] == "m").all(), msg
+            # assert (df["field_value_unit"] == "m").all(), msg
 
         # make index DateTimeIndex
         if df.index.dtype == "O":
