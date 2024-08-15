@@ -1,14 +1,13 @@
+from ast import literal_eval
+
 import i18n
 import numpy as np
 import pandas as pd
 from dash import ALL, Input, Output, Patch, State, ctx, dcc, no_update
 from dash.exceptions import PreventUpdate
-from icecream import ic
 
 from gwdatalens.app.settings import settings
 from gwdatalens.app.src.components import ids
-
-ic.configureOutput(includeContext=True)
 
 
 def register_result_callbacks(app, data):
@@ -116,7 +115,7 @@ def register_result_callbacks(app, data):
             if data.traval.traval_result is not None:
                 df = data.traval.traval_result.copy()
 
-                mask_incoming_not_error = ~df["incoming_status_quality_control"].isin(
+                mask_incoming_not_suspect = ~df["incoming_status_quality_control"].isin(
                     ["afgekeurd", "onbeslist"]
                 )
                 if settings["LOCALE"] == "en":
@@ -139,21 +138,25 @@ def register_result_callbacks(app, data):
                     ].apply(lambda v: bro_en_to_nl[v])
 
                 mask = df["status_quality_control"] == ""
-                if non_flagged_reliable == "all":
+                if non_flagged_reliable == "all_not_suspect":
                     # overwrite status to reliable for all except obs
-                    # already flagged as error
+                    # already flagged as suspect
                     df.loc[
-                        mask & mask_incoming_not_error, "status_quality_control"
+                        mask & mask_incoming_not_suspect, "status_quality_control"
                     ] = "goedgekeurd"
-                    # set status of incoming errors
-                    df.loc[~mask_incoming_not_error, "status_quality_control"] = df.loc[
-                        ~mask_incoming_not_error, "incoming_status_quality_control"
+                    # set status for incoming suspects
+                    df.loc[
+                        ~mask_incoming_not_suspect, "status_quality_control"
+                    ] = df.loc[
+                        ~mask_incoming_not_suspect, "incoming_status_quality_control"
                     ]
                 elif non_flagged_reliable == "suspect":
                     # only overwrite status to suspect for erroneous obs
                     df.loc[mask, "status_quality_control"] = df.loc[
                         mask, "incoming_status_quality_control"
                     ]
+                elif non_flagged_reliable == "all":
+                    df.loc[mask, "status_quality_control"] = "goedgekeurd"
                 else:
                     raise ValueError(
                         f"Invalid value {non_flagged_reliable} for non_flagged_reliable"
@@ -164,7 +167,7 @@ def register_result_callbacks(app, data):
                     return (
                         True,
                         "success",
-                        f"Succesfully exported to Database: {name}",
+                        f"Successfully exported to Database: {name}",
                     )
                 except Exception as e:
                     return (
@@ -179,7 +182,7 @@ def register_result_callbacks(app, data):
                     "No QC result to export.",
                 )
         else:
-            return no_update, no_update
+            raise PreventUpdate
 
     @app.callback(
         Output(ids.QC_RESULT_TABLE, "filter_query"),
@@ -432,19 +435,19 @@ def register_result_callbacks(app, data):
     def mark_obs(n, table_view, selected_points, **kwargs):
         if len(kwargs) > 0:
             ctx_ = kwargs["callback_context"]
-            ic(ctx_.triggered_id)
-            raise PreventUpdate
+            triggered_id = ctx_.triggered[0]["prop_id"].split(".")[0]
+            triggered_id_index = literal_eval(triggered_id)["index"]
         else:
             triggered_id_index = ctx.triggered_id["index"]
 
         if any(v is not None for v in n):
-            if ctx.triggered_id["index"] == "reliable":
+            if triggered_id_index == "reliable":
                 value = i18n.t("general.reliable")
-            elif ctx.triggered_id["index"] == "unreliable":
+            elif triggered_id_index == "unreliable":
                 value = i18n.t("general.unreliable")
-            elif ctx.triggered_id["index"] == "unknown":
+            elif triggered_id_index == "unknown":
                 value = i18n.t("general.unknown")
-            elif ctx.triggered_id["index"] == "undecided":
+            elif triggered_id_index == "undecided":
                 value = i18n.t("general.undecided")
             else:
                 raise PreventUpdate
