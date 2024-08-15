@@ -11,12 +11,23 @@ def copy_gwdatalens_to_django_app(
 ):
     logger.info("Copying GWDataLens to Django App...")
     # copy app to gwdatalens folder
-    shutil.copytree(DATALENS_PATH / "app", DJANGO_APP_PATH / "gwdatalens" / "app")
+    shutil.copytree(
+        DATALENS_PATH / "app",
+        DJANGO_APP_PATH / "gwdatalens" / "app",
+        ignore=shutil.ignore_patterns(
+            "__pycache__", ".cache", ".pi_cache", ".ruff_cache"
+        ),
+        dirs_exist_ok=True,
+    )
 
     logger.info(" - copying assets")
     # copy assets to static/dash folder
     ASSETS = DATALENS_PATH / "assets"
-    shutil.copytree(ASSETS, DJANGO_APP_PATH / "static" / "dash", dirs_exist_ok=True)
+    shutil.copytree(
+        ASSETS,
+        DJANGO_APP_PATH / "static" / "dash",
+        dirs_exist_ok=True,
+    )
 
     # copy django files to gwdatalens folder
     logger.info(" - copying django files")
