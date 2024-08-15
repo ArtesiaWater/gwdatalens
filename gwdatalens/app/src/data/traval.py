@@ -191,8 +191,7 @@ class TravalInterface:
 
         try:
             ml = self.pstore.get_models(series.name)
-        except Exception as e:
-            ic(e)
+        except Exception as _:
             ml = None
         figure = self.plot_traval_result(
             detector,
