@@ -172,11 +172,15 @@ class TravalInterface:
                     i18n.t("general.undecided"),
                 ]
             )
+
             df.loc[mask, "flagged"] = -1  # set already checked to (-1)
             df.loc[mask, "comment"] = ""  # set comments already checked to empty
             df.loc[mask, "status_quality_control"] = ""  # set qc check to empty
 
             ignore = df.loc[mask].index
+
+            if mask.sum() == df.index.size:
+                raise ValueError(i18n.t("general.alert_all_observations_checked"))
 
             # NOTE: uncomment below to filter out already checked observations from
             # table this is a pain in the @$$ for synchronizing selections between
