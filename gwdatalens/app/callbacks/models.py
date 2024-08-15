@@ -146,7 +146,7 @@ def register_model_callbacks(app, data):
                     ml.settings["tmin"].to_pydatetime(),
                     ml.settings["tmax"].to_pydatetime(),
                 )
-            except Exception as _:
+            except Exception as e:
                 return (
                     {"layout": {"title": i18n.t("general.no_model")}},
                     {"layout": {"title": i18n.t("general.no_model")}},
@@ -154,7 +154,10 @@ def register_model_callbacks(app, data):
                     (
                         True,  # show alert
                         "warning",  # alert color
-                        f"No model available for {value}. Click 'Generate Model' to create one.",
+                        (
+                            f"No model available for {value}. "
+                            f"Click 'Generate Model' to create one. Error: {e}"
+                        ),
                     ),
                     None,
                     None,
