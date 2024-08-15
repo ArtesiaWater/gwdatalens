@@ -1,3 +1,4 @@
+# %%
 import logging
 import os
 
@@ -14,6 +15,7 @@ from gwdatalens.app.src.data import DataInterface, DataSource, TravalInterface
 
 logger = logging.getLogger("waitress")
 logger.setLevel(logging.DEBUG)
+
 
 # %% set some variables
 external_stylesheets = [
@@ -47,8 +49,14 @@ else:
 # load ruleset
 traval_interface = TravalInterface(db, pstore)
 
+# %%
 # add all components to our data interface object
-data = DataInterface(db=db, pstore=pstore, traval=traval_interface)
+data = DataInterface(
+    db=db,
+    pstore=pstore,
+    traval=traval_interface,
+    update_knmi=config["pastastore"]["update_knmi"],
+)
 
 # %% background callbacks (for cancelling workflows)
 # NOTE: still some difficulty remaining with database engine with multiple processes,
@@ -161,3 +169,9 @@ if 0:
     ax.plot(hp.index, hp, marker="x", ms=10, color="b", ls="none")
 
     plt.show()
+
+
+#%%
+from hydropandas.io.knmi import get_stations
+
+get_stations("RD")
