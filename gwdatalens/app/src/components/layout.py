@@ -38,6 +38,7 @@ def create_layout(app: Dash, data: DataInterface) -> html.Div:
             dcc.Store(id=ids.ALERT_MARK_OBS),
             dcc.Store(id=ids.ALERT_LABEL_OBS),
             dcc.Store(id=ids.ALERT_LOAD_RULESET),
+            dcc.Store(id=ids.ALERT_RUN_TRAVAL),
             # duplicate containers
             dcc.Store(id=ids.OVERVIEW_TABLE_SELECTION_1),
             dcc.Store(id=ids.OVERVIEW_TABLE_SELECTION_2),
