@@ -404,6 +404,7 @@ def register_qc_callbacks(app, data):
         Output(ids.TRAVAL_RESULT_TABLE_STORE, "data"),
         Output(ids.QC_DROPDOWN_ADDITIONAL, "value"),
         Output(ids.QC_DROPDOWN_ADDITIONAL_DISABLED_2, "data"),
+        Output(ids.ALERT_RUN_TRAVAL, "data"),
         # Output(ids.LOADING_QC_CHART_STORE_2, "data"),
         Input(ids.QC_RUN_TRAVAL_BUTTON, "n_clicks"),
         # Input(ids.RUN_TRAVAL_STORE, "data"),
@@ -429,17 +430,41 @@ def register_qc_callbacks(app, data):
                 set_props(ids.LOADING_QC_CHART, {"display": "show"})
 
             gmw_id, tube_id = name.split("-")
-            result, figure = data.traval.run_traval(
-                gmw_id, tube_id, tmin=tmin, tmax=tmax, only_unvalidated=only_unvalidated
-            )
-            return (
-                # {"layout": {"title": "Running TRAVAL..."}},  # figure
-                (name, figure),
-                result.reset_index().to_dict("records"),
-                None,
-                True,
-                # "auto"
-            )
+            try:
+                result, figure = data.traval.run_traval(
+                    gmw_id,
+                    tube_id,
+                    tmin=tmin,
+                    tmax=tmax,
+                    only_unvalidated=only_unvalidated,
+                )
+                return (
+                    # {"layout": {"title": "Running TRAVAL..."}},  # figure
+                    (name, figure),
+                    result.reset_index().to_dict("records"),
+                    None,
+                    True,
+                    # "auto"
+                    (
+                        False,
+                        "success",
+                        "Traval run succesful",
+                    ),
+                )
+            except Exception as e:
+                return (
+                    # {"layout": {"title": "Running TRAVAL..."}},  # figure
+                    no_update,
+                    no_update,
+                    None,
+                    True,
+                    # "auto"
+                    (
+                        True,
+                        "danger",
+                        f"Error: {e}",
+                    ),
+                )
         else:
             raise PreventUpdate
 
