@@ -42,7 +42,11 @@ def render_cancel_button():
     )
 
 
-@conditional_cache(cache.memoize, not settings["DJANGO_APP"], timeout=TIMEOUT)
+@conditional_cache(
+    cache.memoize,
+    (not settings["DJANGO_APP"] and settings["CACHING"]),
+    timeout=TIMEOUT,
+)
 def render_content(data: DataInterface, selected_data: str):
     return dbc.Container(
         [

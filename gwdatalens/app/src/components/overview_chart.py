@@ -116,6 +116,7 @@ def plot_obs(names, data):
                 )
                 traces.append(trace_i)
             # add controle metingen
+
             manual_obs = data.db.get_timeseries(
                 monitoring_well, tube_nr, observation_type="controlemeting"
             )

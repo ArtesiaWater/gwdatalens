@@ -15,7 +15,11 @@ except FileNotFoundError:
     mapbox_access_token = None
 
 
-@conditional_cache(cache.memoize, not settings["DJANGO_APP"], timeout=TIMEOUT)
+@conditional_cache(
+    cache.memoize,
+    (not settings["DJANGO_APP"] and settings["CACHING"]),
+    timeout=TIMEOUT,
+)
 def render(
     data: DataInterface,
     selected_data=None,
