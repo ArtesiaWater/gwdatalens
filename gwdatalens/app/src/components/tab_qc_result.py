@@ -253,12 +253,25 @@ def render_qc_label_dropdown():
     )
 
 
-def render_export_checkbox_and_tooltip():
+def render_export_dropdown_and_tooltip():
     return [
-        dbc.Checkbox(
+        dcc.Dropdown(
             id=ids.QC_RESULT_EXPORT_QC_STATUS_FLAG,
-            label=i18n.t("general.qc_export_status_flag"),
-            value=True,
+            options=[
+                {
+                    "label": i18n.t("general.qc_export_status_flag_all"),
+                    "value": "all",
+                },
+                {
+                    "label": i18n.t("general.qc_export_status_flag_suspect"),
+                    "value": "suspect",
+                },
+            ],
+            value="suspect",
+            multi=False,
+            searchable=True,
+            clearable=False,
+            placeholder=i18n.t("general.qc_export_status_flag_placeholder"),
         ),
         dbc.Tooltip(
             i18n.t("general.qc_export_status_flag_tooltip"),
@@ -311,7 +324,7 @@ def render_content(data: DataInterface, figure: dict):
                 [
                     dbc.Col([render_export_to_csv_button(disabled)], width="auto"),
                     dbc.Col([render_export_to_database_button(disabled)], width="auto"),
-                    dbc.Col(render_export_checkbox_and_tooltip(), width="auto"),
+                    dbc.Col(render_export_dropdown_and_tooltip(), width=2),
                 ]
             ),
         ],
