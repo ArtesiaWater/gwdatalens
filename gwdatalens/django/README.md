@@ -3,7 +3,7 @@
 In order to run GW DataLens as a Django Application, follow these steps:
 
 1. Copy GW DataLEns to Django Application folder. See section below for script that makes this step very simple.
-2. Modify Django files (`main/settings/base.py` and `main/urls.py`) so GW DataLens can be found by the django app. 
+2. Modify Django files (`main/settings/base.py` and `main/urls.py`) so GW DataLens can be found by the django app.
 
 ## Run django_copy.py
 
@@ -41,7 +41,6 @@ Run the following commands from `bro_connector/` (directory containing `manage.p
 - `python manage.py migrage --fake` (if database was restored from backup)
 - `python manage.py createsuperuser` (pick defaults and choose a password)
 - `python manage.py runserver` (this runs the app!)
-
 
 ## Starting from scratch for Django App
 
@@ -104,6 +103,16 @@ CREATE TABLE spatial_ref_sys (
 - Select Import/Export Data...
 - Choose Import, and select CSV file we just exported. Under options make sure the Headers option is turned on.
 - Press OK.
+
+### Check which column in databse contains observations
+
+If no observations are showing up, check whether the value_column in the `DataSource`
+class is correct. Can be one of:
+
+- "field_value"
+- "calculated_value"
+
+Set this value in `gwdatalens/app/src/data/source.py`
 
 ## Uninstall postgresql
 
