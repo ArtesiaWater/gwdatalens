@@ -16,7 +16,6 @@ from gwdatalens.app.src.data import DataInterface, DataSource, TravalInterface
 logger = logging.getLogger("waitress")
 logger.setLevel(logging.DEBUG)
 
-
 # %% set some variables
 external_stylesheets = [
     dbc.themes.FLATLY,
@@ -171,7 +170,7 @@ if 0:
     plt.show()
 
 
-#%%
+# %%
 from hydropandas.io.knmi import get_stations
 
 get_stations("RD")
