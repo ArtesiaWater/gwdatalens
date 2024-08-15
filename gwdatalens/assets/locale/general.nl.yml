@@ -60,8 +60,11 @@ nl:
   undecided: onbeslist
   unreliable: afgekeurd
   reliable: goedgekeurd
-  qc_status: "Update status kwaliteitscontrole meting: ['onbekend', 'onbeslist', 'afgekeurd', 'goedgekeurd', '']. Als leeg, behoudt dan huidige waarde."
+  qc_status: "Update status kwaliteitscontrole meting: ['onbekend', 'onbeslist', 'afgekeurd', 'goedgekeurd', '']. Als leeg, behoudt dan huidige/inkomende waarde."
   incoming_qc_status: "Huidige status kwaliteitscontrole meting in database: ['onbekend', 'onbeslist', 'afgekeurd', 'goedgekeurd']."
   manual_observations: "controle metingen"
-  qc_export_status_flag: "Niet-gesignaleerd = betrouwbaar"
-  qc_export_status_flag_tooltip: "Als dit vakje is aangevinkt, exporteer niet-gesignaleerd metingen als goedgekeurd. Zet dit uit als je alleen de QC status van verdachte metingen wilt opslaan. In dat geval wordt de inkomende QC status gebruikt voor alle niet-gesignaleerde metingen."
+  qc_export_status_flag_tooltip: "Kies of de beoordeling van alle metingen wordt geëxporteerd of alleen de beoordeling van de verdachte metingen."
+  qc_export_status_flag_all: "Exporteer alle beoordelingen"
+  qc_export_status_flag_suspect: "Exporteer alleen verdachte beoordelingen"
+  qc_export_status_flag_placeholder: "Selecteer export optie..."
+  alert_all_observations_checked: "Alle metingen zijn al beoordeeld!"
