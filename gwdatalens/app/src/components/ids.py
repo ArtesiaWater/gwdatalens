@@ -19,6 +19,7 @@ ALERT_EXPORT_TO_DB = "alert-export-to-db"
 ALERT_MARK_OBS = "alert-mark-obs"
 ALERT_LABEL_OBS = "alert-label-obs"
 ALERT_LOAD_RULESET = "alert-load-ruleset"
+ALERT_RUN_TRAVAL = "alert-run-traval"
 
 # STORES
 SELECTED_OSERIES_STORE = "selected-oseries-store"
