@@ -51,7 +51,7 @@ def plot_obs(names, data):
     if names is None:
         return {"layout": {"title": i18n.t("general.no_plot")}}
 
-    hasobs = [i for i in data.db.list_locations()]
+    hasobs = list(data.db.list_locations())
     title = None
 
     traces = []
