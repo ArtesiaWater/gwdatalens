@@ -1,3 +1,6 @@
+import pandas as pd
+
+
 class DataInterface:
     def __init__(self, db=None, pstore=None, traval=None, **kwargs):
         self.db = db
@@ -14,7 +17,9 @@ class DataInterface:
             from pastastore.extensions import activate_hydropandas_extension
 
             activate_hydropandas_extension()
-            self.pstore.hpd.update_knmi_meteo()
+            # set tmax to 4 weeks ago
+            tmax = pd.Timestamp.today().normalize() - pd.Timedelta(days=7 * 4)
+            self.pstore.hpd.update_knmi_meteo(tmax=tmax)
 
     def attach_traval(self, traval):
         self.traval = traval
