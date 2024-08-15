@@ -10,10 +10,21 @@ with open(DATALENS_APP_PATH / "config.toml", "rb") as f:
     config = tomli.load(f)
     settings = config["settings"]
 
+# %%
+if settings["DJANGO_APP"]:
+    from main import localsecret
 
-with open(DATALENS_APP_PATH / "database.toml", "rb") as f:
-    dbase = tomli.load(f)
-    config["database"] = dbase["database"]
+    config["database"] = {
+        "database": localsecret.database,
+        "user": localsecret.s_user,
+        "password": localsecret.s_password,
+        "host": localsecret.s_host,
+        "port": localsecret.s_port,
+    }
+else:
+    with open(DATALENS_APP_PATH / "database.toml", "rb") as f:
+        dbase = tomli.load(f)
+        config["database"] = dbase["database"]
 
 # %% set paths accordingly
 

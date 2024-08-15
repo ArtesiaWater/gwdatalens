@@ -15,7 +15,12 @@ def copy_gwdatalens_to_django_app(
         DATALENS_PATH / "app",
         DJANGO_APP_PATH / "gwdatalens" / "app",
         ignore=shutil.ignore_patterns(
-            "__pycache__", ".cache", ".pi_cache", ".ruff_cache"
+            "__pycache__",
+            ".cache",
+            ".pi_cache",
+            ".ruff_cache",
+            "database.toml",
+            "*.zip",
         ),
         dirs_exist_ok=True,
     )
@@ -26,6 +31,9 @@ def copy_gwdatalens_to_django_app(
     shutil.copytree(
         ASSETS,
         DJANGO_APP_PATH / "static" / "dash",
+        ignore=shutil.ignore_patterns(
+            ".mapbox_access_token",
+        ),
         dirs_exist_ok=True,
     )
 
@@ -39,10 +47,9 @@ def copy_gwdatalens_to_django_app(
 
     # copy dash template to templates folder
     logger.info(" - copying dash template")
-    (DJANGO_APP_PATH / "templates").mkdir(exist_ok=True)
     shutil.copy(
         DATALENS_PATH / "django" / "templates" / "dash.html",
-        DJANGO_APP_PATH / "templates",
+        DJANGO_APP_PATH / "main" / "templates",
     )
     logger.info(f"Done! Copied GWDataLens to Django project in {DJANGO_APP_PATH}.")
 
@@ -50,9 +57,7 @@ def copy_gwdatalens_to_django_app(
 # %%
 if __name__ == "__main__":
     logger.setLevel(logging.INFO)
-    DJANGO_APP_PATH = pl.Path(
-        "/home/david/github/bro-provincie-zeeland-12aug/bro_connector"
-    )
+    DJANGO_APP_PATH = pl.Path("/home/david/github/bro-connector/bro_connector")
     copy_gwdatalens_to_django_app(DJANGO_APP_PATH)
 
 # %%
