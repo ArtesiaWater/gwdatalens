@@ -70,6 +70,7 @@ def register_general_callbacks(app, data):
         Input(ids.ALERT_EXPORT_TO_DB, "data"),
         Input(ids.ALERT_MARK_OBS, "data"),
         Input(ids.ALERT_LABEL_OBS, "data"),
+        Input(ids.ALERT_RUN_TRAVAL, "data"),
         prevent_initial_call=True,
     )
     def show_alert(*args, **kwargs):
