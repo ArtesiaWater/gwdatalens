@@ -6,7 +6,7 @@ import shutil
 logger = logging.getLogger(__name__)
 
 
-def copy_datalens_to_django_app(
+def copy_gwdatalens_to_django_app(
     DJANGO_APP_PATH, DATALENS_PATH=pl.Path(__file__).parent
 ):
     logger.info("Copying GWDataLens to Django App...")
@@ -15,14 +15,8 @@ def copy_datalens_to_django_app(
 
     logger.info(" - copying assets")
     # copy assets to static/dash folder
-    ASSETS = DJANGO_APP_PATH / "gwdatalens" / "app" / "assets"
-    for file in ASSETS.iterdir():
-        shutil.move(file, DJANGO_APP_PATH / "static" / "dash" / file.name)
-
-    logger.info(" - copying locale")
-    # move locale folder to static/dash folder
-    LOCALE = DJANGO_APP_PATH / "gwdatalens" / "app" / "locale"
-    shutil.move(LOCALE, DJANGO_APP_PATH / "static" / "dash" / "locale")
+    ASSETS = DATALENS_PATH / "assets"
+    shutil.copytree(ASSETS, DJANGO_APP_PATH / "static" / "dash", dirs_exist_ok=True)
 
     # copy django files to gwdatalens folder
     logger.info(" - copying django files")
@@ -46,8 +40,8 @@ def copy_datalens_to_django_app(
 if __name__ == "__main__":
     logger.setLevel(logging.INFO)
     DJANGO_APP_PATH = pl.Path(
-        "/home/david/github/bro-provincie-zeeland-git/bro_connector"
+        "/home/david/github/bro-provincie-zeeland-12aug/bro_connector"
     )
-    copy_datalens_to_django_app(DJANGO_APP_PATH)
+    copy_gwdatalens_to_django_app(DJANGO_APP_PATH)
 
 # %%
