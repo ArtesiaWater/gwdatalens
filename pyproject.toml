@@ -22,6 +22,8 @@ dependencies = [
     "dash",
     "dash-bootstrap-components",
     "waitress",
+    "tomli",
+    "i18nice[YAML]",
 ]
 
 keywords = [
