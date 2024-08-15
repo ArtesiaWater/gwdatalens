@@ -101,7 +101,9 @@ if settings["DJANGO_APP"]:
     app.layout = create_layout(app, data)
     app.css.append_css(
         {
-            "external_url": CUSTOM_CSS_PATH,
+            "external_url": [
+                CUSTOM_CSS_PATH,
+            ]
         }
     )
 
