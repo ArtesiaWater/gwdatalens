@@ -14,7 +14,7 @@ class DataInterface:
     def attach_pastastore(self, pstore, update_knmi=False):
         self.pstore = pstore
 
-        if update_knmi:
+        if update_knmi and not pstore.empty:
             from pastastore.extensions import activate_hydropandas_extension
 
             activate_hydropandas_extension()
