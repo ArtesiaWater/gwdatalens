@@ -2,7 +2,7 @@ name: datalens
 channels:
   - conda-forge
 dependencies:
-  - python=3.10.12
+  - python=3.11
   - pip
   - numpy
   - matplotlib
@@ -24,4 +24,3 @@ dependencies:
     - icecream
     - i18nice[YAML]
     - arcticdb
-    - protobuf~=4.0
