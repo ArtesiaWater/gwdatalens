@@ -169,3 +169,6 @@ gwdatalens/node_modules/
 gwdatalens/package-lock.json
 gwdatalens/package.json
 gwdatalens/.stylelintrc.json
+# pixi environments
+.pixi
+*.egg-info
