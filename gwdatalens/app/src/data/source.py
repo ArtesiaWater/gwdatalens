@@ -95,8 +95,7 @@ class DataSource(DataSourceTemplate):
             # NOTE: use for background callbacks
             # self.engine.dispose()
         except Exception as e:
-            print(e)
-            logger.error("Database not connected successfully")
+            logger.error(f"Database not connected successfully: {e}")
 
         self.value_column = "field_value"
         self.qualifier_column = "status_quality_control"
@@ -108,7 +107,7 @@ class DataSource(DataSourceTemplate):
         return create_engine(
             f"postgresql+psycopg2://{self.config['user']}:{self.config['password']}@"
             f"{self.config['host']}:{self.config['port']}/{self.config['database']}",
-            connect_args={"options": "-csearch_path=gmw,gld,public"},
+            connect_args={"options": "-csearch_path=gmw,gld,public,django_admin"},
         )
 
     @cached_property
