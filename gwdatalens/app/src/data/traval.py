@@ -190,7 +190,7 @@ class TravalInterface:
             ignore = None
 
         try:
-            ml = self.pstore.get_models(series.name)
+            ml = self.pstore.get_models(name)
         except Exception as _:
             ml = None
         # little modification to add NITG code to figure
@@ -207,7 +207,12 @@ class TravalInterface:
 
     @staticmethod
     def plot_traval_result(
-        detector, model=None, tmin=None, tmax=None, ignore=None, qualifiers=None
+        detector,
+        model=None,
+        tmin=None,
+        tmax=None,
+        ignore=None,
+        qualifiers=None,
     ):
         traces = []
 
