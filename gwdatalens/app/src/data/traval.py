@@ -193,6 +193,8 @@ class TravalInterface:
             ml = self.pstore.get_models(series.name)
         except Exception as _:
             ml = None
+        # little modification to add NITG code to figure
+        detector.series.name += f" ({self.db.gmw_gdf.at[name, 'nitg_code']})"
         figure = self.plot_traval_result(
             detector,
             ml,

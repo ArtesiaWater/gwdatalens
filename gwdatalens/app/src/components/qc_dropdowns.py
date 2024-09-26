@@ -12,7 +12,10 @@ def render_selection_series_dropdown(
     data: DataInterface, selected_data: Optional[List]
 ):
     locs = data.db.list_locations()
-    options = [{"label": i, "value": i} for i in locs]
+    options = [
+        {"label": f"{i} ({data.db.gmw_gdf.at[i, 'nitg_code']})", "value": i}
+        for i in locs
+    ]
 
     if selected_data is not None and len(selected_data) == 1:
         value = selected_data[0]

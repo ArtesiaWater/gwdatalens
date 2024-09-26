@@ -82,7 +82,7 @@ def plot_obs(names, data):
                 y=ts.values,
                 mode="lines",
                 line={"width": 1, "color": "gray"},
-                name=name,
+                name=name + f" ({data.db.gmw_gdf.at[name, 'nitg_code']})",
                 legendgroup=f"{name}-{tube_nr}",
                 showlegend=True,
             )
