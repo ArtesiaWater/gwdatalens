@@ -64,7 +64,7 @@ en:
   manual_observations: "manual observations"
   qc_export_status_flag_tooltip: "Select whether all status flags should be exported or only those for suspect observations."
   qc_export_status_flag_all: "Export all status flags"
-  qc_export_status_flag_all_not_suspect: "Export all status flags, but not previously suspect observations"
+  qc_export_status_flag_all_not_suspect: "Export all status flags, but not previously identified suspect observations"
   qc_export_status_flag_suspect: "Export only suspect status flags"
   qc_export_status_flag_placeholder: "Select export option..."
   alert_all_observations_checked: "No unvalidated observations to check!"

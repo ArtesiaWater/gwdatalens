@@ -65,7 +65,7 @@ nl:
   manual_observations: "controle metingen"
   qc_export_status_flag_tooltip: "Kies of de beoordeling van alle metingen wordt geëxporteerd of alleen de beoordeling van de verdachte metingen."
   qc_export_status_flag_all: "Exporteer alle beoordelingen"
-  qc_export_status_flag_all_not_suspect: "Exporteer alle beoordelingen, maar niet al verdachte metingen"
+  qc_export_status_flag_all_not_suspect: "Exporteer alle beoordelingen, maar niet al verdacht beoordeelde metingen"
   qc_export_status_flag_suspect: "Exporteer alleen verdachte beoordelingen"
   qc_export_status_flag_placeholder: "Selecteer export optie..."
   alert_all_observations_checked: "Alle metingen zijn al beoordeeld!"
