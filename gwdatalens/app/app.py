@@ -13,8 +13,9 @@ from gwdatalens.app.src.cache import cache
 from gwdatalens.app.src.components.layout import create_layout
 from gwdatalens.app.src.data import DataInterface, DataSource, TravalInterface
 
-logger = logging.getLogger("waitress")
-logger.setLevel(logging.DEBUG)
+logging.basicConfig()
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 # %% set some variables
 external_stylesheets = [
@@ -131,48 +132,3 @@ else:
             "CACHE_DIR": ".cache",
         },
     )
-
-# %%
-
-if 0:
-    names = []
-    for i in data.db.list_locations():
-        gmw_id, tube_nr = i.split("-")
-        tube_nr = int(tube_nr)
-        s = data.db.get_timeseries(gmw_id, tube_nr, observation_type="controlemeting")
-        if s.index.size > 0:
-            names.append((gmw_id, tube_nr))
-
-
-if 0:
-    import matplotlib.pyplot as plt
-    import traval
-
-    gmw_id = "GMW000000050707"
-    tube_nr = 2
-    series = data.db.get_timeseries(gmw_id, tube_nr)[data.db.value_column]
-    hp = data.db.get_timeseries(gmw_id, tube_nr, observation_type="controlemeting")[
-        data.db.value_column
-    ]
-    detector = traval.Detector(series)
-
-    ruleset = traval.RuleSet("manual_obs")
-    ruleset.add_rule(
-        "manual_obs",
-        traval.rulelib.rule_shift_to_manual_obs,
-        apply_to=0,
-        kwargs={"hseries": hp},
-    )
-    detector.apply_ruleset(ruleset)
-    cp = detector.comparisons[1]
-    compare = traval.ComparisonPlots(cp)
-    ax = compare.plot_series_comparison()
-    ax.plot(hp.index, hp, marker="x", ms=10, color="b", ls="none")
-
-    plt.show()
-
-
-# %%
-from hydropandas.io.knmi import get_stations
-
-get_stations("RD")

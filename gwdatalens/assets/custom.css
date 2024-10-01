@@ -43,6 +43,9 @@ button.btn-close {
     background-color: #ffffff00 !important;
 }
 
+button[id*="clear-button"] {
+    background-color: darkred !important;
+}
 
 .loading-wrapper-qc-result>div {
     visibility: visible !important;

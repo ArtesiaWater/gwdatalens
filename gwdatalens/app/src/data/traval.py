@@ -7,7 +7,7 @@ import plotly.express as px
 import plotly.graph_objs as go
 import traval
 from icecream import ic
-from pandas import Timedelta
+from pandas import DataFrame, Series, Timedelta
 
 from gwdatalens.app.settings import settings
 
@@ -113,8 +113,8 @@ class TravalInterface:
         ruleset = self._ruleset
         detector.apply_ruleset(ruleset)
 
-        # NOTE: store detector for now to inspect result
-        # self.detector = detector
+        # NOTE: store detector to inspect result
+        self.detector = detector
 
         comments = detector.get_comment_series()
 
@@ -193,8 +193,18 @@ class TravalInterface:
             ml = self.pstore.get_models(name)
         except Exception as _:
             ml = None
+
         # little modification to add NITG code to figure
         detector.series.name += f" ({self.db.gmw_gdf.at[name, 'nitg_code']})"
+
+        manual_obs = self.db.get_timeseries(
+            gmw_id, tube_id, observation_type="controlemeting"
+        )
+        if not manual_obs.empty:
+            additional_series = [manual_obs]
+        else:
+            additional_series = None
+
         figure = self.plot_traval_result(
             detector,
             ml,
@@ -202,6 +212,7 @@ class TravalInterface:
             tmax=tmax,
             ignore=ignore,
             qualifiers=ts[self.db.qualifier_column],
+            additional_series=additional_series,
         )
         return df, figure
 
@@ -213,6 +224,7 @@ class TravalInterface:
         tmax=None,
         ignore=None,
         qualifiers=None,
+        additional_series=None,
     ):
         traces = []
 
@@ -265,6 +277,26 @@ class TravalInterface:
                     legendgroup=qualifier,
                     showlegend=True,
                     legendrank=legendrank,
+                )
+                traces.append(trace_i)
+
+        if additional_series is not None:
+            if isinstance(additional_series, (Series, DataFrame)):
+                additional_series = [additional_series]
+            elif not isinstance(additional_series, list):
+                raise ValueError(
+                    "additional_series should be a list of Series/DataFrames"
+                )
+            for add_series in additional_series:
+                trace_i = go.Scattergl(
+                    x=add_series.index,
+                    y=add_series,
+                    mode="markers",
+                    marker={"color": "red", "size": 6},
+                    name=add_series.name,
+                    legendgroup="manual obs",
+                    showlegend=True,
+                    legendrank=1001,
                 )
                 traces.append(trace_i)
 
@@ -373,7 +405,7 @@ class TravalInterface:
             },
             # "hovermode": "x",
             "dragmode": "pan",
-            "margin": dict(l=50, r=20),
+            "margin": {"l": 50, "r": 20},
         }
         # set axes limits
         if ignore is not None:
@@ -391,4 +423,4 @@ class TravalInterface:
             dy = 0.05 * (ymax - ymin)
             layout["yaxis"]["range"] = [ymin - dy, ymax + dy]
 
-        return dict(data=traces, layout=layout)
+        return {"data": traces, "layout": layout}

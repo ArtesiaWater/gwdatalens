@@ -3,7 +3,7 @@ import os
 import pickle
 from abc import ABC, abstractmethod
 from functools import cached_property, lru_cache
-from typing import List, Tuple
+from typing import List, Optional, Tuple, Union
 
 import geopandas as gpd
 import i18n
@@ -180,16 +180,24 @@ class DataSource(DataSourceTemplate):
 
         # sort data:
         gdf.sort_values(
-            ["metingen", "nitg_code", "tube_number"], ascending=False, inplace=True
+            ["metingen", "nitg_code", "tube_number"],
+            ascending=[False, True, True],
+            inplace=True,
         )
         gdf["id"] = range(gdf.index.size)
 
         return gdf
 
-    @lru_cache
+    @lru_cache  # noqa: B019
     def list_locations(self) -> List[str]:
-        """Return a list of locations that contain groundwater level dossiers, where
-        each location is defines by a tuple of length 2: bro-id and tube_id
+        """Return a list of locations that contain groundwater level dossiers.
+
+        Each location is defines by a tuple of length 2: bro-id and tube_id.
+
+        Returns
+        -------
+        List[str]
+            List of measurement location names.
         """
         # get all grundwater level dossiers
         stmt = (
@@ -228,11 +236,37 @@ class DataSource(DataSourceTemplate):
         return distsorted
 
     def get_timeseries(
-        self, gmw_id: str, tube_id: int, observation_type="reguliereMeting"
+        self,
+        gmw_id: str,
+        tube_id: Optional[int] = None,
+        observation_type="reguliereMeting",
+        column: Optional[Union[List[str], str]] = None,
     ) -> pd.Series:
-        """Return a Pandas Series for the measurements at the requested bro-id and
-        tube-id, im m. Return None when there are no measurements.
+        """Return a Pandas Series for the measurements for given bro-id and tube-id.
+
+        Values returned im m. Return None when there are no measurements.
+
+        Parameters
+        ----------
+        gmw_id : str
+            id of the observation well
+        tube_id : int, optional
+            tube number of the observation well
+        observation_type : str, optional
+            type of observation, by default "reguliereMeting". Options are
+            "reguliereMeting", "controlemeting".
+        column : str, optional
+            column to return, by default None
+
+        Returns
+        -------
+        pd.Series
+            time series of head observations.
         """
+        # allow passing full ID to first argument to use this function in traval
+        # for getting manual observations using a single ID string.
+        if tube_id is None:
+            gmw_id, tube_id = gmw_id.split("-")
         stmt = (
             select(
                 datamodel.MeasurementTvp.measurement_time,
@@ -267,7 +301,7 @@ class DataSource(DataSourceTemplate):
             and observation_type != "controlemeting"
         ):
             logger.warning(
-                f"Timeseries {gmw_id}-{tube_id} has no data " f"in {self.value_column}!"
+                f"Timeseries {gmw_id}-{tube_id} has no data in {self.value_column}!"
             )
 
         if self.value_column == "field_value":
@@ -292,7 +326,10 @@ class DataSource(DataSourceTemplate):
         # drop dupes
         df = df.loc[~df.index.duplicated(keep="first")]
 
-        return df
+        if column is not None:
+            return df.loc[:, column]
+        else:
+            return df
 
     def count_measurements_per_filter(self) -> pd.Series:
         stmt = (
@@ -398,7 +435,13 @@ class DataSourceHydropandas(DataSourceTemplate):
         return self._gmw_to_gdf()
 
     def _gmw_to_gdf(self):
-        """Return all groundwater monitoring wells (gmw) as a GeoDataFrame"""
+        """Return all groundwater monitoring wells (gmw) as a GeoDataFrame.
+
+        Returns
+        -------
+        gpd.GeoDataFrame
+            GeoDataFrame containing groundwater monitoring well locations and metadata
+        """
         oc = self.oc
         gdf = gpd.GeoDataFrame(oc, geometry=gpd.points_from_xy(oc.x, oc.y))
         columns = {
@@ -415,10 +458,16 @@ class DataSourceHydropandas(DataSourceTemplate):
 
         return gdf
 
-    @lru_cache
+    @lru_cache  # noqa: B019
     def list_locations(self) -> List[Tuple[str, int]]:
-        """Return a list of locations that contain groundwater level dossiers, where
-        each location is defines by a tuple of length 2: bro-id and tube_id
+        """Return a list of locations that contain groundwater level dossiers.
+
+        Each location is defines by a tuple of length 2: bro-id and tube_id.
+
+        Returns
+        -------
+        List[Tuple[str, int]]
+            List of measurement location names.
         """
         oc = self.oc
         locations = []
@@ -438,14 +487,27 @@ class DataSourceHydropandas(DataSourceTemplate):
         )
         return distsorted
 
-    def get_timeseries(self, gmw_id: str, tube_nr: int) -> pd.Series:
-        """Return a Pandas Series for the measurements at the requested gmw_id and
-        tube_id, im m. Return None when there are no measurements.
+    def get_timeseries(self, gmw_id: str, tube_id: int) -> pd.DataFrame:
+        """Return a Pandas Series for the measurements for gmw_id and tube_id.
+
+        Values returned in m. Return None when there are no measurements.
+
+        Parameters
+        ----------
+        gmw_id : str
+            id of the observation well
+        tube_id : int
+            tube number of the observation well
+
+        Returns
+        -------
+        pd.DataFrame
+            time series of head observations.
         """
         if self.source == "bro":
-            name = f"{gmw_id}_{tube_nr}"  # bro
+            name = f"{gmw_id}_{tube_id}"  # bro
         elif self.source == "dino":
-            name = f"{gmw_id}-{tube_nr}"  # dino
+            name = f"{gmw_id}-{tube_id}"  # dino
         else:
             raise ValueError
 

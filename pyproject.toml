@@ -10,9 +10,7 @@ description = "Dashboard for data validation."
 license = { file = "LICENSE" }
 readme = "README.md"
 authors = [{ name = "D.A. Brakenhoff" }, { name = "R.C. Caljé" }]
-maintainers = [
-    { name = "D.A. Brakenhoff", email = "d.brakenhoff@artesia-water.nl" },
-]
+maintainers = [{ name = "D.A. Brakenhoff", email = "d.brakenhoff@artesia-water.nl" }]
 requires-python = ">= 3.10"
 dependencies = [
     "numpy",
@@ -83,6 +81,16 @@ select = [
     "D",   # pydocstyle
     "B",   # flake8-bugbear
     "NPY", # numpy
+]
+ignore = [
+    "D100", # Missing docstring in public module
+    "D101", # Missing docstring in public class
+    "D102", # Missing docstring in public method
+    "D103", # Missing docstring in public function
+    "D104", # Missing docstring in public package    
+    "D105", # Missing docstring in magic method
+    "D401", # First line should be in imperative mood
+    "B006", # Do not use mutable data structures as default arguments
 ]
 
 [tool.ruff.lint.pydocstyle]
