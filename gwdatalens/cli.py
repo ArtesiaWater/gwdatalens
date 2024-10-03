@@ -1,7 +1,10 @@
+import argparse
+import logging
 import sys
 
 from gwdatalens.app.main import run_dashboard
 from gwdatalens.app.settings import settings
+from gwdatalens.django_copy import copy_gwdatalens_to_django_app
 
 
 def cli_main():
@@ -13,8 +16,6 @@ def cli_main():
 
         gwdatalens [--debug BOOL] [--port PORT]
     """
-    import argparse
-
     parser = argparse.ArgumentParser(
         description="Run GW DataLens dashboard on localhost.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -46,7 +47,36 @@ def cli_main():
         sys.exit(f" cancelling '{sys.argv[0]}'")
 
 
-# %%
-if __name__ == "__main__":
-    """Run command-line interface, if run as a script."""
-    cli_main()
+def cp_gwdatalens_to_broconnector():
+    """GW DataLens dashboard command-line interface.
+
+    Usage
+    -----
+    Copy GW DataLens to BRO-Connector with::
+
+        cp_gwdatalens_to_broconnector [DJANGO_APP_PATH]
+    """
+    parser = argparse.ArgumentParser(
+        description="Copy GW DataLens to BRO-Connector.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "See https://github.com/nens/bro-connector for more "
+            "information about BRO-Connector."
+        ),
+    )
+
+    parser.add_argument(
+        "DJANGO_APP_PATH",
+        type=str,
+        help="BRO-Connector root directory.",
+    )
+
+    kwargs = vars(parser.parse_args())
+
+    try:
+        logging.basicConfig()
+        logger = logging.getLogger()
+        logger.setLevel(logging.INFO)
+        copy_gwdatalens_to_django_app(**kwargs)
+    except (EOFError, KeyboardInterrupt):
+        sys.exit(f" cancelling '{sys.argv[0]}'")
