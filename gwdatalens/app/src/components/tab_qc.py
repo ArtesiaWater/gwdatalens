@@ -122,6 +122,20 @@ def render_checkbox():
 
 
 def render_content(data: DataInterface, selected_data: List):
+    """Renders the content for the QC tab.
+
+    Parameters
+    ----------
+    data : DataInterface
+        The data interface object.
+    selected_data : List
+        A list of selected data items.
+
+    Returns
+    -------
+    dbc.Container
+        A Dash Bootstrap Components container with the rendered content.
+    """
     return dbc.Container(
         [
             dbc.Row(
