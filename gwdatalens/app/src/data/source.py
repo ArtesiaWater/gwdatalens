@@ -104,9 +104,25 @@ class DataSource(DataSourceTemplate):
     def _engine(self):
         # NOTE: could theoretically be used to return new engine for
         # background callbacks (but this approach made app slower on Windows though)
+        config = self.config
+        user = config.get("user")
+        password = config.get("password")
+        host = config.get("host")
+        port = config.get("port")
+        database = config.get("database")
+
+        if not all([user, password, host, port, database]):
+            raise ValueError("Database configuration is incomplete")
+
+        # URL-encode the password
+        encoded_password = quote(password, safe="")
+
+        connection_string = (
+            f"postgresql+psycopg2://{user}:{encoded_password}@{host}:{port}/{database}"
+        )
+
         return create_engine(
-            f"postgresql+psycopg2://{self.config['user']}:{self.config['password']}@"
-            f"{self.config['host']}:{self.config['port']}/{self.config['database']}",
+            connection_string,
             connect_args={"options": "-csearch_path=gmw,gld,public,django_admin"},
         )
 
