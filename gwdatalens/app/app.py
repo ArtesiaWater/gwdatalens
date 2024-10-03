@@ -11,7 +11,12 @@ from gwdatalens.app.callbacks import register_callbacks
 from gwdatalens.app.settings import CUSTOM_CSS_PATH, LOCALE_PATH, config, settings
 from gwdatalens.app.src.cache import cache
 from gwdatalens.app.src.components.layout import create_layout
-from gwdatalens.app.src.data import DataInterface, DataSource, TravalInterface
+from gwdatalens.app.src.data import (
+    DataInterface,
+    DataSource,
+    # DataSourceHydropandas,
+    TravalInterface,
+)
 
 logging.basicConfig()
 logger = logging.getLogger()
@@ -29,12 +34,16 @@ external_stylesheets = [
 i18n.set("locale", settings["LOCALE"])
 i18n.load_path.append(LOCALE_PATH)
 
-# %% Set up backend
+# %% Connect to database
 
-# connect to database
+# postgreql database
 db = DataSource(config=config["database"])
 
-# load pastastore
+# hydropandas 'database'
+# db = DataSourceHydropandas(extent=[116500, 120000, 439000, 442000], source="bro")
+# db = DataSourceHydropandas(fname="obs_collection_dino.pickle", source="dino")
+
+# %% load pastastore
 # name = "zeeland"
 name = config["pastastore"]["name"]
 pastastore_path = config["pastastore"]["path"]
@@ -141,3 +150,5 @@ else:
             "CACHE_DIR": ".cache",
         },
     )
+
+# %%

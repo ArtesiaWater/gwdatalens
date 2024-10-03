@@ -78,7 +78,12 @@ class DataSourceTemplate(ABC):
         """
 
     @abstractmethod
-    def get_timeseries(self, gmw_id: str, tube_id: int) -> pd.DataFrame:
+    def get_timeseries(
+        self,
+        gmw_id: str,
+        tube_id: int,
+        observation_type: Optional[str] = None,
+    ) -> pd.DataFrame:
         """Get time series.
 
         Parameters
@@ -87,6 +92,8 @@ class DataSourceTemplate(ABC):
             id of the observation well
         tube_id : int
             tube number of the observation well
+        observation_type : str, optional
+            type of observation, for BRO "reguliereMeting" or "controlemeting"
 
         Returns
         -------
@@ -551,18 +558,31 @@ class DataSourceHydropandas(DataSourceTemplate):
             GeoDataFrame containing groundwater monitoring well locations and metadata
         """
         oc = self.oc
-        gdf = gpd.GeoDataFrame(oc, geometry=gpd.points_from_xy(oc.x, oc.y))
+        use_cols = oc.columns.difference({"obs"})
+        gdf = gpd.GeoDataFrame(
+            oc.loc[:, use_cols], geometry=gpd.points_from_xy(oc.x, oc.y)
+        )
         columns = {
             "monitoring_well": "bro_id",
             "screen_bottom": "screen_bot",
             "tube_nr": "tube_number",
+            "tube_top": "tube_top_position",
         }
         gdf = gdf.rename(columns=columns)
         gdf["nitg_code"] = ""
 
+        # add location data in RD and lat/lon in WGS84
+        transformer = Transformer.from_proj(EPSG_28992, WGS84, always_xy=False)
+        gdf.loc[:, ["lon", "lat"]] = np.vstack(
+            transformer.transform(gdf["x"].values, gdf["y"].values)
+        ).T
+
         # add number of measurements
         gdf["metingen"] = self.oc.stats.n_observations
         gdf["bro_id"] = gdf.index.tolist()
+
+        # add id
+        gdf["id"] = range(gdf.index.size)
 
         return gdf
 
@@ -581,7 +601,8 @@ class DataSourceHydropandas(DataSourceTemplate):
         locations = []
         mask = [not x.loc[:, self.value_column].dropna().empty for x in oc["obs"]]
         for index in oc[mask].index:
-            locations.append(tuple(oc.loc[index, ["monitoring_well", "tube_nr"]]))
+            # locations.append(tuple(oc.loc[index, ["monitoring_well", "tube_nr"]]))
+            locations.append(index)
         return locations
 
     def list_locations_sorted_by_distance(self, name):
@@ -595,7 +616,12 @@ class DataSourceHydropandas(DataSourceTemplate):
         )
         return distsorted
 
-    def get_timeseries(self, gmw_id: str, tube_id: int) -> pd.DataFrame:
+    def get_timeseries(
+        self,
+        gmw_id: str,
+        tube_id: Optional[Union[int, str]] = None,
+        observation_type="reguliereMeting",
+    ) -> pd.DataFrame:
         """Return a Pandas Series for the measurements for gmw_id and tube_id.
 
         Values returned in m. Return None when there are no measurements.
@@ -612,10 +638,17 @@ class DataSourceHydropandas(DataSourceTemplate):
         pd.DataFrame
             time series of head observations.
         """
+        # empty return for controlemeting
+        if observation_type == "controlemeting":
+            return pd.Series()
+
         if self.source == "bro":
             name = f"{gmw_id}_{tube_id}"  # bro
         elif self.source == "dino":
-            name = f"{gmw_id}-{tube_id}"  # dino
+            if isinstance(tube_id, str):
+                name = f"{gmw_id}-{tube_id}"  # dino
+            elif isinstance(tube_id, int):
+                name = f"{gmw_id}-{tube_id:03g}"
         else:
             raise ValueError
 

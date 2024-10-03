@@ -6,7 +6,6 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objs as go
 import traval
-from icecream import ic
 from pandas import DataFrame, Series, Timedelta
 
 from gwdatalens.app.settings import settings
@@ -191,7 +190,7 @@ class TravalInterface:
             If all observations have already been checked.
         """
         name = f"{gmw_id}-{int(tube_id):03g}"
-        ic(f"Running traval for {name}...")
+        print(f"Running traval for {name}...")
         ts = self.db.get_timeseries(gmw_id, tube_id)
 
         if tmin is not None:
