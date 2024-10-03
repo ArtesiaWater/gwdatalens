@@ -78,8 +78,20 @@ def register_model_callbacks(app, data):
                         ts = ts.loc[mask, data.db.value_column]
                     else:
                         ts = ts.loc[:, data.db.value_column]
-                    # update stored copy
-                    data.pstore.update_oseries(ts, value)
+
+                    if value in data.pstore.oseries_names:
+                        # update stored copy
+                        data.pstore.update_oseries(ts, value)
+                    else:
+                        # add series to database
+                        metadata = data.db.gmw_gdf.loc[value].to_dict()
+                        data.pstore.add_oseries(ts, value, metadata)
+                        print(f"Time series '{value}' added to pastastore database.")
+
+                    if pd.isna(tmin):
+                        tmin = ts.index[0]
+                    if pd.isna(tmax):
+                        tmax = ts.index[-1]
                     # create model
                     ml = ps.Model(ts)
                     data.pstore.add_recharge(ml)
