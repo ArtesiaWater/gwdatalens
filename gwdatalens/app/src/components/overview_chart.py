@@ -93,9 +93,7 @@ def plot_obs(names, data):
         if df is None:
             continue
 
-        df.loc[:, data.db.qualifier_column] = df.loc[
-            :, data.db.qualifier_column
-        ].fillna("")
+        df[data.db.qualifier_column] = df.loc[:, data.db.qualifier_column].fillna("")
 
         if len(names) == 1:
             title = None
