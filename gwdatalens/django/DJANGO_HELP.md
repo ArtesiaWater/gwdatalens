@@ -1,15 +1,18 @@
-# GWDataLens as Django Application
+# GWDataLens under BRO-Connector
 
-In order to run GW DataLens as a Django Application, follow these steps:
+In order to run GW DataLens under BRO Connector (a Django application), follow these steps:
 
-1. Copy GW DataLEns to Django Application folder. See section below for script that makes this step very simple.
-2. Modify Django files (`main/settings/base.py` and `main/urls.py`) so GW DataLens can be found by the django app.
+1. Modify `gwdatalens/app/config.toml` and set `DJANGO_APP = true`.
+2. Copy GW DataLens to BRO-Connector folder. See section below for a command that makes this step very simple.
+3. Modify Django files (`main/settings/base.py` and `main/urls.py`) so GW DataLens can be found by the django app.
 
-## Run django_copy.py
+## Copy GW DataLens to Django Application
 
-Use `gwdatalens.copy_gwdatalens_to_django_app()`, providing the path to the Django
-Application. Or run script `gwdatalens/django_copy.py`. Ensure the path to the Django
-Application is correctly defined in the script. This copies all relevant files to the right locations in the Django Application.
+Use command line tool `cp_gwdatalens_to_broconnector [PATH]`, providing the
+path to the root of the BRO Connector application. Or run script
+`gwdatalens/django_copy.py`. Ensure the path to the Django Application is
+correctly defined in the script. This copies all relevant files to the right
+locations in the Django Application.
 
 ## Update urlpatterns
 
@@ -31,14 +34,17 @@ urlpatterns = [
 
 ## Update settings
 
-In `main/settings/base.py`, add all settings listed in `gwdatalens/django/plotly_settings.py`. In some cases the settings variables must be added in others, the existing lists must be extended. Be sure to add additional entries at the bottom of existing lists.
+In `main/settings/base.py`, add all settings listed in
+`gwdatalens/django/plotly_settings.py`. In some cases the settings variables
+must be added in others, the existing lists must be extended. Be sure to add
+additional entries at the bottom of existing lists.
 
 ## Prepare Django app
 
 Run the following commands from `bro_connector/` (directory containing `manage.py`):
 
-- `python manage.py makemigrations`
-- `python manage.py migrage --fake` (if database was restored from backup)
+- `python manage.py makemigrations bro tools gmw gld gmn frd`
+- `python manage.py migrate`
 - `python manage.py createsuperuser` (pick defaults and choose a password)
 - `python manage.py runserver` (this runs the app!)
 
