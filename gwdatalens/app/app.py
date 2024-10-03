@@ -95,7 +95,8 @@ else:
 
 
 if settings["DJANGO_APP"]:
-    from django_plotly_dash import DjangoDash
+    from django.conf import settings as django_settings  # noqa
+    from django_plotly_dash import DjangoDash  # noqa
 
     # create app
     app = DjangoDash(
@@ -110,7 +111,8 @@ if settings["DJANGO_APP"]:
     app.css.append_css(
         {
             "external_url": [
-                CUSTOM_CSS_PATH,
+                django_settings.STATIC_URL
+                + "dash/custom.css",  # Adjust this based on your directory structure
             ]
         }
     )
