@@ -42,7 +42,14 @@ pastastore_path = config["pastastore"]["path"]
 if name.endswith(".zip"):
     pstore = pst.PastaStore.from_zip(pastastore_path / name)
 else:
-    conn = pst.ArcticDBConnector(name=name, uri=f"lmdb://{pastastore_path}")
+    if config["pastastore"]["connector"] == "arcticdb":
+        conn = pst.ArcticDBConnector(name=name, uri=f"lmdb://{pastastore_path}")
+    elif config["pastastore"]["connector"] == "pas":
+        conn = pst.PasConnector(name=name, path=pastastore_path)
+    else:
+        raise ValueError(
+            f"Unknown connector type '{config['pastastore']['connector']}'"
+        )
     pstore = pst.PastaStore(conn)
     print(pstore)
 
