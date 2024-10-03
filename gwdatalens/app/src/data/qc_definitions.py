@@ -1,3 +1,5 @@
+"""The definitions for the quality control flags and rules."""
+
 qc_categories = {
     "QC0i": "Verstopt filter",
     "QC0j": "Ijsvorming in buis",
