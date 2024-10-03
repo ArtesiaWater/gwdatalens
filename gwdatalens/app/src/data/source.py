@@ -4,6 +4,7 @@ import pickle
 from abc import ABC, abstractmethod
 from functools import cached_property, lru_cache
 from typing import List, Optional, Tuple, Union
+from urllib.parse import quote
 
 import geopandas as gpd
 import i18n
@@ -20,6 +21,26 @@ logger = logger = logging.getLogger(__name__)
 
 
 class DataSourceTemplate(ABC):
+    """Abstract base class for a data source class.
+
+    This class defines the interface for the data source class, which includes
+    methods for retrieving metadata, listing measurement locations, and
+    getting time series data from a data source (e.g. database).
+
+    Methods
+    -------
+    gmw_gdf : gpd.GeoDataFrame
+        Get head observations metadata as GeoDataFrame.
+    list_locations:  List[str]
+        List of measurement location names.
+    list_locations_sorted_by_distance : List[str]
+        List of measurement location names, sorted by distance.
+    get_timeseries : pd.DataFrame
+        Get time series.
+    save_qualifier :
+        Save error detection (traval) result in database.
+    """
+
     @property
     @abstractmethod
     def gmw_gdf(self) -> gpd.GeoDataFrame:
@@ -57,7 +78,7 @@ class DataSourceTemplate(ABC):
         """
 
     @abstractmethod
-    def get_timeseries(self, gmw_id: str, tube_id: int) -> pd.Series:
+    def get_timeseries(self, gmw_id: str, tube_id: int) -> pd.DataFrame:
         """Get time series.
 
         Parameters
@@ -69,7 +90,7 @@ class DataSourceTemplate(ABC):
 
         Returns
         -------
-        pd.Series
+        pd.DataFrame
             time series of head observations.
         """
 
@@ -85,6 +106,44 @@ class DataSourceTemplate(ABC):
 
 
 class DataSource(DataSourceTemplate):
+    """DataSource class connecting to Provincie Zeelands postgresql database.
+
+    Parameters
+    ----------
+    config : dict
+        Configuration dictionary containing database connection parameters.
+
+    Attributes
+    ----------
+    config : dict
+        Configuration dictionary containing database connection parameters.
+    engine : sqlalchemy.engine.Engine
+        SQLAlchemy engine for database connection.
+    value_column : str
+        Column name for the value field (containing the observations)
+    qualifier_column : str
+        Column name for the quality control status.
+    source : str
+        Source identifier, default is "zeeland".
+
+    Methods
+    -------
+    gmw_gdf
+        Returns all unique piezometers as a GeoDataFrame.
+    list_locations
+        Returns a list of locations that contain groundwater level dossiers.
+    list_locations_sorted_by_distance
+        Returns a list of locations sorted by distance from a given location.
+    get_timeseries
+        Returns a Pandas DataFrame for the measurements for a given location.
+    count_measurements_per_filter
+        Returns a count of measurements per filter.
+    save_qualifier
+        Saves the quality control information to the database.
+    set_qc_fields_for_database(
+        Sets the quality control fields.
+    """
+
     def __init__(self, config):
         # init connection to database OR just read in some data from somewhere
         # Connect to database using psycopg2
@@ -128,21 +187,22 @@ class DataSource(DataSourceTemplate):
 
     @cached_property
     def gmw_gdf(self) -> gpd.GeoDataFrame:
-        return self._gmw_to_gdf()
-
-    def _gmw_to_gdf(self):
-        """
-        Return all unique piezometers as a (Geo)DataFrame.
+        """Get metadata as GeoDataFrame.
 
         Returns
         -------
-        gdf : a (Geo)Pandas(Geo)DataFrame
-            a (Geo)DataFrame with a unique index, describing the well-name and the tube-
-            number, and at least the following columns:
-                screen_top
-                screen_bot
-                lat
-                lon
+        gpd.GeoDataFrame
+            A GeoDataFrame containing the metadata of piezometers.
+        """
+        return self._gmw_to_gdf()
+
+    def _gmw_to_gdf(self):
+        """Return all piezometer metadata as a (Geo)DataFrame.
+
+        Returns
+        -------
+        gdf : a gpd.GeoDataFrame
+            a GeoDataFrame with the metadata.
         """
         stmt = (
             select(
@@ -241,6 +301,18 @@ class DataSource(DataSourceTemplate):
         return locations
 
     def list_locations_sorted_by_distance(self, name) -> List[str]:
+        """List locations sorted by their distance from a given location.
+
+        Parameters
+        ----------
+        name : str
+            The name of the location from which distances are calculated.
+
+        Returns
+        -------
+        List[str]
+            A list of location names sorted by their distance from the given location.
+        """
         gdf = self.gmw_gdf.copy()
 
         p = gdf.loc[name, "coordinates"]
@@ -348,6 +420,13 @@ class DataSource(DataSourceTemplate):
             return df
 
     def count_measurements_per_filter(self) -> pd.Series:
+        """Count the number of measurements per filter.
+
+        Returns
+        -------
+        pd.Series
+            A pandas Series containing the count of measurements in each time series.
+        """
         stmt = (
             select(
                 datamodel.Well.bro_id,
@@ -373,6 +452,19 @@ class DataSource(DataSourceTemplate):
         return count
 
     def save_qualifier(self, df):
+        """Save qualifier information to the database.
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            The DataFrame containing the qualifier data to be saved. It must include
+            the following columns:
+            - "measurement_point_metadata_id"
+            - The column specified by `self.qualifier_column`
+            - "censor_reason_artesia"
+            - "censor_reason"
+            - "value_limit"
+        """
         df = self.set_qc_fields_for_database(df)
 
         param_columns = [
