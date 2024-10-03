@@ -12,15 +12,13 @@ dependencies:
   - psycopg2
   - geopandas
   - pip:
-    - dash
-    - dash-bootstrap-components
-    - flask-caching
-    - tqdm
-    - waitress
-    - traval
-    - pastas
-    - pastastore
-    - hydropandas
-    - icecream
-    - i18nice[YAML]
-    - arcticdb
+      - dash
+      - dash-bootstrap-components
+      - flask-caching
+      - tqdm
+      - waitress
+      - i18nice[YAML]
+      - pastas
+      - pastastore
+      - hydropandas
+      - traval
