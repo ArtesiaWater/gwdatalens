@@ -59,6 +59,7 @@ lint = ["black", "flake8", "isort", "docformatter"]
 
 [project.scripts]
 gwdatalens = "gwdatalens.cli:cli_main"
+cp_gwdatalens_to_broconnector = "gwdatalens.cli:cp_gwdatalens_to_broconnector"
 
 [tool.setuptools]
 packages = ["gwdatalens"]
