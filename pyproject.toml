@@ -62,7 +62,15 @@ gwdatalens = "gwdatalens.cli:cli_main"
 cp_gwdatalens_to_broconnector = "gwdatalens.cli:cp_gwdatalens_to_broconnector"
 
 [tool.setuptools]
-packages = ["gwdatalens"]
+include-package-data = true
+
+[tool.setuptools.packages]
+find = {}
+
+[tool.setuptools.package-data]
+"gwdatalens.app" = ["*.toml"]
+"gwdatalens.assets" = ["*.md", "*.css"]
+"gwdatalens.assets.locale" = ["*.yml"]
 
 [tool.setuptools.dynamic]
 version = { attr = "gwdatalens.version.__version__" }
