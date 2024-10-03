@@ -12,8 +12,9 @@ with open(DATALENS_APP_PATH / "config.toml", "rb") as f:
 
 # %%
 if settings["DJANGO_APP"]:
-    from main import localsecret
+    from main import localsecret  # noqa
 
+    # NOTE: edit for other database configurations
     config["database"] = {
         "database": localsecret.database,
         "user": localsecret.s_user,
