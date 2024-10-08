@@ -143,6 +143,7 @@ commit your manual review to the database, or download the results as a CSV file
 
 ### References
 
-- Documentation for [traval](https://traval.readthedocs.io/en/latest/).
+- Documentation for [hydropandas](https://hydropandas.readthedocs.io/en/latest/).
 - Documentation for [pastas](https://pastas.dev/).
 - Documentation for [pastastore](https://pastastore.readthedocs.io/en/latest/).
+- Documentation for [traval](https://traval.readthedocs.io/en/latest/).
