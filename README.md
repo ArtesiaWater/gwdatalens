@@ -73,8 +73,8 @@ data source can be instantiated in a few ways:
   all groundwater level observations within an extent, and store the resulting
   `ObsCollection` as a pickle-file (for faster loading next time). To update the data,
   delete the pickle-file and let the download run again.
-- specify a file name (e.g. `fname=oc.pkl`) containing a pickled `ObsCollection`.
-  Specify the data source (`"dino"` or `"bro"`).
+- specify a file name (e.g. `fname="oc.pkl"`) containing a pickled `ObsCollection`.
+  Specify the data source (`"dino"` or `"bro"`) of the file.
 - Specify an `ObsCollection` instance using `oc=oc`.
 
 See the documentation for `HydropandasDataSource` for more information.
