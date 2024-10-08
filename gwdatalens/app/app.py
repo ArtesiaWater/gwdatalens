@@ -13,8 +13,8 @@ from gwdatalens.app.src.cache import cache
 from gwdatalens.app.src.components.layout import create_layout
 from gwdatalens.app.src.data import (
     DataInterface,
-    DataSource,
-    # DataSourceHydropandas,
+    PostgreSQLDataSource,
+    # HydropandasDataSource,
     TravalInterface,
 )
 
@@ -37,11 +37,11 @@ i18n.load_path.append(LOCALE_PATH)
 # %% Connect to database
 
 # postgreql database
-db = DataSource(config=config["database"])
+db = PostgreSQLDataSource(config=config["database"])
 
 # hydropandas 'database'
-# db = DataSourceHydropandas(extent=[116500, 120000, 439000, 442000], source="bro")
-# db = DataSourceHydropandas(fname="obs_collection_dino.pickle", source="dino")
+# db = HydropandasDataSource(extent=[116500, 120000, 439000, 442000], source="bro")
+# db = HydropandasDataSource(fname="obs_collection_dino.pickle", source="dino")
 
 # %% load pastastore
 # name = "zeeland"
