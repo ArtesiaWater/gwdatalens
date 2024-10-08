@@ -163,7 +163,7 @@ class DataSource(DataSourceTemplate):
         except Exception as e:
             logger.error(f"Database not connected successfully: {e}")
 
-        self.value_column = "field_value"
+        self.value_column = "calculated_value"
         self.qualifier_column = "status_quality_control"
         self.source = "zeeland"
 
