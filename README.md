@@ -1,3 +1,5 @@
+![PyPI - Version](https://img.shields.io/pypi/v/gwdatalens)
+
 # GW DataLens: Dashboard for quality control of head observations
 
 ![Example error detection result](gwdatalens/assets/traval_result_example.png)
