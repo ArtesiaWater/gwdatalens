@@ -111,9 +111,14 @@ class DataSourceTemplate(ABC):
             dataframe containig error detection results after manual review.
         """
 
+    @property
+    @abstractmethod
+    def backend(self):
+        """Backend of the data source."""
 
-class DataSource(DataSourceTemplate):
-    """DataSource class connecting to Provincie Zeelands postgresql database.
+
+class PostgreSQLDataSource(DataSourceTemplate):
+    """DataSource class connecting to Provincie Zeelands PostgreSQL database.
 
     Parameters
     ----------
@@ -150,6 +155,8 @@ class DataSource(DataSourceTemplate):
     set_qc_fields_for_database(
         Sets the quality control fields.
     """
+
+    backend = "postgresql"
 
     def __init__(self, config):
         # init connection to database OR just read in some data from somewhere
@@ -515,8 +522,10 @@ class DataSource(DataSourceTemplate):
         return df
 
 
-class DataSourceHydropandas(DataSourceTemplate):
-    def __init__(self, extent=None, oc=None, fname=None, source="dino", **kwargs):
+class HydropandasDataSource(DataSourceTemplate):
+    backend = "hydropandas"
+
+    def __init__(self, extent=None, oc=None, fname=None, source="bro", **kwargs):
         if oc is None:
             if fname is None:
                 fname = "obs_collection.pickle"
