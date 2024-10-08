@@ -12,7 +12,7 @@ from pastastore.extensions import activate_hydropandas_extension
 from tqdm.auto import tqdm
 
 from gwdatalens.app.settings import config
-from gwdatalens.app.src.data import DataSource
+from gwdatalens.app.src.data import PostgreSQLDataSource
 
 # %%
 hpd.util.get_color_logger("INFO")
@@ -26,7 +26,7 @@ name = config["pastastore"]["name"]
 pastastore_path = config["pastastore"]["path"]
 
 
-db = DataSource(config["database"])
+db = PostgreSQLDataSource(config["database"])
 
 # %%
 if name.endswith(".zip") and os.path.exists(pastastore_path / name):
