@@ -80,7 +80,14 @@ def plot_obs(names, data):
     traces = []
     for name in names:
         # split into monitoringwell and tube_number
-        monitoring_well, tube_nr = name.split("-")
+        if "-" in name:
+            monitoring_well, tube_nr = name.split("-")
+        elif "_" in name:
+            monitoring_well, tube_nr = name.split("_")
+        else:
+            raise ValueError(
+                f"Error splitting name into monitoring well ID and tube number: {name}"
+            )
         tube_nr = int(tube_nr)
 
         # no obs
