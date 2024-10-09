@@ -222,12 +222,12 @@ def register_overview_callbacks(app, data):
         pts = loc["id"].tolist()
 
         dfm = data.db.gmw_gdf.reset_index().loc[pts].copy()
-        dfm["curveNumber"] = 0  # all locs plotted in trace 0 for map highlighting
+        dfm["curveNumber"] = 1  # all locs plotted in trace 1 for map highlighting
         mask = dfm.loc[:, "metingen"] > 0
         # update selected points
         mappatch = Patch()
-        mappatch["data"][0]["selectedpoints"] = dfm.loc[:, "id"].tolist()
-        mappatch["data"][1]["selectedpoints"] = dfm.loc[~mask, "id"].tolist()
+        mappatch["data"][1]["selectedpoints"] = dfm.loc[:, "id"].tolist()
+        mappatch["data"][0]["selectedpoints"] = dfm.loc[~mask, "id"].tolist()
 
         selectedData = {
             "points": [
