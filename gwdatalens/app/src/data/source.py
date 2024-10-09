@@ -626,6 +626,13 @@ class HydropandasDataSource(DataSourceTemplate):
         gdf["metingen"] = self.oc.stats.n_observations
         gdf["bro_id"] = gdf.index.tolist()
 
+        # sort data
+        gdf.sort_values(
+            ["metingen", "bro_id", "tube_number"],
+            ascending=[False, True, True],
+            inplace=True,
+        )
+
         # add id
         gdf["id"] = range(gdf.index.size)
 
@@ -644,7 +651,7 @@ class HydropandasDataSource(DataSourceTemplate):
         """
         oc = self.oc
         locations = []
-        mask = [not x.loc[:, self.value_column].dropna().empty for x in oc["obs"]]
+        mask = [not x.dropna(how="all").empty for x in oc["obs"]]
         for index in oc[mask].index:
             # locations.append(tuple(oc.loc[index, ["monitoring_well", "tube_nr"]]))
             locations.append(index)
