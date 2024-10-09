@@ -288,8 +288,8 @@ class PostgreSQLDataSource(DataSourceTemplate):
 
         # sort data:
         gdf.sort_values(
-            ["metingen", "nitg_code", "tube_number"],
-            ascending=[False, True, True],
+            ["nitg_code", "tube_number"],
+            ascending=[True, True],
             inplace=True,
         )
         gdf["id"] = range(gdf.index.size)
