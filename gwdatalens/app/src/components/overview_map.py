@@ -120,7 +120,7 @@ def draw_map(
         "textfont": {"size": 12, "color": "black"},
         "mode": "markers",
         "marker": go.scattermap.Marker(
-            size=6,
+            size=7,
             opacity=0.8,
             # sizeref=0.5,
             # sizemin=2,
@@ -145,11 +145,11 @@ def draw_map(
         "showlegend": True,
         "legendgroup": "NODATA",
         "selectedpoints": pts_nodata,
-        "unselected": {"marker": {"opacity": 0.5, "color": "gray", "size": 5}},
+        "unselected": {"marker": {"opacity": 0.5, "color": "gray", "size": 7}},
         "selected": {"marker": {"opacity": 1.0, "color": "red", "size": 9}},
     }
 
-    mapdata = [pb_data, pb_nodata]
+    mapdata = [pb_nodata, pb_data]
 
     # if selected_rows is None:
     zoom, center = get_plotting_zoom_level_and_center_coordinates(
