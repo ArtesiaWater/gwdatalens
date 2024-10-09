@@ -79,12 +79,12 @@ def draw_map(
 
     # oseries data for map
     pb_data = {
-        "lat": df.loc[mask, "lat"],
-        "lon": df.loc[mask, "lon"],
+        "lat": df.loc[:, "lat"],
+        "lon": df.loc[:, "lon"],
         "name": "PMG Kwantiteit",
-        # customdata=df.loc[mask, "z"],
+        # customdata=df.loc[:, "z"],
         "type": "scattermapbox",
-        "text": df.loc[mask, "name"].tolist(),
+        "text": df.loc[:, "name"].tolist(),
         "textposition": "top center" if mapbox_access_token else None,
         "textfont": {"size": 12, "color": "black"} if mapbox_access_token else None,
         "mode": "markers" if mapbox_access_token else "markers",
