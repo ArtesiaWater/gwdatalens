@@ -271,8 +271,11 @@ class PostgreSQLDataSource(DataSourceTemplate):
 
         # add number of measurements
         gdf["metingen"] = 0
-        hasobs = [x for x in self.list_locations() if x in gdf.index]
-        gdf.loc[hasobs, "metingen"] = 1
+        count = self.count_measurements_per_filter()
+        count.index = (
+            count["bro_id"] + "-" + count["tube_number"].apply("{:03g}".format)
+        )
+        gdf.loc[count.index, "metingen"] = count["Metingen"].values
 
         # add location data in RD and lat/lon in WGS84
         gdf["x"] = gdf.geometry.x
