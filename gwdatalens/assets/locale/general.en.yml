@@ -6,6 +6,7 @@ en:
   tab_model: Time Series Model
   tab_qc: Error Detection
   tab_qc_result: Manual Review
+  monitoring_wells: "Observation wells"
   no_data: No data
   no_data_selection: No data in selected time series.
   no_selection: No series selected.
