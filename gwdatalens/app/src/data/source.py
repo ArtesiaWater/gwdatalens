@@ -628,8 +628,8 @@ class HydropandasDataSource(DataSourceTemplate):
 
         # sort data
         gdf.sort_values(
-            ["metingen", "bro_id", "tube_number"],
-            ascending=[False, True, True],
+            ["bro_id", "tube_number"],
+            ascending=[True, True],
             inplace=True,
         )
 
