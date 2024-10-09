@@ -293,7 +293,7 @@ class TravalInterface:
             ml = None
 
         # little modification to add NITG code to figure
-        detector.series.name += f" ({self.db.gmw_gdf.at[name, 'nitg_code']})"
+        detector.series.name += self.db.get_nitg_code(name)
 
         manual_obs = self.db.get_timeseries(
             gmw_id, tube_id, observation_type="controlemeting"
