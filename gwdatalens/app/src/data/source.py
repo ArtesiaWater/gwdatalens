@@ -565,10 +565,9 @@ class HydropandasDataSource(DataSourceTemplate):
     def __init__(self, extent=None, oc=None, fname=None, source="bro", **kwargs):
         if oc is None:
             if fname is None:
-                fname = "obs_collection.pickle"
+                fname = "obs_collection.zip"
             if os.path.isfile(fname):
-                with open(fname, "rb") as file:
-                    oc = pickle.load(file)
+                oc = pd.read_pickle(fname)
             else:
                 import hydropandas as hpd
 
