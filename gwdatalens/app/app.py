@@ -1,6 +1,7 @@
 # %%
 import logging
 import os
+from pathlib import Path
 
 import dash_bootstrap_components as dbc
 import i18n
@@ -13,8 +14,8 @@ from gwdatalens.app.src.cache import cache
 from gwdatalens.app.src.components.layout import create_layout
 from gwdatalens.app.src.data import (
     DataInterface,
-    PostgreSQLDataSource,
-    # HydropandasDataSource,
+    HydropandasDataSource,
+    # PostgreSQLDataSource,
     TravalInterface,
 )
 
@@ -37,11 +38,14 @@ i18n.load_path.append(LOCALE_PATH)
 # %% Connect to database
 
 # postgreql database
-db = PostgreSQLDataSource(config=config["database"])
+# db = PostgreSQLDataSource(config=config["database"])
 
 # hydropandas 'database'
 # db = HydropandasDataSource(extent=[116500, 120000, 439000, 442000], source="bro")
-# db = HydropandasDataSource(fname="obs_collection_dino.pickle", source="dino")
+db = HydropandasDataSource(
+    fname=Path(__file__).parent / ".." / "data" / "example_obscollection.zip",
+    source="bro",
+)
 
 # %% load pastastore
 # name = "zeeland"
@@ -61,6 +65,8 @@ else:
         )
     pstore = pst.PastaStore(conn)
     print(pstore)
+
+# %% traval interface
 
 # load ruleset
 traval_interface = TravalInterface(db, pstore)
