@@ -71,13 +71,21 @@ def register_model_callbacks(app, data):
                     tmin = pd.Timestamp(tmin)
                     tmax = pd.Timestamp(tmax)
                     # get time series
-                    gmw_id, tube_id = value.split("-")
+                    if "-" in value:
+                        gmw_id, tube_id = value.split("-")
+                    elif "_" in value:
+                        gmw_id, tube_id = value.split("_")
+                    else:
+                        raise ValueError(
+                            "Error splitting name into monitoring well ID "
+                            f"and tube number: {value}"
+                        )
                     ts = data.db.get_timeseries(gmw_id, tube_id)
                     if use_only_validated:
                         mask = ts.loc[:, data.db.qualifier_column] == "goedgekeurd"
-                        ts = ts.loc[mask, data.db.value_column]
+                        ts = ts.loc[mask, data.db.value_column].dropna()
                     else:
-                        ts = ts.loc[:, data.db.value_column]
+                        ts = ts.loc[:, data.db.value_column].dropna()
 
                     if value in data.pstore.oseries_names:
                         # update stored copy
@@ -104,9 +112,8 @@ def register_model_callbacks(app, data):
                         report=False,
                         initial=False,
                     )
-                    mljson = json.dumps(
-                        ml.to_dict(), cls=PastasEncoder
-                    )  # store generated model
+                    # store generated model
+                    mljson = json.dumps(ml.to_dict(), cls=PastasEncoder)
                     return (
                         ml.plotly.results(tmin=tmin, tmax=tmax),
                         ml.plotly.diagnostics(),

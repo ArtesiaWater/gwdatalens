@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "gwdatalens"
 dynamic = ["version"]
-description = "Dashboard for data validation."
+description = "Dashboard for groundwater time series validation."
 license = { file = "LICENSE" }
 readme = "README.md"
 authors = [{ name = "D.A. Brakenhoff" }, { name = "R.C. Caljé" }]
@@ -38,7 +38,7 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Other Audience",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: AGPLv3 License",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX",
     "Operating System :: Unix",
@@ -46,13 +46,15 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Scientific/Engineering :: Hydrology",
 ]
 
 [project.urls]
-homepage = "https://github.com/ArtesiaWater/gws_qc"
-repository = "https://github.com/ArtesiaWater/gws_qc"
+homepage = "https://github.com/ArtesiaWater/gwdatalens"
+repository = "https://github.com/ArtesiaWater/gwdatalens"
 
 [project.optional-dependencies]
 lint = ["black", "flake8", "isort", "docformatter"]
@@ -71,6 +73,7 @@ find = {}
 "gwdatalens.app" = ["*.toml"]
 "gwdatalens.assets" = ["*.md", "*.css"]
 "gwdatalens.assets.locale" = ["*.yml"]
+"gwdatalens.data" = ["*.zip"]
 
 [tool.setuptools.dynamic]
 version = { attr = "gwdatalens.version.__version__" }

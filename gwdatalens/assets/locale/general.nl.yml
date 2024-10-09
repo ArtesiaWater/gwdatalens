@@ -6,6 +6,7 @@ nl:
   tab_model: Tijdreeksmodel
   tab_qc: Foutdetectie
   tab_qc_result: Handmatige Beoordeling
+  monitoring_wells: "Peilbuizen"
   no_data: Geen data
   no_data_selection: Geen data in geselecteerde tijdreeks.
   no_selection: Geen tijdreeks geselecteerd.

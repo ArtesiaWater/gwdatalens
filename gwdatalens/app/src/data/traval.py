@@ -189,7 +189,15 @@ class TravalInterface:
         ValueError
             If all observations have already been checked.
         """
-        name = f"{gmw_id}-{int(tube_id):03g}"
+        if self.db.backend == "hydropandas":
+            if self.db.source == "bro":
+                name = f"{gmw_id}_{int(tube_id)}"
+            elif self.db.source == "dino":
+                name = f"{gmw_id}-{int(tube_id):03g}"
+            else:
+                name = f"{gmw_id}_{int(tube_id):03g}"
+        else:
+            name = f"{gmw_id}-{int(tube_id):03g}"
         print(f"Running traval for {name}...")
         ts = self.db.get_timeseries(gmw_id, tube_id)
 
@@ -198,7 +206,7 @@ class TravalInterface:
         if tmax is not None:
             ts = ts.loc[:tmax]
         series = ts.loc[:, self.db.value_column]
-        series.name = f"{gmw_id}-{tube_id}"
+        series.name = name
         detector = traval.Detector(series)
         ruleset = self._ruleset
         detector.apply_ruleset(ruleset)
@@ -285,7 +293,7 @@ class TravalInterface:
             ml = None
 
         # little modification to add NITG code to figure
-        detector.series.name += f" ({self.db.gmw_gdf.at[name, 'nitg_code']})"
+        detector.series.name += self.db.get_nitg_code(name)
 
         manual_obs = self.db.get_timeseries(
             gmw_id, tube_id, observation_type="controlemeting"

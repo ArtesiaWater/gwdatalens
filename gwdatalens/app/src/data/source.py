@@ -116,6 +116,21 @@ class DataSourceTemplate(ABC):
     def backend(self):
         """Backend of the data source."""
 
+    @abstractmethod
+    def get_nitg_code(self, i):
+        """Return the nitg code for a given index.
+
+        Parameters
+        ----------
+        i : str
+            index of the observation well
+
+        Returns
+        -------
+        str
+            nitg code if it is available, otherwise an empty string
+        """
+
 
 class PostgreSQLDataSource(DataSourceTemplate):
     """DataSource class connecting to Provincie Zeelands PostgreSQL database.
@@ -256,8 +271,11 @@ class PostgreSQLDataSource(DataSourceTemplate):
 
         # add number of measurements
         gdf["metingen"] = 0
-        hasobs = [x for x in self.list_locations() if x in gdf.index]
-        gdf.loc[hasobs, "metingen"] = 1
+        count = self.count_measurements_per_filter()
+        count.index = (
+            count["bro_id"] + "-" + count["tube_number"].apply("{:03g}".format)
+        )
+        gdf.loc[count.index, "metingen"] = count["Metingen"].values
 
         # add location data in RD and lat/lon in WGS84
         gdf["x"] = gdf.geometry.x
@@ -336,6 +354,25 @@ class PostgreSQLDataSource(DataSourceTemplate):
         dist.name = "distance"
         distsorted = gdf.join(dist, how="right").sort_values("distance", ascending=True)
         return distsorted
+
+    def get_nitg_code(self, i):
+        """Return the nitg code for a given index.
+
+        Parameters
+        ----------
+        i : str
+            index of the observation well
+
+        Returns
+        -------
+        str
+            nitg code if it is available, otherwise an empty string
+        """
+        nitg = self.gmw_gdf.at[i, "nitg_code"]
+        if isinstance(nitg, str) and len(nitg) > 0:
+            return f" ({nitg})"
+        else:
+            return ""
 
     def get_timeseries(
         self,
@@ -528,10 +565,9 @@ class HydropandasDataSource(DataSourceTemplate):
     def __init__(self, extent=None, oc=None, fname=None, source="bro", **kwargs):
         if oc is None:
             if fname is None:
-                fname = "obs_collection.pickle"
+                fname = "obs_collection.zip"
             if os.path.isfile(fname):
-                with open(fname, "rb") as file:
-                    oc = pickle.load(file)
+                oc = pd.read_pickle(fname)
             else:
                 import hydropandas as hpd
 
@@ -590,6 +626,13 @@ class HydropandasDataSource(DataSourceTemplate):
         gdf["metingen"] = self.oc.stats.n_observations
         gdf["bro_id"] = gdf.index.tolist()
 
+        # sort data
+        gdf.sort_values(
+            ["metingen", "bro_id", "tube_number"],
+            ascending=[False, True, True],
+            inplace=True,
+        )
+
         # add id
         gdf["id"] = range(gdf.index.size)
 
@@ -608,7 +651,7 @@ class HydropandasDataSource(DataSourceTemplate):
         """
         oc = self.oc
         locations = []
-        mask = [not x.loc[:, self.value_column].dropna().empty for x in oc["obs"]]
+        mask = [not x.dropna(how="all").empty for x in oc["obs"]]
         for index in oc[mask].index:
             # locations.append(tuple(oc.loc[index, ["monitoring_well", "tube_nr"]]))
             locations.append(index)
@@ -624,6 +667,25 @@ class HydropandasDataSource(DataSourceTemplate):
             "distance", ascending=True
         )
         return distsorted
+
+    def get_nitg_code(self, i):
+        """Return the nitg code for a given index.
+
+        Parameters
+        ----------
+        i : str
+            index of the observation well
+
+        Returns
+        -------
+        str
+            nitg code if it is available, otherwise an empty string
+        """
+        nitg = self.gmw_gdf.at[i, "nitg_code"]
+        if isinstance(nitg, str) and len(nitg) > 0:
+            return f" ({nitg})"
+        else:
+            return ""
 
     def get_timeseries(
         self,
