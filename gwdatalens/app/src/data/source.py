@@ -116,6 +116,21 @@ class DataSourceTemplate(ABC):
     def backend(self):
         """Backend of the data source."""
 
+    @abstractmethod
+    def get_nitg_code(self, i):
+        """Return the nitg code for a given index.
+
+        Parameters
+        ----------
+        i : str
+            index of the observation well
+
+        Returns
+        -------
+        str
+            nitg code if it is available, otherwise an empty string
+        """
+
 
 class PostgreSQLDataSource(DataSourceTemplate):
     """DataSource class connecting to Provincie Zeelands PostgreSQL database.
@@ -336,6 +351,25 @@ class PostgreSQLDataSource(DataSourceTemplate):
         dist.name = "distance"
         distsorted = gdf.join(dist, how="right").sort_values("distance", ascending=True)
         return distsorted
+
+    def get_nitg_code(self, i):
+        """Return the nitg code for a given index.
+
+        Parameters
+        ----------
+        i : str
+            index of the observation well
+
+        Returns
+        -------
+        str
+            nitg code if it is available, otherwise an empty string
+        """
+        nitg = self.gmw_gdf.at[i, "nitg_code"]
+        if isinstance(nitg, str) and len(nitg) > 0:
+            return f" ({nitg})"
+        else:
+            return ""
 
     def get_timeseries(
         self,
@@ -624,6 +658,25 @@ class HydropandasDataSource(DataSourceTemplate):
             "distance", ascending=True
         )
         return distsorted
+
+    def get_nitg_code(self, i):
+        """Return the nitg code for a given index.
+
+        Parameters
+        ----------
+        i : str
+            index of the observation well
+
+        Returns
+        -------
+        str
+            nitg code if it is available, otherwise an empty string
+        """
+        nitg = self.gmw_gdf.at[i, "nitg_code"]
+        if isinstance(nitg, str) and len(nitg) > 0:
+            return f" ({nitg})"
+        else:
+            return ""
 
     def get_timeseries(
         self,
