@@ -103,7 +103,6 @@ def plot_obs(names, data):
         df[data.db.qualifier_column] = df.loc[:, data.db.qualifier_column].fillna("")
 
         if len(names) == 1:
-            title = None
             no_data.append(False)
             ts = df[data.db.value_column]
             trace_i = go.Scattergl(

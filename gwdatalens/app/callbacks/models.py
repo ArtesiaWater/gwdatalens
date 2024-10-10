@@ -6,13 +6,16 @@ import pandas as pd
 import pastas as ps
 from dash import Input, Output, State, ctx, no_update
 from dash.exceptions import PreventUpdate
+from packaging.version import parse
 from pastas.extensions import register_plotly
 from pastas.io.pas import PastasEncoder
+from pastastore.version import __version__ as PASTASTORE_VERSION
 
 from gwdatalens.app.src.components import ids
 
 register_plotly()
 
+PASTASTORE_GT_1_7_1 = parse(PASTASTORE_VERSION) > parse("1.7.1")
 
 # %% MODEL TAB
 
@@ -94,12 +97,19 @@ def register_model_callbacks(app, data):
                         # add series to database
                         metadata = data.db.gmw_gdf.loc[value].to_dict()
                         data.pstore.add_oseries(ts, value, metadata)
-                        print(f"Time series '{value}' added to pastastore database.")
+                        print(
+                            f"Head time series '{value}' added to pastastore database."
+                        )
 
                     if pd.isna(tmin):
                         tmin = ts.index[0]
                     if pd.isna(tmax):
                         tmax = ts.index[-1]
+
+                    # get meteorological info, if need be, and pastastore is up-to-date
+                    if PASTASTORE_GT_1_7_1:
+                        data.get_knmi_data(value)
+
                     # create model
                     ml = ps.Model(ts)
                     data.pstore.add_recharge(ml)
