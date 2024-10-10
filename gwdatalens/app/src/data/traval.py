@@ -231,7 +231,7 @@ class TravalInterface:
         df.loc[comments.index, "comment"] = comments
 
         # rename some stuff
-        df.rename(columns={"base series": "values"}, inplace=True)
+        # df.rename(columns={"base series": "values"}, inplace=True)
         df.index.name = "datetime"
 
         # set incoming status_quality_control value from database
