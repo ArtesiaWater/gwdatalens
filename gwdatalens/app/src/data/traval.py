@@ -219,6 +219,7 @@ class TravalInterface:
         # df = detector.series.to_frame().loc[comments.index]
         df = ts.join(detector.get_results_dataframe())
 
+
         # add id column
         df["id"] = range(df.index.size)
 
@@ -231,7 +232,7 @@ class TravalInterface:
         df.loc[comments.index, "comment"] = comments
 
         # rename some stuff
-        df.rename(columns={"base series": "values"}, inplace=True)
+        # df.rename(columns={"base series": "values"}, inplace=True)
         df.index.name = "datetime"
 
         # set incoming status_quality_control value from database
