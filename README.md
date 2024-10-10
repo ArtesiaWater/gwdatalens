@@ -11,14 +11,31 @@ detection algorithms on stored head time series.
 
 ## Installation
 
-Clone the repository to your computer (or download a zip from GitHub and extract it).
+Install `gwdatalens` with:
 
-Open a terminal (e.g. Terminal, Anaconda Prompt), navigate to the folder containing the repository
-and install `gwdatalens` with
+```bash
+pip install gwdatalens
+```
+
+Or clone the repository to your computer (or download a zip from GitHub and
+extract it). Open a terminal (e.g. Terminal, Anaconda Prompt), navigate to the
+folder containing the repository and install `gwdatalens` with:
 
 ```bash
 pip install -e .
 ```
+
+### Pixi environment
+
+If you cloned gwdatalens, it comes with a `pixi.toml` file. If you have pixi,
+the application can be launched with the following command:
+
+```bash
+pixi run gwdatalens
+```
+
+Or activate the pixi environment using `pixi shell` and launch the gwdatalens
+from there.
 
 ## Usage
 
