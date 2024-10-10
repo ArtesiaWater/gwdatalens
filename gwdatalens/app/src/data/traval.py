@@ -219,7 +219,6 @@ class TravalInterface:
         # df = detector.series.to_frame().loc[comments.index]
         df = ts.join(detector.get_results_dataframe())
 
-
         # add id column
         df["id"] = range(df.index.size)
 
