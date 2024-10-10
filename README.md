@@ -132,7 +132,7 @@ There are two ways of plotting head time series:
 
 The time series models tab allows users to create or inspect time series models using
 Pastas and Pastastore. Models are created using precipitation and evaporation from the
-nnearest KNMI station.
+nearest KNMI station.
 
 ### Error Detection tab
 
@@ -149,7 +149,10 @@ Steps:
    1. Use the first dropdown to select or search for any time series in the database.
    2. Optionally modify the rules or parameters used for error detection under the `Show Parameters` button.
    3. Press the "Run TRAVAL" button.
-   4. The chart will update showing the original time series and the measurements that were deemed suspect by the error detection algorithm. If available a pastas model simulation and prediction interval are also shown in the chart.
+   4. The chart will update showing the original time series and the
+   measurements that were deemed suspect by the error detection algorithm. If
+   available a pastas model simulation and prediction interval are also shown
+   in the chart.
 
 ### Manual Review tab
 
