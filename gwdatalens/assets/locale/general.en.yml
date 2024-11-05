@@ -36,7 +36,7 @@ en:
   comment: Comment
   qc_label: QC label
   show_all: Show all observations
-  show_all_tooltip: "Toggle to show all OR only suspect measurements."
+  show_all_tooltip: "Toggle to show ALL or ONLY SUSPECT measurements."
   export_csv: Export CSV
   export_db: Export to DB
   category: "Select an appropriate code/label according to QC Protocol."

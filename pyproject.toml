@@ -14,14 +14,19 @@ maintainers = [{ name = "D.A. Brakenhoff", email = "d.brakenhoff@artesia-water.n
 requires-python = ">= 3.10"
 dependencies = [
     "numpy",
-    "pandas",
+    "geopandas",
     "matplotlib",
     "tqdm",
     "dash",
     "dash-bootstrap-components",
     "waitress",
+    "flask_caching",
     "tomli",
+    "sqlalchemy",
     "i18nice[YAML]",
+    "pastastore",
+    "hydropandas",
+    "traval",
 ]
 
 keywords = [
@@ -58,6 +63,7 @@ repository = "https://github.com/ArtesiaWater/gwdatalens"
 
 [project.optional-dependencies]
 lint = ["black", "flake8", "isort", "docformatter"]
+postgresql = ["psycopg2"]
 
 [project.scripts]
 gwdatalens = "gwdatalens.cli:cli_main"
