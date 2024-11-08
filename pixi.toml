@@ -31,7 +31,7 @@ i18nice = { version = "*", extras = ["YAML"] }
 icecream = "*"
 tqdm = "*"
 waitress = "*"
-# gwdatalens = "*"
+gwdatalens = "*"
 # hydropandas = { path = "../hydropandas", editable = true }
 # pastas = { path = "../pastas", editable = true }
 # pastastore = { path = "../pastastore", editable = true }
