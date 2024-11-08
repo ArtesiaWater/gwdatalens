@@ -48,7 +48,6 @@ db = PostgreSQLDataSource(config=config["database"])
 # )
 
 # %% load pastastore
-# name = "zeeland"
 name = config["pastastore"]["name"]
 pastastore_path = config["pastastore"]["path"]
 
