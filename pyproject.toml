@@ -62,7 +62,7 @@ homepage = "https://github.com/ArtesiaWater/gwdatalens"
 repository = "https://github.com/ArtesiaWater/gwdatalens"
 
 [project.optional-dependencies]
-lint = ["black", "flake8", "isort", "docformatter"]
+lint = ["ruff"]
 postgresql = ["psycopg2"]
 
 [project.scripts]
