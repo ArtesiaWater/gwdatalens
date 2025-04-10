@@ -432,6 +432,9 @@ class PostgreSQLDataSource(DataSourceTemplate):
             )
             .order_by(datamodel.MeasurementTvp.measurement_time)
         )
+        # NOTE: print sql statement
+        # from sqlalchemy.dialects import postgresql
+        # print( str(q.compile(dialect=postgresql.dialect())))
         with self.engine.connect() as con:
             df = pd.read_sql(stmt, con=con, index_col="measurement_time")
 
@@ -447,7 +450,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
             # make sure all measurements are in m
             mask = df["field_value_unit"] == "cm"
             if mask.any():
-                df.loc[mask, "field_value"] /= 100
+                df.loc[mask, "field_value"] /= 100.0
                 df.loc[mask, "field_value_unit"] = "m"
 
             # convert all other measurements to NaN
