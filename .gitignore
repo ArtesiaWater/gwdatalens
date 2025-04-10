@@ -174,3 +174,6 @@ gwdatalens/pastasdb/
 .pixi
 *.egg-info
 pixi.lock
+pastasdb/
+data/
+pastastore_zeeland_bro/
