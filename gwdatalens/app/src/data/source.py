@@ -432,6 +432,9 @@ class PostgreSQLDataSource(DataSourceTemplate):
             )
             .order_by(datamodel.MeasurementTvp.measurement_time)
         )
+        # NOTE: print sql statement
+        # from sqlalchemy.dialects import postgresql
+        # print( str(q.compile(dialect=postgresql.dialect())))
         with self.engine.connect() as con:
             df = pd.read_sql(stmt, con=con, index_col="measurement_time")
 
