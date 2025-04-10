@@ -450,7 +450,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
             # make sure all measurements are in m
             mask = df["field_value_unit"] == "cm"
             if mask.any():
-                df.loc[mask, "field_value"] /= 100
+                df.loc[mask, "field_value"] /= 100.0
                 df.loc[mask, "field_value_unit"] = "m"
 
             # convert all other measurements to NaN
