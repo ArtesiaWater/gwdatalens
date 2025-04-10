@@ -183,7 +183,10 @@ class PostgreSQLDataSource(DataSourceTemplate):
             # NOTE: use for background callbacks
             # self.engine.dispose()
         except Exception as e:
-            logger.error(f"Database not connected successfully: {e}")
+            self.engine = None
+            msg = f"Database not connected successfully: {e}"
+            logger.error(msg)
+            raise Exception(msg) from e
 
         self.value_column = "calculated_value"
         self.qualifier_column = "status_quality_control"
