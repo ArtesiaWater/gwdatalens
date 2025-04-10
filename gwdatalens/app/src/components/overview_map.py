@@ -10,6 +10,12 @@ from gwdatalens.app.src.data import DataInterface
 from gwdatalens.app.src.utils import conditional_cache
 
 
+try:
+    mapbox_access_token = open(MAPBOX_ACCESS_TOKEN, "r").read()
+except FileNotFoundError:
+    mapbox_access_token = None
+
+
 @conditional_cache(
     cache.memoize,
     (not settings["DJANGO_APP"] and settings["CACHING"]),
