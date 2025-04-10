@@ -29,7 +29,7 @@ else:
             config["database"] = dbase["database"]
     except FileNotFoundError:
         print(
-            "No database.toml file found. Ignore this message if using "
+            f"No {DATALENS_APP_PATH}/database.toml file found. Ignore this message if using "
             "HydropandasDataSource."
         )
 
@@ -42,3 +42,4 @@ else:
 
 LOCALE_PATH = ASSETS_PATH / "locale"
 CUSTOM_CSS_PATH = str(ASSETS_PATH / "custom.css")
+MAPBOX_ACCESS_TOKEN = str(ASSETS_PATH / ".mapbox_access_token")
