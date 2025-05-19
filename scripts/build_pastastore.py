@@ -15,7 +15,7 @@ from gwdatalens.app.settings import config
 from gwdatalens.app.src.data import PostgreSQLDataSource
 
 # %%
-hpd.util.get_color_logger("INFO")
+hpd.util.get_color_logger("ERROR")
 activate_hydropandas_extension()
 
 logger = logging.getLogger("waitress")
@@ -32,8 +32,8 @@ db = PostgreSQLDataSource(config["database"])
 if name.endswith(".zip") and os.path.exists(pastastore_path / name):
     pstore = pst.PastaStore.from_zip(pastastore_path / name)
 else:
-    conn = pst.ArcticDBConnector(name=name, uri=f"lmdb://{pastastore_path}")
-    # conn = pst.PasConnector(name=name, path=pastastore_path)
+    # conn = pst.ArcticDBConnector(name=name, uri=f"lmdb://{pastastore_path}")
+    conn = pst.PasConnector(name=name, path=pastastore_path)
     pstore = pst.PastaStore(conn)
     print(pstore)
 
@@ -43,7 +43,7 @@ no_metadata = []
 too_short = []
 ts_none = []
 
-value_column = "field_value"  # or "calculated_value"
+value_column = "calculated_value"  # or "field_value"
 
 gdf = db.gmw_gdf.copy()
 
@@ -73,7 +73,8 @@ for name in tqdm(db.list_locations(), desc="Read timeseries"):
     # drop dupes
     ts = ts.loc[~ts.index.duplicated(keep="first")]
 
-    pstore.add_oseries(ts, name, metadata=metadata, overwrite=True)
+    # drop nans
+    pstore.add_oseries(ts.dropna(), name, metadata=metadata, overwrite=True)
 
 print("No. of errors:", len(no_metadata) + len(too_short) + len(ts_none))
 
@@ -155,5 +156,50 @@ for mlnam in tqdm(pstore.model_names, desc="Solve models"):
         rsq_df.loc[ml.name, "rsq_w_noise"] = rsqn
 
     pstore.add_model(ml, overwrite=True)
+
+# %%
+
+
+def two_step_solve(mlnam):
+    ml = pstore.get_models(mlnam)
+    solver = ps.LeastSquares
+    rsq0 = np.nan
+    rsqn = np.nan
+
+    try:
+        ml.solve(
+            freq="D",
+            solver=solver(),
+            report=False,
+        )
+        rsq0 = ml.stats.rsq()
+        ml.add_noisemodel(ps.ArNoiseModel())
+        ml.solve(
+            freq="D",
+            solver=solver(),
+            report=False,
+            initial=False,
+        )
+        rsqn = ml.stats.rsq()
+    except Exception as e:
+        df = pd.Series(index=["rsq_no_noise", "rsq_w_noise", "error"])
+        df["error"] = str(e)
+        return df
+
+    df = pd.Series(
+        index=["rsq_no_noise", "rsq_w_noise", "error"], data=[rsq0, rsqn, ""]
+    )
+    pstore.add_model(ml, overwrite=True)
+
+    return df
+
+
+r = pstore.apply(
+    "models",
+    two_step_solve,
+    parallel=True,
+    progressbar=True,
+)
+r.T
 
 # %%
