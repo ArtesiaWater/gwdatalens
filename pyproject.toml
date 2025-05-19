@@ -63,7 +63,7 @@ repository = "https://github.com/ArtesiaWater/gwdatalens"
 
 [project.optional-dependencies]
 lint = ["ruff"]
-postgresql = ["psycopg2"]
+postgresql = ["psycopg2_binary"]
 
 [project.scripts]
 gwdatalens = "gwdatalens.cli:cli_main"
