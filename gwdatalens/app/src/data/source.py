@@ -383,7 +383,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
         tube_id: Optional[int] = None,
         observation_type="reguliereMeting",
         column: Optional[Union[List[str], str]] = None,
-    ) -> pd.Series:
+    ) -> pd.Series | pd.DataFrame:
         """Return a Pandas Series for the measurements for given bro-id and tube-id.
 
         Values returned im m. Return None when there are no measurements.
@@ -415,7 +415,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
                 datamodel.MeasurementTvp.field_value,
                 datamodel.MeasurementTvp.calculated_value,
                 datamodel.MeasurementPointMetadata.status_quality_control,
-                datamodel.MeasurementPointMetadata.censor_reason_artesia,
+                datamodel.MeasurementPointMetadata.censor_reason_datalens,
                 datamodel.MeasurementPointMetadata.censor_reason,
                 datamodel.MeasurementPointMetadata.value_limit,
                 datamodel.MeasurementTvp.field_value_unit,
@@ -476,7 +476,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
         else:
             return df
 
-    def count_measurements_per_filter(self) -> pd.Series:
+    def count_measurements_per_filter(self) -> pd.Series | pd.DataFrame:
         """Count the number of measurements per filter.
 
         Returns
