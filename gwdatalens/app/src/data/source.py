@@ -543,7 +543,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
             the following columns:
             - "measurement_point_metadata_id"
             - The column specified by `self.qualifier_column`
-            - "censor_reason_artesia"
+            - "censor_reason_datalens"
             - "censor_reason"
             - "value_limit"
         """
@@ -552,7 +552,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
         param_columns = [
             "measurement_point_metadata_id",
             self.qualifier_column,
-            "censor_reason_artesia",
+            "censor_reason_datalens",
             "censor_reason",
             "value_limit",
         ]
@@ -572,11 +572,11 @@ class PostgreSQLDataSource(DataSourceTemplate):
             ]
         )
         if mask.any():
-            df.loc[mask & mask2, "censor_reason_artesia"] = None
+            df.loc[mask & mask2, "censor_reason_datalens"] = None
             df.loc[mask & mask2, "censor_reason"] = None
             df.loc[mask & mask2, "value_limit"] = None
 
-        # flagged obs: create censor_reason_artesia
+        # flagged obs: create censor_reason_datalens
         mask2 = df.loc[:, self.qualifier_column].isin(
             [
                 i18n.t("general.unreliable"),
@@ -584,7 +584,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
             ]
         )
         if mask2.any():
-            df.loc[mask & mask2, "censor_reason_artesia"] = df.loc[
+            df.loc[mask & mask2, "censor_reason_datalens"] = df.loc[
                 mask & mask2, ["comment", "category"]
             ].apply(lambda s: ",".join(s), axis=1)
         return df
