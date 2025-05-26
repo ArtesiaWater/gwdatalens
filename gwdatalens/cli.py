@@ -20,8 +20,7 @@ def cli_main():
         description="Run GW DataLens dashboard on localhost.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
-            "Note: To configure the dashboard see the "
-            "gwdatalens/app/config.toml file."
+            "Note: To configure the dashboard see the gwdatalens/app/config.toml file."
         ),
     )
 

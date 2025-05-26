@@ -157,7 +157,11 @@ def register_qc_callbacks(app, data):
             # value[1] = int(value[1])
             locs = data.db.list_locations_sorted_by_distance(value)
             options = [
-                {"label": i + f" ({row.distance / 1e3:.1f} km)", "value": i}
+                {
+                    "label": data.db.get_wellcode(i)
+                    + f" ({row.distance / 1e3:.1f} km)",
+                    "value": i,
+                }
                 for i, row in locs.iterrows()
             ]
             return False, options
