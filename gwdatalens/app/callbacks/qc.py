@@ -368,7 +368,7 @@ def register_qc_callbacks(app, data):
             irule = data.traval._ruleset.get_rule(istep=i)
             irule_orig = data.traval.ruleset.get_rule(istep=i)
             for (k, v), (_, vorig) in zip(
-                irule["kwargs"].items(), irule_orig["kwargs"].items()
+                irule["kwargs"].items(), irule_orig["kwargs"].items(), strict=False
             ):
                 if callable(vorig):
                     if name is not None:
