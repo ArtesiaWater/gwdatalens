@@ -106,7 +106,7 @@ for oname in tqdm(pstore.oseries_names):
     if oseries.index.size < 50:
         skipped_nobs.append(oname)
         continue
-    if obsperiod.loc[oname] < 5:
+    if obsperiod.loc[oname] < 2:
         skipped_period.append(oname)
         continue
     ml = ps.Model(oseries, metadata=meta)
