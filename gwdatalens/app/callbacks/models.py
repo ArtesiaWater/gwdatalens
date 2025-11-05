@@ -258,8 +258,8 @@ def register_model_callbacks(app, data):
                 )
             except Exception as e:
                 return (
-                    {"layout": {"title": i18n.t("general.no_model")}},
-                    {"layout": {"title": i18n.t("general.no_model")}},
+                    {"layout": {"title": {"text": i18n.t("general.no_model")}}},
+                    {"layout": {"title": {"text": i18n.t("general.no_model")}}},
                     True,
                     (
                         True,  # show alert
@@ -274,8 +274,8 @@ def register_model_callbacks(app, data):
                 )
         elif value is None:
             return (
-                {"layout": {"title": i18n.t("general.no_model")}},
-                {"layout": {"title": i18n.t("general.no_model")}},
+                {"layout": {"title": {"text": i18n.t("general.no_model")}}},
+                {"layout": {"title": {"text": i18n.t("general.no_model")}}},
                 True,
                 (
                     False,  # show alert
