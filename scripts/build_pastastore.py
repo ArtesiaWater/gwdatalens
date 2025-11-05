@@ -3,11 +3,9 @@ import logging
 import os
 
 import hydropandas as hpd
-import numpy as np
 import pandas as pd
 import pastas as ps
 import pastastore as pst
-from pastas.timer import SolveTimer
 from pastastore.extensions import activate_hydropandas_extension
 from tqdm.auto import tqdm
 
@@ -20,6 +18,8 @@ activate_hydropandas_extension()
 
 logger = logging.getLogger("waitress")
 logger.setLevel(logging.DEBUG)
+
+ps.logger.setLevel(logging.ERROR)
 
 # %%
 name = config["pastastore"]["name"]
@@ -47,7 +47,7 @@ value_column = "calculated_value"  # or "field_value"
 
 gdf = db.gmw_gdf.copy()
 
-for name in tqdm(db.list_locations(), desc="Read timeseries"):
+for name in tqdm(db.list_observation_wells_with_data(), desc="Read timeseries"):
     try:
         metadata = gdf.loc[name, :].to_dict()
     except KeyError:
@@ -115,91 +115,19 @@ for oname in tqdm(pstore.oseries_names):
 
 
 # %% solve models
-solver = ps.LeastSquares
 
-rsq_df = pd.DataFrame(columns=["rsq_no_noise", "rsq_w_noise"], dtype=float)
-solvetime = pd.Series(index=pstore.model_names, dtype=float)
 
-errors = []
-
-for mlnam in tqdm(pstore.model_names, desc="Solve models"):
-    ml = pstore.get_models(mlnam)
-
-    rsq0 = np.nan
-    rsqn = np.nan
-
-    with SolveTimer(max_time=300.0) as t:
-        try:
-            ml.solve(
-                freq="D",
-                solver=solver(),
-                report=False,
-                callback=t.timer,
-            )
-            rsq0 = ml.stats.rsq()
-            ml.add_noisemodel(ps.ArNoiseModel())
-            ml.solve(
-                freq="D",
-                solver=solver(),
-                report=False,
-                initial=False,
-                callback=t.timer,
-            )
-            rsqn = ml.stats.rsq()
-        except Exception as e:
-            solvetime.loc[mlnam] = np.nan
-            errors.append((mlnam, e))
-            continue
-
-        solvetime.loc[mlnam] = t.format_dict["elapsed"]
-        rsq_df.loc[ml.name, "rsq_no_noise"] = rsq0
-        rsq_df.loc[ml.name, "rsq_w_noise"] = rsqn
-
+def two_step_solve(name):
+    ml = pstore.get_model(name)
+    ml.solve(report=False)
+    nse0 = ml.stats.nse()
+    ml.add_noisemodel(ps.ArNoiseModel())
+    ml.solve(initial=False, report=False)
+    nse1 = ml.stats.nse()
     pstore.add_model(ml, overwrite=True)
+    return pd.Series([nse0, nse1], index=["nse0", "nse1"], name=name)
+
 
 # %%
-
-
-def two_step_solve(mlnam):
-    ml = pstore.get_models(mlnam)
-    solver = ps.LeastSquares
-    rsq0 = np.nan
-    rsqn = np.nan
-
-    try:
-        ml.solve(
-            freq="D",
-            solver=solver(),
-            report=False,
-        )
-        rsq0 = ml.stats.rsq()
-        ml.add_noisemodel(ps.ArNoiseModel())
-        ml.solve(
-            freq="D",
-            solver=solver(),
-            report=False,
-            initial=False,
-        )
-        rsqn = ml.stats.rsq()
-    except Exception as e:
-        df = pd.Series(index=["rsq_no_noise", "rsq_w_noise", "error"])
-        df["error"] = str(e)
-        return df
-
-    df = pd.Series(
-        index=["rsq_no_noise", "rsq_w_noise", "error"], data=[rsq0, rsqn, ""]
-    )
-    pstore.add_model(ml, overwrite=True)
-
-    return df
-
-
-r = pstore.apply(
-    "models",
-    two_step_solve,
-    parallel=True,
-    progressbar=True,
-)
-r.T
-
-# %%
+names = pstore.model_names  # solve all
+r = pstore.apply("models", two_step_solve, names=names, parallel=True, max_workers=6)
