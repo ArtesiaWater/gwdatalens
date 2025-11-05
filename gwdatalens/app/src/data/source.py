@@ -11,9 +11,8 @@ import i18n
 import numpy as np
 import pandas as pd
 from pyproj import Transformer
-from sqlalchemy import create_engine, func, select, update, or_
+from sqlalchemy import create_engine, func, or_, select, update
 from sqlalchemy.orm import Session
-
 
 from . import datamodel
 from .util import EPSG_28992, WGS84
@@ -292,7 +291,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
         gdf["wellcode_name"] = gdf.loc[:, ["well_code", "tube_number"]].apply(
             lambda p: f"{p.iloc[0]}-{p.iloc[1]:03g}", axis=1
         )
-        # gdf["name"] = prefix + "-" + gdf["tube_number"].apply("{:03g}".format)
+        gdf["name"] = prefix + "-" + gdf["tube_number"].apply("{:03g}".format)
 
         # set bro_id|nitg_code|gmw_static_id and tube_number as index
         gdf = gdf.set_index("name")
@@ -305,7 +304,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
             .fillna(count["nitg_code"])
             .fillna(count["groundwater_monitoring_well_static_id"].astype("string"))
         )
-        count.index = prefix + count["tube_number"].apply("{:03g}".format)
+        count.index = prefix + "-" + count["tube_number"].apply("{:03g}".format)
         # use shared index in case count contains other locations than gdf
         shared_index = gdf.index.intersection(count.index)
         gdf.loc[shared_index, "metingen"] = count.loc[shared_index, "Metingen"].values
