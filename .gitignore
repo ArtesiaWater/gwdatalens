@@ -163,7 +163,7 @@ data/20231109_dinoloket.zip
 *.pickle
 *.pas
 .vscode/
-./data/
+/data/
 gwdatalens/app/database.toml
 gwdatalens/node_modules/
 gwdatalens/package-lock.json
@@ -175,7 +175,6 @@ gwdatalens/pastasdb/
 *.egg-info
 pixi.lock
 pastasdb/
-/data/
 pastastore_zeeland_bro/
 prov_zeeland_export_observations/
 sintjansteen*/
