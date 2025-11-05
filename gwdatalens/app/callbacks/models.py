@@ -92,7 +92,7 @@ def register_model_callbacks(app, data):
 
                     if value in data.pstore.oseries_names:
                         # update stored copy
-                        data.pstore.update_oseries(ts, value)
+                        data.pstore.update_oseries(ts, value, force=True)
                     else:
                         # add series to database
                         metadata = data.db.gmw_gdf.loc[value].to_dict()
