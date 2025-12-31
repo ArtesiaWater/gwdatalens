@@ -33,10 +33,10 @@ def render_datepicker_tmin(data, selected_data):
         The data object containing the `pstore` attribute, which provides
         access to the `get_tmin_tmax` method.
     selected_data : list or None
-        A list containing the selected data. If the list contains exactly one
-        item, the function will attempt to retrieve the tmin date for that
-        item. If None or the list length is not 1, the date picker will be
-        disabled.
+        A list containing the internal ids of selected data.
+        If the list contains exactly one item, the function will attempt
+        to retrieve the tmin date for that item. If None or the list length
+        is not 1, the date picker will be disabled.
 
     Returns
     -------
@@ -44,11 +44,14 @@ def render_datepicker_tmin(data, selected_data):
         A Dash DatePickerSingle component for selecting a start time.
     """
     if selected_data is not None and len(selected_data) == 1:
-        name = selected_data
+        wid = selected_data[0]
+        name = data.db.gmw_gdf.loc[wid, "display_name"]
         try:
-            tmintmax = data.pstore.get_tmin_tmax(libname="oseries", names=name)
-            start_date = tmintmax.loc[name[0], "tmin"].to_pydatetime()
+            tmintmax = data.pstore.get_tmin_tmax(libname="oseries", names=[name])
+            start_date = tmintmax.loc[name, "tmin"].to_pydatetime()
             disabled = False
+        except KeyError:
+            raise
         except Exception:
             start_date = None
             disabled = True
@@ -89,11 +92,14 @@ def render_datepicker_tmax(data, selected_data):
         A Dash DatePickerSingle component for selecting a end time.
     """
     if selected_data is not None and len(selected_data) == 1:
-        name = selected_data
+        wid = selected_data[0]
+        name = data.db.gmw_gdf.loc[wid, "display_name"]
         try:
-            tmintmax = data.pstore.get_tmin_tmax(libname="oseries", names=name)
-            end_date = tmintmax.loc[name[0], "tmax"].to_pydatetime()
+            tmintmax = data.pstore.get_tmin_tmax(libname="oseries", names=[name])
+            end_date = tmintmax.loc[name, "tmax"].to_pydatetime()
             disabled = False
+        except KeyError:
+            raise
         except Exception:
             end_date = None
             disabled = True
@@ -194,6 +200,13 @@ def render_content(data: DataInterface, selected_data: List):
                     ),
                 ]
             ),
+            # duplicate callback outputs stores
+            dcc.Store(id=ids.MODEL_RESULTS_CHART_1),
+            dcc.Store(id=ids.MODEL_RESULTS_CHART_2),
+            dcc.Store(id=ids.MODEL_DIAGNOSTICS_CHART_1),
+            dcc.Store(id=ids.MODEL_DIAGNOSTICS_CHART_2),
+            dcc.Store(id=ids.MODEL_SAVE_BUTTON_1),
+            dcc.Store(id=ids.MODEL_SAVE_BUTTON_2),
         ],
         fluid=True,
     )

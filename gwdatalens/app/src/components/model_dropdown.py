@@ -13,8 +13,8 @@ def render(data, selected_data):
         An object that contains a database connection with methods to list
         locations and access location data.
     selected_data : list or None
-        A list containing the currently selected location(s). If None or the list
-        is empty, no location is pre-selected.
+        A list containing the internal ids of currently selected location(s).
+        If None or the list is empty, no location is pre-selected.
 
     Returns
     -------
@@ -22,8 +22,10 @@ def render(data, selected_data):
         A Dash HTML Div component containing a Dropdown for selecting a location.
     """
     locs = data.db.list_observation_wells_with_data()
-    locs = sorted(locs, key=lambda n: data.db.gmw_gdf.loc[n, "wellcode_name"])
-    options = [{"label": f"{data.db.get_wellcode(i)}", "value": i} for i in locs]
+    locs.sort_values("display_name", inplace=True)
+    options = [
+        {"label": row["display_name"], "value": row["id"]} for _, row in locs.iterrows()
+    ]
 
     if selected_data is not None and len(selected_data) == 1:
         value = selected_data[0]

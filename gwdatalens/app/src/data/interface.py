@@ -1,5 +1,9 @@
+import logging
+
 import pandas as pd
 from hydropandas.io.knmi import get_nearest_station_xy
+
+logger = logging.getLogger(__name__)
 
 
 class DataInterface:
@@ -99,12 +103,12 @@ class DataInterface:
 
                 # download and store data
                 self.pstore.hpd.download_nearest_knmi_meteo(name, meteo_var, kind)
-                print(
+                logger.info(
                     "Downloading and storing KNMI time series '%s' for '%s'"
                     % (meteo_var, name)
                 )
             else:
-                print(
+                logger.info(
                     "Nearest KNMI time series '%s' for '%s' already in pastastore"
                     % (meteo_var, name)
                 )

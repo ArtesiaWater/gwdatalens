@@ -5,7 +5,7 @@ from dash import __version__ as DASH_VERSION
 from dash import dcc, html
 from packaging.version import parse as parse_version
 
-from . import ids
+from gwdatalens.app.src.components import ids
 
 
 def render(data, selected_data):
@@ -48,14 +48,13 @@ def render(data, selected_data):
     )
 
 
-def plot_obs(names, data, plot_manual_obs=False):
+def plot_obs(wids, data, plot_manual_obs=False):
     """Plots observation data for given monitoring wells and tube numbers.
 
     Parameters
     ----------
-    names : list of str
-        List of strings representing monitoring well and tube number in the format
-        "{gmw_id}-{tube_id}".
+    names : list of int
+        List of ids corresponding to monitoring wells and tube numbers.
     data : object
         Data object containing database access and configuration.
 
@@ -66,45 +65,34 @@ def plot_obs(names, data, plot_manual_obs=False):
 
     Notes
     -----
-    - If `names` is None, returns a layout with a title indicating no plot.
-    - If a name is not found in the database, it is skipped.
-    - For a single name, plots the timeseries data with different qualifiers and manual
+    - If `iids` is None, returns a layout with a title indicating no plot.
+    - If an iid is not found in the database, it is skipped.
+    - For a single iid, plots the timeseries data with different qualifiers and manual
       observations.
-    - For multiple names, plots the timeseries data with markers and lines.
+    - For multiple iids, plots the timeseries data with markers and lines.
     """
-    if names is None:
+    if wids is None:
         return {"layout": {"title": {"text": i18n.t("general.no_plot")}}}
 
-    hasobs = list(data.db.list_observation_wells_with_data())
+    hasobs = list(data.db.list_observation_wells_with_data()["id"])
     no_data = []
 
     traces = []
     colors = px.colors.qualitative.Dark24
-    for i, name in enumerate(names):
-        # split into monitoringwell and tube_number
-        if "-" in name:
-            monitoring_well, tube_nr = name.split("-")
-        elif "_" in name:
-            monitoring_well, tube_nr = name.split("_")
-        else:
-            raise ValueError(
-                f"Error splitting name into monitoring well ID and tube number: {name}"
-            )
-        tube_nr = int(tube_nr)
-
+    for i, wid in enumerate(wids):
         # no obs
-        if name not in hasobs:
+        if wid not in hasobs:
             no_data.append(True)
             continue
 
-        df = data.db.get_timeseries(gmw_id=monitoring_well, tube_id=tube_nr)
+        df = data.db.get_timeseries(wid)
 
         if df is None:
             continue
 
         df[data.db.qualifier_column] = df.loc[:, data.db.qualifier_column].fillna("")
-        wellcode = data.db.get_wellcode(name)
-        if len(names) == 1:
+        display_name = df.index.name
+        if len(wids) == 1:
             no_data.append(False)
             ts = df[data.db.value_column]
             trace_i = go.Scattergl(
@@ -112,8 +100,8 @@ def plot_obs(names, data, plot_manual_obs=False):
                 y=ts.values,
                 mode="lines",
                 line={"width": 1, "color": "gray"},
-                name=wellcode,
-                legendgroup=wellcode,
+                name=display_name,
+                legendgroup=display_name,
                 showlegend=True,
             )
             traces.append(trace_i)
@@ -147,9 +135,7 @@ def plot_obs(names, data, plot_manual_obs=False):
                 traces.append(trace_i)
 
             # add controle metingen
-            manual_obs = data.db.get_timeseries(
-                monitoring_well, tube_nr, observation_type="controlemeting"
-            )
+            manual_obs = data.db.get_timeseries(wid, observation_type="controlemeting")
             if not manual_obs.empty:
                 trace_mo = go.Scattergl(
                     x=manual_obs.index,
@@ -171,8 +157,8 @@ def plot_obs(names, data, plot_manual_obs=False):
                 mode="markers+lines",
                 line={"width": 1, "color": colors[i % len(colors)]},
                 marker={"size": 3, "line_color": colors[i % len(colors)]},
-                name=wellcode,
-                legendgroup=wellcode,
+                name=display_name,
+                legendgroup=display_name,
                 # name=name,
                 # legendgroup=f"{name}-{tube_nr}",
                 showlegend=True,
@@ -182,7 +168,7 @@ def plot_obs(names, data, plot_manual_obs=False):
             if plot_manual_obs:
                 # add controle metingen
                 manual_obs = data.db.get_timeseries(
-                    monitoring_well, tube_nr, observation_type="controlemeting"
+                    wid, observation_type="controlemeting"
                 )
                 if not manual_obs.empty:
                     trace_mo_i = go.Scattergl(
@@ -196,7 +182,7 @@ def plot_obs(names, data, plot_manual_obs=False):
                             "line_color": colors[i % len(colors)],
                         },
                         name=i18n.t("general.manual_observations"),
-                        legendgroup=f"{name}-{tube_nr}",
+                        legendgroup=display_name,
                         legendrank=1000,
                         showlegend=True,
                     )
@@ -213,8 +199,7 @@ def plot_obs(names, data, plot_manual_obs=False):
             "y": 1.02,
         },
         "dragmode": "pan",
-        # "margin": dict(t=20, b=20, l=50, r=20),
-        "margin-top": 0,
+        "margin": {"t": 60, "b": 20, "l": 20, "r": 10},
     }
     if all(no_data):
         return None

@@ -1,3 +1,4 @@
+import logging
 from copy import deepcopy
 from pathlib import Path
 
@@ -9,8 +10,9 @@ import traval
 from pandas import DataFrame, Series, Timedelta
 
 from gwdatalens.app.settings import settings
+from gwdatalens.app.src.data.util import get_model_sim_pi
 
-from .util import get_model_sim_pi
+logger = logging.getLogger(__name__)
 
 
 class TravalInterface:
@@ -152,8 +154,7 @@ class TravalInterface:
 
     def run_traval(
         self,
-        gmw_id,
-        tube_id,
+        wid,
         ruleset=None,
         tmin=None,
         tmax=None,
@@ -163,10 +164,8 @@ class TravalInterface:
 
         Parameters
         ----------
-        gmw_id : str
-            The ID of the groundwater monitoring well.
-        tube_id : int
-            The ID of the tube within the monitoring well.
+        wid : int
+            The internal id of the time series to run traval on.
         ruleset : optional
             The ruleset to apply for the traval process. If None, the default ruleset
             is used.
@@ -190,16 +189,12 @@ class TravalInterface:
             If all observations have already been checked.
         """
         if self.db.backend == "hydropandas":
-            if self.db.source == "bro":
-                name = f"{gmw_id}_{int(tube_id)}"
-            elif self.db.source == "dino":
-                name = f"{gmw_id}-{int(tube_id):03g}"
-            else:
-                name = f"{gmw_id}_{int(tube_id):03g}"
+            name = wid
         else:
-            name = f"{gmw_id}-{int(tube_id):03g}"
-        print(f"Running traval for {name}...")
-        ts = self.db.get_timeseries(gmw_id, tube_id)
+            name = self.db.gmw_gdf.loc[wid, "display_name"]
+
+        logger.info(f"Running traval for {name}...")
+        ts = self.db.get_timeseries(wid)
 
         if tmin is not None:
             ts = ts.loc[tmin:]
@@ -303,11 +298,11 @@ class TravalInterface:
             ml = None
 
         # little modification to set wellcode as name
-        detector.series.name = self.db.get_wellcode(name)
+        detector.series.name = name
 
-        manual_obs = self.db.get_timeseries(
-            gmw_id, tube_id, observation_type="controlemeting"
-        )[self.db.value_column]
+        manual_obs = self.db.get_timeseries(wid, observation_type="controlemeting")[
+            self.db.value_column
+        ]
         manual_obs.name = "controlemeting"
         if not manual_obs.empty:
             additional_series = [manual_obs]

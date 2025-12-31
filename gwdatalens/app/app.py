@@ -14,14 +14,14 @@ from gwdatalens.app.src.cache import cache
 from gwdatalens.app.src.components.layout import create_layout
 from gwdatalens.app.src.data import (
     DataInterface,
-    HydropandasDataSource,
-    # PostgreSQLDataSource,
+    # HydropandasDataSource,
+    PostgreSQLDataSource,
     TravalInterface,
 )
 
 logging.basicConfig()
 logger = logging.getLogger("gwdatalens")
-logger.setLevel(logging.INFO)
+logger.setLevel(settings["LOG_LEVEL"])
 
 # %% set some variables
 external_stylesheets = [
@@ -38,14 +38,14 @@ i18n.load_path.append(LOCALE_PATH)
 # %% Connect to database
 
 # postgreql database
-# db = PostgreSQLDataSource(config=config["database"])
+db = PostgreSQLDataSource(config=config["database"])
 
 # hydropandas 'database'
 # db = HydropandasDataSource(extent=[116500, 120000, 439000, 442000], source="bro")
-db = HydropandasDataSource(
-    fname=Path(__file__).parent / ".." / "data" / "example_obscollection.zip",
-    source="bro",
-)
+# db = HydropandasDataSource(
+#     fname=Path(__file__).parent / ".." / "data" / "example_obscollection.zip",
+#     source="bro",
+# )
 
 # %% load pastastore
 name = config["pastastore"]["name"]
@@ -85,6 +85,12 @@ data = DataInterface(
 # callbacks.
 
 if settings["BACKGROUND_CALLBACKS"]:
+    msg = (
+        "It is currently recommended to not use background callbacks due to "
+        "performance issues caused by running the database engine in multiple "
+        "processes."
+    )
+    logger.warning(msg)
     if "REDIS_URL" in os.environ:
         # Use Redis & Celery if REDIS_URL set as an env variable
         from celery import Celery
@@ -155,5 +161,3 @@ else:
             "CACHE_DIR": ".cache",
         },
     )
-
-# %%

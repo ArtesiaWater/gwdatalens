@@ -30,12 +30,12 @@ def render(data: DataInterface, selected_data=None):
     and its cells is customized, including conditional styling for selected
     rows.
     """
-    df = data.db.gmw_gdf.reset_index()
+    df = data.db.gmw_gdf.copy()
     usecols = [
         "id",
-        "name",
+        "display_name",
         "bro_id",
-        "wellcode_name",
+        "well_code",
         "tube_number",
         "screen_top",
         "screen_bot",
@@ -51,7 +51,7 @@ def render(data: DataInterface, selected_data=None):
                 data=df.loc[:, usecols].to_dict("records"),
                 columns=[
                     {
-                        "id": "wellcode_name",
+                        "id": "display_name",
                         "name": "Putcode",
                         "type": "text",
                     },
@@ -114,10 +114,10 @@ def render(data: DataInterface, selected_data=None):
                         "if": {"column_id": c},
                         "textAlign": "left",
                     }
-                    for c in ["bro_id", "wellcode_name"]
+                    for c in ["bro_id", "display_name"]
                 ]
                 + [
-                    {"if": {"column_id": "wellcode_name"}, "width": "15%"},
+                    {"if": {"column_id": "display_name"}, "width": "15%"},
                     {"if": {"column_id": "bro_id"}, "width": "10%"},
                     {"if": {"column_id": "tube_number"}, "width": "10%"},
                     {"if": {"column_id": "screen_top"}, "width": "15%"},

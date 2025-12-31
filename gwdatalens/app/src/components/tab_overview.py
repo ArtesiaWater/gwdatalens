@@ -104,6 +104,9 @@ def render_content(data: DataInterface, selected_data: str):
                     overview_chart.render(data, selected_data),
                 ],
             ),
+            # duplicate callback outputs stores
+            dcc.Store(id=ids.OVERVIEW_TABLE_SELECTION_1),
+            dcc.Store(id=ids.OVERVIEW_TABLE_SELECTION_2),
         ],
         fluid=True,
     )

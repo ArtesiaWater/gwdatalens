@@ -220,7 +220,7 @@ def render_clear_table_selection_button():
             html.Span(
                 [
                     html.I(className="fa-solid fa-ban"),
-                    " " + i18n.t("general.clear_selection"),
+                    " " + i18n.t("general.clear_selection_table"),
                 ],
                 id="span-deselect-all",
                 n_clicks=0,
@@ -457,6 +457,9 @@ def render_content(data: DataInterface, figure: dict):
                     dbc.Col(render_export_dropdown_and_tooltip(disabled_db), width=2),
                 ]
             ),
+            dcc.Store(id=ids.QC_RESULT_TABLE_STORE_1),
+            dcc.Store(id=ids.QC_RESULT_TABLE_STORE_2),
+            dcc.Store(id=ids.QC_RESULT_TABLE_STORE_3),
         ],
         fluid=True,
     )

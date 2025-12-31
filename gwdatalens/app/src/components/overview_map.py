@@ -27,7 +27,7 @@ def render(
     data: DataInterface,
     selected_data=None,
 ):
-    df = data.db.gmw_gdf.reset_index()
+    df = data.db.gmw_gdf.copy()
     return dcc.Graph(
         id=ids.OVERVIEW_MAP,
         figure=draw_map_mapbox(
@@ -60,6 +60,8 @@ def draw_map(
     ----------
     df : pandas.DataFrame
         data to plot
+    selected_data : list, optional
+        list of internal ids of selected data points
 
     Returns
     -------
@@ -67,10 +69,9 @@ def draw_map(
         dictionary containing plotly maplayout and mapdata
     """
     mask = df["metingen"] > 0
-
     if selected_data is not None:
-        pts_data = np.nonzero(df.loc[mask, "name"].isin(selected_data))[0].tolist()
-        pts_nodata = np.nonzero(df.loc[~mask, "name"].isin(selected_data))[0].tolist()
+        pts_data = selected_data
+        pts_nodata = np.nonzero(df.loc[~mask].index.isin(selected_data))[0].tolist()
     else:
         pts_data = None
         pts_nodata = None
@@ -84,9 +85,11 @@ def draw_map(
         "lat": df.loc[:, "lat"],
         "lon": df.loc[:, "lon"],
         "name": i18n.t("general.monitoring_wells"),
-        # customdata=df.loc[:, "z"],
+        "customdata": df.loc[:, "well_static_id"].astype(str)
+        + "."
+        + df.loc[:, "tube_static_id"].astype(str),
         "type": "scattermap",
-        "text": df.loc[:, "wellcode_name"].tolist(),
+        "text": df.loc[:, "display_name"].tolist(),
         "textposition": "top center",
         "textfont": {"size": 12, "color": "black"},
         "mode": "markers",
@@ -126,7 +129,7 @@ def draw_map(
         "name": i18n.t("general.no_data"),
         # customdata=df.loc[~mask, "z"],
         "type": "scattermap",
-        "text": df.loc[~mask, "wellcode_name"].tolist(),
+        "text": df.loc[~mask, "display_name"].tolist(),
         "textposition": "top center",
         "textfont": {"size": 12, "color": "black"},
         "mode": "markers",
@@ -225,11 +228,9 @@ def draw_map_mapbox(
     dict
         dictionary containing plotly maplayout and mapdata
     """
-    mask = df["metingen"] > 0
-
     if selected_data is not None:
-        pts_data = np.nonzero(df.loc[mask, "name"].isin(selected_data))[0].tolist()
-        pts_nodata = np.nonzero(df.loc[~mask, "name"].isin(selected_data))[0].tolist()
+        pts_data = selected_data
+        pts_nodata = df.index.difference(selected_data).tolist()
     else:
         pts_data = None
         pts_nodata = None
@@ -245,7 +246,7 @@ def draw_map_mapbox(
         "name": i18n.t("general.monitoring_wells"),
         # customdata=df.loc[:, "z"],
         "type": "scattermapbox",
-        "text": df.loc[:, "wellcode_name"].tolist(),
+        "text": df.loc[:, "display_name"].tolist(),
         "textposition": "top center",
         "textfont": {"size": 12, "color": "black"},
         "mode": "markers",
@@ -279,13 +280,14 @@ def draw_map_mapbox(
         "selected": {"marker": {"opacity": 1.0, "color": "red", "size": 9}},
     }
 
+    mask = df["metingen"] > 0
     pb_nodata = {
         "lat": df.loc[~mask, "lat"],
         "lon": df.loc[~mask, "lon"],
         "name": i18n.t("general.no_data"),
         # customdata=df.loc[~mask, "z"],
         "type": "scattermapbox",
-        "text": df.loc[~mask, "wellcode_name"].tolist(),
+        "text": df.loc[~mask, "display_name"].tolist(),
         "textposition": "top center",
         "textfont": {"size": 12, "color": "black"},
         "mode": "markers",

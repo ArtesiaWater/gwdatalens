@@ -32,8 +32,8 @@ def render_datepicker_tmin(data, selected_data):
     data : object
         The data object containing the database connection and methods.
     selected_data : list or None
-        A list containing the selected data. Expected to contain a single string
-        in the format "gmw_id-tube_id". If None or the list length is not 1, the
+        A list containing internal ids of the selected data. Expected to
+        contain a single int. If None or the list length is not 1, the
         date picker will be disabled.
 
     Returns
@@ -42,16 +42,8 @@ def render_datepicker_tmin(data, selected_data):
         A Dash DatePickerSingle with the start date.
     """
     if selected_data is not None and len(selected_data) == 1:
-        name = selected_data[0]
-        if "-" in name:
-            gmw_id, tube_id = name.split("-")
-        elif "_" in name:
-            gmw_id, tube_id = name.split("_")
-        else:
-            raise ValueError(
-                f"Error splitting name into monitoring well ID and tube number: {name}"
-            )
-        ts = data.db.get_timeseries(gmw_id, tube_id)
+        wid = selected_data[0]
+        ts = data.db.get_timeseries(wid)
         start_date = ts.index[0].to_pydatetime()
         disabled = False
     else:
@@ -89,16 +81,8 @@ def render_datepicker_tmax(data, selected_data):
         A Dash DatePickerSingle with the end date.
     """
     if selected_data is not None and len(selected_data) == 1:
-        name = selected_data[0]
-        if "-" in name:
-            gmw_id, tube_id = name.split("-")
-        elif "_" in name:
-            gmw_id, tube_id = name.split("_")
-        else:
-            raise ValueError(
-                f"Error splitting name into monitoring well ID and tube number: {name}"
-            )
-        ts = data.db.get_timeseries(gmw_id, tube_id)
+        wid = selected_data[0]
+        ts = data.db.get_timeseries(wid)
         end_date = ts.index[-1].to_pydatetime()
         disabled = False
     else:
@@ -142,7 +126,7 @@ def render_content(data: DataInterface, selected_data: List):
     data : DataInterface
         The data interface object.
     selected_data : List
-        A list of selected data items.
+        A list of ids of selected data items.
 
     Returns
     -------
@@ -252,6 +236,19 @@ def render_content(data: DataInterface, selected_data: List):
                 is_open=False,
                 id=ids.QC_COLLAPSE_CONTENT,
             ),
+            dcc.Store(id=ids.QC_DROPDOWN_ADDITIONAL_DISABLED_1),
+            dcc.Store(id=ids.QC_DROPDOWN_ADDITIONAL_DISABLED_2),
+            dcc.Store(id=ids.TRAVAL_RULES_FORM_STORE_1, data=[]),
+            dcc.Store(id=ids.TRAVAL_RULES_FORM_STORE_2, data=[]),
+            dcc.Store(id=ids.TRAVAL_RULES_FORM_STORE_3, data=[]),
+            dcc.Store(id=ids.TRAVAL_RULES_FORM_STORE_4, data=[]),
+            dcc.Store(id=ids.TRAVAL_RESET_RULESET_BUTTON_STORE_1),
+            dcc.Store(id=ids.TRAVAL_RESET_RULESET_BUTTON_STORE_2),
+            dcc.Store(id=ids.TRAVAL_RESET_RULESET_BUTTON_STORE_3),
+            dcc.Store(id=ids.LOADING_QC_CHART_STORE_1),
+            dcc.Store(id=ids.LOADING_QC_CHART_STORE_2),
+            dcc.Store(id=ids.QC_CHART_STORE_1),
+            dcc.Store(id=ids.QC_CHART_STORE_2),
         ],
         fluid=True,
     )

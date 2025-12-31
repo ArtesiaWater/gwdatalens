@@ -2,8 +2,9 @@ import logging
 import os
 import pickle
 from abc import ABC, abstractmethod
+from datetime import datetime, timezone
 from functools import cached_property, lru_cache
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 from urllib.parse import quote
 
 import geopandas as gpd
@@ -11,11 +12,11 @@ import i18n
 import numpy as np
 import pandas as pd
 from pyproj import Transformer
-from sqlalchemy import create_engine, func, or_, select, update
+from sqlalchemy import create_engine, func, select, update
 from sqlalchemy.orm import Session
 
-from . import datamodel
-from .util import EPSG_28992, WGS84
+from gwdatalens.app.src.data import datamodel, sql
+from gwdatalens.app.src.data.util import EPSG_28992, WGS84
 
 logger = logger = logging.getLogger(__name__)
 
@@ -118,21 +119,6 @@ class DataSourceTemplate(ABC):
     def backend(self):
         """Backend of the data source."""
 
-    @abstractmethod
-    def get_nitg_code(self, i):
-        """Return the nitg code for a given index.
-
-        Parameters
-        ----------
-        i : str
-            index of the observation well
-
-        Returns
-        -------
-        str
-            nitg code if it is available, otherwise an empty string
-        """
-
 
 class PostgreSQLDataSource(DataSourceTemplate):
     """DataSource class connecting to Provincie Zeelands PostgreSQL database.
@@ -150,8 +136,6 @@ class PostgreSQLDataSource(DataSourceTemplate):
         SQLAlchemy engine for database connection.
     value_column : str
         Column name for the value field (containing the observations)
-    qualifier_column : str
-        Column name for the quality control status.
     source : str
         Source identifier, default is "zeeland".
 
@@ -192,8 +176,8 @@ class PostgreSQLDataSource(DataSourceTemplate):
             logger.error(msg)
             raise Exception(msg) from e
 
-        self.value_column = "calculated_value"
-        self.qualifier_column = "status_quality_control"
+        self.value_column = datamodel.FIELD_CALCULATED_VALUE
+        self.qualifier_column = datamodel.FIELD_STATUS_QUALITY_CONTROL
         self.source = "zeeland"
 
     def _engine(self):
@@ -221,6 +205,23 @@ class PostgreSQLDataSource(DataSourceTemplate):
             connect_args={"options": "-csearch_path=gmw,gld,public,django_admin"},
         )
 
+    @staticmethod
+    def get_location_name(df):
+        return (
+            df["well_code"]
+            .fillna(df["bro_id"])
+            .fillna(df["nitg_code"])
+            .fillna(df["well_static_id"].astype(str))
+        )
+
+    @staticmethod
+    def get_display_name(df):
+        return (
+            PostgreSQLDataSource.get_location_name(df)
+            + "-"
+            + df["tube_number"].apply("{:03g}".format)
+        )
+
     @cached_property
     def gmw_gdf(self) -> gpd.GeoDataFrame:
         """Get metadata as GeoDataFrame.
@@ -230,9 +231,9 @@ class PostgreSQLDataSource(DataSourceTemplate):
         gpd.GeoDataFrame
             A GeoDataFrame containing the metadata of piezometers.
         """
-        return self._gmw_to_gdf()
+        return self._gmw_gdf()
 
-    def _gmw_to_gdf(self):
+    def get_gmw_metadata(self):
         """Return all piezometer metadata as a (Geo)DataFrame.
 
         Returns
@@ -240,39 +241,9 @@ class PostgreSQLDataSource(DataSourceTemplate):
         gdf : a gpd.GeoDataFrame
             a GeoDataFrame with the metadata.
         """
-        stmt = (
-            select(
-                datamodel.Well.groundwater_monitoring_well_static_id,
-                datamodel.Well.bro_id,
-                datamodel.Well.well_code,
-                datamodel.Well.nitg_code,
-                datamodel.TubeStatic.tube_number,
-                datamodel.WellDynamic.ground_level_position,
-                datamodel.TubeDynamic.tube_top_position,
-                datamodel.TubeDynamic.plain_tube_part_length,
-                datamodel.TubeStatic.screen_length,
-                datamodel.Well.coordinates,
-                datamodel.Well.reference_system,
-            )
-            .join(datamodel.TubeStatic)
-            .join(datamodel.TubeDynamic)
-            .join(datamodel.WellDynamic)
-            .select_from(datamodel.Well)
-        )
+        stmt = sql.sql_get_gmws()
         with self.engine.connect() as con:
             gdf = gpd.GeoDataFrame.from_postgis(stmt, con=con, geom_col="coordinates")
-        # for duplicates only keep the last version of bro_id, nitg_code and tube_number
-        gdf = gdf[
-            ~gdf.duplicated(
-                subset=[
-                    "groundwater_monitoring_well_static_id",
-                    "bro_id",
-                    "nitg_code",
-                    "tube_number",
-                ],
-                keep="last",
-            )
-        ]
 
         # make sure all locations are in EPSG:28992
         msg = "Other coordinate reference systems than RD not supported yet"
@@ -282,89 +253,84 @@ class PostgreSQLDataSource(DataSourceTemplate):
         gdf["screen_top"] = gdf["tube_top_position"] - gdf["plain_tube_part_length"]
         gdf["screen_bot"] = gdf["screen_top"] - gdf["screen_length"]
 
-        # use first non-NA of bro_id, nitg_code, groundwater_monitoring_well_static_id as prefix
-        prefix = (
-            gdf["bro_id"]
-            .fillna(gdf["nitg_code"])
-            .fillna(gdf["groundwater_monitoring_well_static_id"].astype("string"))
-        )
-        gdf["wellcode_name"] = gdf.loc[:, ["well_code", "tube_number"]].apply(
-            lambda p: f"{p.iloc[0]}-{p.iloc[1]:03g}", axis=1
-        )
-        gdf["name"] = prefix + "-" + gdf["tube_number"].apply("{:03g}".format)
+        # set location name and display name
+        gdf["location_name"] = self.get_location_name(gdf)
+        gdf["display_name"] = self.get_display_name(gdf)
 
-        # set bro_id|nitg_code|gmw_static_id and tube_number as index
-        gdf = gdf.set_index("name")
+        return gdf
+
+    def _gmw_gdf(self):
+        gdf = self.get_gmw_metadata()
 
         # add number of measurements
-        gdf["metingen"] = 0
         count = self.count_measurements_per_tube()
-        prefix = (
-            count["bro_id"]
-            .fillna(count["nitg_code"])
-            .fillna(count["groundwater_monitoring_well_static_id"].astype("string"))
-        )
-        count.index = prefix + "-" + count["tube_number"].apply("{:03g}".format)
-        # use shared index in case count contains other locations than gdf
-        shared_index = gdf.index.intersection(count.index)
-        gdf.loc[shared_index, "metingen"] = count.loc[shared_index, "Metingen"].values
+        gdf = gdf.join(count, on=["well_static_id", "tube_static_id"], how="left")
+        gdf["metingen"] = gdf["metingen"].fillna(0).astype(int)
 
         # add location data in RD and lat/lon in WGS84
         gdf["x"] = gdf.geometry.x
         gdf["y"] = gdf.geometry.y
-
         transformer = Transformer.from_proj(EPSG_28992, WGS84, always_xy=False)
         gdf.loc[:, ["lon", "lat"]] = np.vstack(
             transformer.transform(gdf["x"].values, gdf["y"].values)
         ).T
 
-        # sort data:
+        # sort data
         gdf.sort_values(
-            ["nitg_code", "tube_number"],
+            ["location_name", "tube_number"],
             ascending=[True, True],
             inplace=True,
         )
-        gdf["id"] = range(gdf.index.size)
+
+        # set index to our own internal numbering
+        gdf["id"] = np.arange(gdf.index.size)
+        gdf.index = gdf["id"]
 
         return gdf
 
-    def get_tube_numbers(self, wid):
-        stmt = (
-            select(datamodel.TubeStatic.tube_number)
-            .join(
-                datamodel.Well,
-                datamodel.TubeStatic.groundwater_monitoring_well_static_id
-                == datamodel.Well.groundwater_monitoring_well_static_id,
-            )
-            .where(
-                or_(
-                    datamodel.Well.groundwater_monitoring_well_static_id
-                    == self._to_int(wid),
-                    datamodel.Well.bro_id == wid,
-                    datamodel.Well.nitg_code == wid,
-                )
-            )
-            .order_by(datamodel.TubeStatic.tube_number)
-        )
+    def get_tube_numbers(self, wid=None, query=None, return_ids=False):
+        if wid is not None:
+            well_static_id = self.gmw_gdf.loc[wid, "well_static_id"]
+            location_name = self.gmw_gdf.at[wid, "location_name"]
+        elif query is not None:
+            sel = self.query_gdf(**query)
+            if sel.index.size > 1:
+                raise ValueError("Query returned multiple results.")
+            well_static_id = sel.at[sel.index[0], "well_static_id"]
+            location_name = sel.at[sel.index[0], "location_name"]
+        else:
+            raise ValueError("Either 'wid' or 'query' must be provided.")
+
+        stmt = sql.sql_get_tube_numbers_for_location(well_static_id=well_static_id)
         with self.engine.connect() as con:
             names = pd.read_sql(stmt, con=con)
-        names = wid + names.map(lambda s: f"-{s:03g}")
-        return names.squeeze("columns").to_list()
+
+        names = location_name + names.map(lambda s: f"-{s:03g}")
+        if return_ids:
+            return self.query_gdf(display_name=names.tolist(), operator="in").index
+        else:
+            return names.squeeze("columns").to_list()
 
     @lru_cache  # noqa: B019
     def list_locations(self) -> pd.DataFrame:
-        # Get unique locations
-        stmt = (
-            select(
-                datamodel.Well.groundwater_monitoring_well_static_id,
-                datamodel.Well.bro_id,
-                datamodel.Well.nitg_code,
-            )
-            .distinct()
-            .order_by(datamodel.Well.bro_id)
-        )
-        with self.engine.connect() as con:
-            locs = pd.read_sql(stmt, con=con)
+        # # Get unique locations
+        # stmt = sql.sql_get_unique_locations()
+        # with self.engine.connect() as con:
+        #     locs = pd.read_sql(stmt, con=con)
+
+        gr = self.gmw_gdf.groupby("well_static_id")
+        cols = [
+            "well_static_id",
+            "bro_id",
+            "well_code",
+            "nitg_code",
+            "location_name",
+            "id",
+        ]
+        locs = gr.first().reset_index().loc[:, cols]
+        locs["ntubes"] = gr["tube_static_id"].count().values
+        locs["hasdata"] = gr["metingen"].sum().values > 0
+
         return locs
 
     @lru_cache  # noqa: B019
@@ -376,25 +342,20 @@ class PostgreSQLDataSource(DataSourceTemplate):
         List[str]
             List of measurement location names.
         """
-        # get all grundwater level dossiers
-        stmt = select(
-            datamodel.Well.groundwater_monitoring_well_static_id,
-            datamodel.Well.bro_id,
-            datamodel.Well.nitg_code,
-            datamodel.TubeStatic.tube_number,
-        ).join(datamodel.TubeStatic)
+        # NOTE: this returns 7000+ locations with duplicates
+        # # get all groundwater level dossiers
+        # stmt = sql.sql_get_observation_wells()
+        # with self.engine.connect() as con:
+        #     obswells = pd.read_sql(stmt, con=con)
 
-        with self.engine.connect() as con:
-            obswells = pd.read_sql(stmt, con=con)
-
-        prefix = (
-            obswells["bro_id"]
-            .fillna(obswells["nitg_code"])
-            .fillna(obswells["groundwater_monitoring_well_static_id"].astype("string"))
-        )
-        # get names
-        names = prefix + "-" + obswells["tube_number"].apply("{:03g}".format)
-        return names.tolist()
+        # # get names
+        # obswells["display_name"] = (
+        #     self.get_location_name(obswells)
+        #     + "-"
+        #     + obswells["tube_number"].apply("{:03g}".format)
+        # )
+        # return obswells
+        self.gmw_gdf["display_name"]
 
     @lru_cache  # noqa: B019
     def list_observation_wells_with_data(self) -> List[str]:
@@ -408,130 +369,169 @@ class PostgreSQLDataSource(DataSourceTemplate):
             List of measurement location names.
         """
         # get all groundwater level dossiers
-        stmt = (
-            select(
-                datamodel.Well.groundwater_monitoring_well_static_id,
-                datamodel.Well.bro_id,
-                datamodel.Well.nitg_code,
-                datamodel.TubeStatic.tube_number,
-                func.count(
-                    datamodel.GroundwaterLevelDossier.groundwater_level_dossier_id
-                ).label("Number of glds"),
-            )
-            .join(datamodel.TubeStatic)
-            .join(datamodel.Well)
-            .group_by(
-                datamodel.Well.groundwater_monitoring_well_static_id,
-                datamodel.Well.bro_id,
-                datamodel.Well.nitg_code,
-                datamodel.TubeStatic.tube_number,
-            )
-            .select_from(datamodel.GroundwaterLevelDossier)
-        )
-        with self.engine.connect() as con:
-            obswells = pd.read_sql(stmt, con=con)
-        obswells = obswells.loc[
-            obswells["Number of glds"] > 0,
-            [
-                "groundwater_monitoring_well_static_id",
-                "bro_id",
-                "nitg_code",
-                "tube_number",
-            ],
+        mask = self.gmw_gdf["metingen"] > 0
+        use_cols = [
+            "well_static_id",
+            "bro_id",
+            "well_code",
+            "nitg_code",
+            "tube_number",
+            "display_name",
+            "id",
         ]
 
-        prefix = (
-            obswells["bro_id"]
-            .fillna(obswells["nitg_code"])
-            .fillna(obswells["groundwater_monitoring_well_static_id"].astype("string"))
-        )
-        # get names
-        obswells = prefix + "-" + obswells["tube_number"].apply("{:03g}".format)
-        return obswells.tolist()
+        return self.gmw_gdf.loc[mask, use_cols]
 
-    def list_observation_wells_with_data_sorted_by_distance(self, name) -> List[str]:
+    def list_observation_wells_with_data_sorted_by_distance(self, wid) -> List[str]:
         """List locations sorted by their distance from a given location.
 
         Parameters
         ----------
-        name : str
-            The name of the location from which distances are calculated.
+        wid : int
+            the id of the location to compute distances from.
 
         Returns
         -------
-        List[str]
-            A list of location names sorted by their distance from the given location.
+        pd.DataFrame
+            A DataFrame containing the locations sorted by distance.
         """
         # only locations with data:
         gdf = self.gmw_gdf.copy()
-        # gdf = gdf.loc[gdf["metingen"] > 0]
+        gdf = gdf.loc[gdf["metingen"] > 0]
 
-        p = gdf.loc[name, "coordinates"]
+        try:
+            p = gdf.loc[wid, "coordinates"]
+        except KeyError as e:
+            raise KeyError(
+                f"Location id '{wid}' is not in database or has no data."
+            ) from e
 
-        gdf.drop(name, inplace=True)
+        gdf.drop(wid, inplace=True)
         dist = gdf.distance(p)
         dist.name = "distance"
         distsorted = gdf.join(dist, how="right").sort_values("distance", ascending=True)
         return distsorted
 
-    def get_wellcode(self, name):
-        well_code = self.gmw_gdf.at[name, "well_code"]
+    def get_wellcode(self, wid=None, query=None):
+        if wid is not None:
+            well_code = self.gmw_gdf.at[wid, "well_code"]
+        elif query is not None:
+            sel = self.query_gdf(**query, columns=["well_code", "tube_number"])
+            if sel.index.size > 1:
+                raise ValueError("Query returned multiple results.")
+            wid = sel.index[0]
+            well_code = sel.at[wid, "well_code"]
+        else:
+            raise ValueError("Either 'wid' or 'query' must be provided.")
+        tube_number = sel.at[wid, "tube_number"]
         if isinstance(well_code, str) and len(well_code) > 0:
-            return well_code + f"-{name.split('-')[-1]}"
+            return well_code + f"-{tube_number:03g}"
         else:
             return ""
 
     def wellcode_to_broid(self, well_code):
+        query = {}
         if "-" in well_code:
             # split well_code into bro_id and tube_id
             parts = well_code.split("-")
-            well_code, tube_id = parts
-            tube_id = "-" + tube_id
+            query["well_code"] = parts[0]
+            query["tube_number"] = int(parts[-1])
+            tube_number = query["tube_number"]
         else:
-            tube_id = ""
-        bro_id = self.gmw_gdf.loc[self.gmw_gdf["well_code"] == well_code, "bro_id"]
+            query["well_code"] = well_code
+            tube_number = None
+
+        bro_id = self.query_gdf(**query, columns="bro_id")
         if bro_id.empty:
             raise KeyError(f"Well code '{well_code}' not found in the database.")
+        elif pd.isna(bro_id).all():
+            raise ValueError(f"No bro_id available for well code '{well_code}'.")
         else:
-            return bro_id.iloc[0] + tube_id
+            return bro_id.astype(str).iloc[0] + (
+                f"-{tube_number:03g}" if tube_number else ""
+            )
 
     def broid_to_wellcode(self, bro_id):
-        well_code = self.gmw_gdf.loc[self.gmw_gdf["bro_id"] == bro_id, "well_code"]
+        query = {}
+        if "-" in bro_id:
+            # split bro_id into bro_id and tube_id
+            parts = bro_id.split("-")
+            query["bro_id"] = parts[0]
+            query["tube_number"] = int(parts[-1])
+            tube_number = query["tube_number"]
+        else:
+            query["bro_id"] = bro_id
+            tube_number = None
+
+        well_code = self.query_gdf(**query, columns="well_code")
         if well_code.empty:
             raise KeyError(f"Well code '{well_code}' not found in the database.")
+        elif pd.isna(well_code).all():
+            raise ValueError(f"No well_code available for well code '{well_code}'.")
         else:
-            return well_code.iloc[0]
+            return well_code.astype(str).iloc[0] + (
+                f"-{tube_number:03g}" if tube_number else ""
+            )
 
-    def get_nitg_code(self, i):
-        """Return the nitg code for a given index.
+    def query_gdf(
+        self,
+        query: str | None = None,
+        operator: str = "==",
+        columns: Optional[List[str] | str] = None,
+        **kwargs,
+    ) -> gpd.GeoDataFrame:
+        """Query the gmw_gdf with a pandas query string.
 
         Parameters
         ----------
-        i : str
-            index of the observation well
+        query : str
+            pandas query string to filter the gmw_gdf.
+        columns : list of str or str, optional
+            columns to return, by default None (all columns)
+        **kwargs : dict
+            key-value pairs to build a query string.
 
         Returns
         -------
-        str
-            nitg code if it is available, otherwise an empty string
+        gpd.GeoDataFrame
+            Filtered GeoDataFrame.
         """
-        nitg = self.gmw_gdf.at[i, "nitg_code"]
-        if isinstance(nitg, str) and len(nitg) > 0:
-            return f" ({nitg})"
+        if query is not None:
+            qgdf = self.gmw_gdf.query(query)
         else:
-            return ""
+            template = "({} {} @{})"
+            query = " and ".join(
+                [template.format(k, operator, k) for k in kwargs.keys()]
+            )
+            qgdf = self.gmw_gdf.query(query, local_dict=kwargs)
+        if columns is not None:
+            qgdf = qgdf.loc[:, columns]
+        return qgdf
 
-    @staticmethod
-    def _to_int(v):
+    def translate(self, to: str = None, **kwargs):
+        if not isinstance(to, str):
+            raise TypeError("'to' must be a string.")
+        q = self.query_gdf(**kwargs, columns=to)
+        if q.empty:
+            raise KeyError(
+                "No matching entry for '{1}' in column '{0}'".format(
+                    *list(kwargs.items())[0]
+                )
+            )
         try:
-            return int(v)
-        except ValueError:
-            return -1
+            return q.item()
+        except (AttributeError, ValueError) as e:
+            raise ValueError(
+                f"Query did not return a single value for column '{to}'."
+            ) from e
+
+    def get_internal_id(self, **kwargs):
+        return self.translate(to="id", **kwargs)
 
     def get_timeseries(
         self,
-        gmw_id: str,
-        tube_id: Optional[int] = None,
+        wid: Optional[int] = None,
+        query: Optional[dict[str:Any]] = None,
         observation_type="reguliereMeting",
         column: Optional[Union[List[str], str]] = None,
     ) -> pd.Series | pd.DataFrame:
@@ -541,10 +541,10 @@ class PostgreSQLDataSource(DataSourceTemplate):
 
         Parameters
         ----------
-        gmw_id : str
+        wid : int
             id of the observation well
-        tube_id : int, optional
-            tube number of the observation well
+        query : dict, optional
+            query to select observation well, by default None
         observation_type : str, optional
             type of observation, by default "reguliereMeting". Options are
             "reguliereMeting", "controlemeting".
@@ -556,45 +556,32 @@ class PostgreSQLDataSource(DataSourceTemplate):
         pd.Series
             time series of head observations.
         """
-        # allow passing full ID to first argument to use this function in traval
-        # for getting manual observations using a single ID string.
-        if tube_id is None:
-            gmw_id, tube_id = gmw_id.split("-")
+        if wid is not None:
+            well_static_id = self.gmw_gdf.at[wid, "well_static_id"]
+            tube_static_id = int(self.gmw_gdf.at[wid, "tube_static_id"])
+            display_name = self.gmw_gdf.at[wid, "display_name"]
+        elif query is not None:
+            sel = self.query_gdf(
+                **query, columns=["well_static_id", "tube_static_id", "display_name"]
+            )
+            if sel.index.size > 1:
+                raise ValueError("Query returned multiple results.")
+            wid = sel.index[0]
+            well_static_id = sel.at[wid, "well_static_id"]
+            tube_static_id = int(sel.at[wid, "tube_static_id"])
+            display_name = sel.at[wid, "display_name"]
+        else:
+            raise ValueError("Either 'wid' or 'query' must be provided.")
 
-        stmt = (
-            select(
-                datamodel.MeasurementTvp.measurement_time,
-                datamodel.MeasurementTvp.field_value,
-                datamodel.MeasurementTvp.calculated_value,
-                datamodel.MeasurementPointMetadata.status_quality_control,
-                datamodel.MeasurementPointMetadata.censor_reason_datalens,
-                datamodel.MeasurementPointMetadata.censor_reason,
-                datamodel.MeasurementPointMetadata.value_limit,
-                datamodel.MeasurementTvp.field_value_unit,
-                datamodel.MeasurementTvp.measurement_tvp_id,
-                datamodel.MeasurementTvp.measurement_point_metadata_id,
-            )
-            .join(datamodel.MeasurementPointMetadata)
-            .join(datamodel.Observation)
-            .join(datamodel.ObservationMetadata)
-            .join(datamodel.GroundwaterLevelDossier)
-            .join(datamodel.TubeStatic)
-            .join(datamodel.Well)
-            .filter(
-                or_(
-                    datamodel.Well.groundwater_monitoring_well_static_id
-                    == self._to_int(gmw_id),
-                    datamodel.Well.bro_id == str(gmw_id),
-                    datamodel.Well.nitg_code == str(gmw_id),
-                ),
-                datamodel.TubeStatic.tube_number.in_([tube_id]),
-                datamodel.ObservationMetadata.observation_type == observation_type,
-            )
-            .order_by(datamodel.MeasurementTvp.measurement_time)
+        logger.info(
+            f"Reading timeseries for {display_name} (gmw_id: {well_static_id}, "
+            f"tube_id: {tube_static_id}) ..."
         )
-        # NOTE: print sql statement
-        # from sqlalchemy.dialects import postgresql
-        # print( str(q.compile(dialect=postgresql.dialect())))
+        stmt = sql.sql_get_timeseries(
+            well_static_id=well_static_id,
+            tube_static_id=tube_static_id,
+            observation_type=observation_type,
+        )
         with self.engine.connect() as con:
             df = pd.read_sql(stmt, con=con, index_col="measurement_time")
 
@@ -603,7 +590,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
             and observation_type != "controlemeting"
         ):
             logger.warning(
-                f"Timeseries {gmw_id}-{tube_id} has no data in {self.value_column}!"
+                f"Timeseries {{display_name}} has no data in {self.value_column}!"
             )
 
         if self.value_column == "field_value":
@@ -624,6 +611,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
         if df.index.dtype == "O":
             df.index = pd.to_datetime(df.index, utc=True)
         df.index = df.index.tz_localize(None)
+        df.index.name = display_name
 
         # drop dupes
         df = df.loc[~df.index.duplicated(keep="first")]
@@ -633,7 +621,16 @@ class PostgreSQLDataSource(DataSourceTemplate):
         else:
             return df
 
-    def count_measurements_per_tube(self) -> pd.Series:
+    def count_measurements_per_tube(self):
+        with self.engine.connect() as con:
+            stmt = sql.sql_count_measurements()
+            df = pd.read_sql(stmt, con=con)
+
+        return df.set_index(["well_static_id", "tube_static_id"]).loc[
+            :, ["metingen", "controlemetingen"]
+        ]
+
+    def count_measurements_per_tube_old(self, fast=True) -> pd.Series:
         """Count the number of measurements per filter.
 
         Returns
@@ -641,31 +638,96 @@ class PostgreSQLDataSource(DataSourceTemplate):
         pd.Series
             A pandas Series containing the count of measurements in each time series.
         """
-        stmt = (
-            select(
-                datamodel.Well.groundwater_monitoring_well_static_id,
-                datamodel.Well.bro_id,
-                datamodel.Well.nitg_code,
-                datamodel.TubeStatic.tube_number,
-                func.count(
-                    func.distinct(datamodel.MeasurementTvp.measurement_time)
-                ).label("Metingen"),
+        if fast:
+            subq = (
+                select(
+                    datamodel.MeasurementTvp.observation_id,
+                    func.count(datamodel.MeasurementTvp.measurement_tvp_id).label(
+                        "metingen"
+                    ),
+                )
+                .group_by(datamodel.MeasurementTvp.observation_id)
+                .subquery()
             )
-            .join(datamodel.Observation)
-            .join(datamodel.ObservationMetadata)
-            .join(datamodel.GroundwaterLevelDossier)
-            .join(datamodel.TubeStatic)
-            .join(datamodel.Well)
-            .group_by(
-                datamodel.Well.groundwater_monitoring_well_static_id,
-                datamodel.Well.bro_id,
-                datamodel.Well.nitg_code,
-                datamodel.TubeStatic.tube_number,
+
+            stmt = (
+                select(
+                    datamodel.WellStatic.groundwater_monitoring_well_static_id,
+                    datamodel.WellStatic.internal_id,
+                    datamodel.WellStatic.bro_id,
+                    datamodel.WellStatic.well_code,
+                    datamodel.WellStatic.nitg_code,
+                    datamodel.TubeStatic.tube_number,
+                    func.sum(subq.c.metingen).label("metingen"),
+                )
+                .join(
+                    datamodel.Observation,
+                    datamodel.Observation.observation_id == subq.c.observation_id,
+                )
+                .join(
+                    datamodel.ObservationMetadata,
+                    datamodel.ObservationMetadata.observation_metadata_id
+                    == datamodel.Observation.observation_metadata_id,
+                )
+                .join(
+                    datamodel.GroundwaterLevelDossier,
+                    datamodel.GroundwaterLevelDossier.groundwater_level_dossier_id
+                    == datamodel.Observation.groundwater_level_dossier_id,
+                )
+                .join(
+                    datamodel.TubeStatic,
+                    datamodel.TubeStatic.groundwater_monitoring_tube_static_id
+                    == datamodel.GroundwaterLevelDossier.groundwater_monitoring_tube_id,
+                )
+                .join(
+                    datamodel.WellStatic,
+                    datamodel.WellStatic.groundwater_monitoring_well_static_id
+                    == datamodel.TubeStatic.groundwater_monitoring_well_static_id,
+                )
+                .filter(
+                    datamodel.ObservationMetadata.observation_type == "reguliereMeting"
+                )
+                .group_by(
+                    datamodel.WellStatic.groundwater_monitoring_well_static_id,
+                    datamodel.WellStatic.internal_id,
+                    datamodel.WellStatic.bro_id,
+                    datamodel.WellStatic.well_code,
+                    datamodel.WellStatic.nitg_code,
+                    datamodel.TubeStatic.tube_number,
+                )
             )
-            .filter(datamodel.ObservationMetadata.observation_type == "reguliereMeting")
-        )
-        with self.engine.connect() as con:
-            count = pd.read_sql(stmt, con=con)
+            with self.engine.connect() as con:
+                count = pd.DataFrame(con.execute(stmt).mappings().all())
+        else:
+            stmt = (
+                select(
+                    datamodel.WellStatic.groundwater_monitoring_well_static_id,
+                    datamodel.WellStatic.internal_id,
+                    datamodel.WellStatic.bro_id,
+                    datamodel.WellStatic.well_code,
+                    datamodel.WellStatic.nitg_code,
+                    datamodel.TubeStatic.tube_number,
+                    func.count(
+                        func.distinct(datamodel.MeasurementTvp.measurement_time)
+                    ).label("metingen"),
+                )
+                .join(datamodel.Observation)
+                .join(datamodel.ObservationMetadata)
+                .join(datamodel.GroundwaterLevelDossier)
+                .join(datamodel.TubeStatic)
+                .join(datamodel.WellStatic)
+                .group_by(
+                    datamodel.WellStatic.groundwater_monitoring_well_static_id,
+                    datamodel.WellStatic.bro_id,
+                    datamodel.WellStatic.nitg_code,
+                    datamodel.TubeStatic.tube_number,
+                )
+                .filter(
+                    datamodel.ObservationMetadata.observation_type == "reguliereMeting"
+                )
+            )
+            with self.engine.connect() as con:
+                count = pd.read_sql(stmt, con=con)
         return count
 
     def save_qualifier(self, df):
@@ -676,24 +738,110 @@ class PostgreSQLDataSource(DataSourceTemplate):
         df : pandas.DataFrame
             The DataFrame containing the qualifier data to be saved. It must include
             the following columns:
-            - "measurement_point_metadata_id"
-            - The column specified by `self.qualifier_column`
-            - "censor_reason_datalens"
-            - "censor_reason"
-            - "value_limit"
+            - datamodel.FIELD_MEASUREMENT_POINT_METADATA_ID
+            - datamodel.FIELD_STATUS_QUALITY_CONTROL
+            - datamodel.FIELD_CENSOR_REASON_DATALENS
+            - datamodel.FIELD_CENSOR_REASON
+            - datamodel.VALUE_LIMIT
         """
         df = self.set_qc_fields_for_database(df)
 
         param_columns = [
-            "measurement_point_metadata_id",
-            self.qualifier_column,
-            "censor_reason_datalens",
-            "censor_reason",
-            "value_limit",
+            datamodel.FIELD_MEASUREMENT_POINT_METADATA_ID,
+            datamodel.FIELD_STATUS_QUALITY_CONTROL,
+            datamodel.FIELD_CENSOR_REASON_DATALENS,
+            datamodel.FIELD_CENSOR_REASON,
+            datamodel.FIELD_VALUE_LIMIT,
         ]
         params = df[param_columns].to_dict("records")
         with Session(self.engine) as session:
             session.execute(update(datamodel.MeasurementPointMetadata), params)
+            session.commit()
+
+    def save_correction(self, df):
+        """Save correction information to the database.
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            The DataFrame containing the correction data to be saved. It must include
+            the following columns:
+            - measurement_tvp_id: identifier of the measurement to correct
+            - corrected_value: new value to save to calculated_value
+            - comment: reason for the correction (saved to correction_reason)
+
+        Notes
+        -----
+        This method:
+        - Saves the original calculated_value to value_to_be_corrected
+        - Updates calculated_value with the corrected_value
+        - Saves the comment to correction_reason
+        - Records the current timestamp to correction_time
+        """
+        # Prepare the updates
+        params = []
+        for _, row in df.iterrows():
+            # Convert numpy types to Python native types
+            measurement_tvp_id = int(row["measurement_tvp_id"])
+            original_calc_value = row.get("original_calculated_value")
+            if original_calc_value is not None and pd.notna(original_calc_value):
+                original_calc_value = float(original_calc_value)
+
+            corrected_value = row["corrected_value"]
+            if corrected_value is not None and pd.notna(corrected_value):
+                corrected_value = float(corrected_value)
+
+            param = {
+                "measurement_tvp_id": measurement_tvp_id,
+                "value_to_be_corrected": original_calc_value,
+                "calculated_value": corrected_value,
+                "correction_reason": row.get("comment", ""),
+                "correction_time": datetime.now(timezone.utc),
+            }
+            params.append(param)
+
+        # Execute batch update
+        with Session(self.engine) as session:
+            session.execute(update(datamodel.MeasurementTvp), params)
+            session.commit()
+
+    def reset_correction(self, df):
+        """Reset correction information in the database.
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            The DataFrame containing the corrections to reset. It must include
+            the following column:
+            - measurement_tvp_id: identifier of the measurement to reset
+
+        Notes
+        -----
+        This method:
+        - Restores calculated_value from value_to_be_corrected
+        - Clears correction_reason, value_to_be_corrected, and correction_time
+        """
+        # Prepare the reset updates
+        params = []
+        for _, row in df.iterrows():
+            # Convert numpy types to Python native types
+            measurement_tvp_id = int(row["measurement_tvp_id"])
+            value_to_be_corrected = row.get("value_to_be_corrected")
+            if value_to_be_corrected is not None and pd.notna(value_to_be_corrected):
+                value_to_be_corrected = float(value_to_be_corrected)
+
+            param = {
+                "measurement_tvp_id": measurement_tvp_id,
+                "calculated_value": value_to_be_corrected,
+                "value_to_be_corrected": None,
+                "correction_reason": None,
+                "correction_time": None,
+            }
+            params.append(param)
+
+        # Execute batch update
+        with Session(self.engine) as session:
+            session.execute(update(datamodel.MeasurementTvp), params)
             session.commit()
 
     def set_qc_fields_for_database(self, df, mask=None):
@@ -707,7 +855,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
             ]
         )
         if mask.any():
-            df.loc[mask & mask2, "censor_reason_datalens"] = None
+            df.loc[mask & mask2, datamodel.FIELD_CENSOR_REASON_DATALENS] = None
             df.loc[mask & mask2, "censor_reason"] = None
             df.loc[mask & mask2, "value_limit"] = None
 
@@ -719,9 +867,10 @@ class PostgreSQLDataSource(DataSourceTemplate):
             ]
         )
         if mask2.any():
-            df.loc[mask & mask2, "censor_reason_datalens"] = df.loc[
+            df.loc[mask & mask2, datamodel.FIELD_CENSOR_REASON_DATALENS] = df.loc[
                 mask & mask2, ["comment", "category"]
             ].apply(lambda s: ",".join(s), axis=1)
+
         return df
 
 
@@ -834,25 +983,6 @@ class HydropandasDataSource(DataSourceTemplate):
         )
         return distsorted
 
-    def get_nitg_code(self, i):
-        """Return the nitg code for a given index.
-
-        Parameters
-        ----------
-        i : str
-            index of the observation well
-
-        Returns
-        -------
-        str
-            nitg code if it is available, otherwise an empty string
-        """
-        nitg = self.gmw_gdf.at[i, "nitg_code"]
-        if isinstance(nitg, str) and len(nitg) > 0:
-            return f" ({nitg})"
-        else:
-            return ""
-
     def get_timeseries(
         self,
         gmw_id: str,
@@ -889,7 +1019,7 @@ class HydropandasDataSource(DataSourceTemplate):
         else:
             raise ValueError
 
-        columns = [self.value_column, self.qualifier_column]
+        columns = [self.value.column, self.qualifier_column]
         df = pd.DataFrame(self.oc.loc[name, "obs"].loc[:, columns])
         return df
 

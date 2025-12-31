@@ -1,3 +1,4 @@
+import logging
 from inspect import signature
 
 import dash_bootstrap_components as dbc
@@ -17,6 +18,9 @@ else:
     raise ValueError(
         f"Locale '{settings['LOCALE']}' not supported. Please choose 'en' or 'nl'."
     )
+
+
+logger = logging.getLogger(__name__)
 
 
 def generate_kwargs_from_func(func):
@@ -189,7 +193,7 @@ def generate_traval_rule_components(rule, rule_number, series_name=None):
                 try:
                     v = v(series_name)
                 except Exception as _:
-                    print(f"Parameter '{rule['name']}: {k}' not defined.")
+                    logger.error(f"Parameter '{rule['name']}: {k}' not defined.")
                     pass
         v, input_type, disabled, step = derive_form_parameters(v)
 

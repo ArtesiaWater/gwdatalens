@@ -18,8 +18,8 @@ def render_selection_series_dropdown(
     data : DataInterface
         An interface to the data source containing the series information.
     selected_data : Optional[List]
-        A list of selected data items. If a single item is selected, it will be set
-        as the default value in the dropdown.
+        A list of ids of selected data items. If a single item is selected,
+        it will be set as the default value in the dropdown.
 
     Returns
     -------
@@ -27,19 +27,21 @@ def render_selection_series_dropdown(
         A Dash HTML Div component containing the dropdown.
     """
     locs = data.db.list_observation_wells_with_data()
-    locs = sorted(locs, key=lambda n: data.db.gmw_gdf.loc[n, "wellcode_name"])
-    options = [{"label": f"{data.db.get_wellcode(i)}", "value": i} for i in locs]
+    locs.sort_values("display_name", inplace=True)
+    options = [
+        {"label": row["display_name"], "value": row["id"]} for _, row in locs.iterrows()
+    ]
 
     if selected_data is not None and len(selected_data) == 1:
-        value = selected_data[0]
+        wid = selected_data[0]
     else:
-        value = None
+        wid = None
 
     return html.Div(
         children=[
             dcc.Dropdown(
                 options=options,
-                value=value,
+                value=wid,
                 clearable=True,
                 searchable=True,
                 placeholder=i18n.t("general.select_series"),
@@ -74,10 +76,10 @@ def render_additional_series_dropdown(data: DataInterface, selected_data):
         )
         options = [
             {
-                "label": data.db.get_wellcode(i) + f" ({row.distance / 1e3:.1f} km)",
-                "value": i,
+                "label": row["display_name"] + f" ({row.distance / 1e3:.1f} km)",
+                "value": row["id"],
             }
-            for i, row in locs.iterrows()
+            for _, row in locs.iterrows()
         ]
     else:
         options = []
