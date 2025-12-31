@@ -1,7 +1,9 @@
+import logging
 from pathlib import Path
 
 import tomli
 
+logger = logging.getLogger(__name__)
 # %% load settings
 DALALENS_APP_ROOT = Path(__file__).parent.parent
 DATALENS_APP_PATH = Path(__file__).parent
@@ -28,7 +30,7 @@ else:
             dbase = tomli.load(f)
             config["database"] = dbase["database"]
     except FileNotFoundError:
-        print(
+        logger.warning(
             f"No {DATALENS_APP_PATH}/database.toml file found. "
             "Ignore this message if using HydropandasDataSource."
         )
