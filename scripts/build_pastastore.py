@@ -1,6 +1,7 @@
 # %%
 import logging
 import os
+from pathlib import Path
 
 import hydropandas as hpd
 import pandas as pd
@@ -24,6 +25,7 @@ ps.logger.setLevel(logging.ERROR)
 # %%
 name = config["pastastore"]["name"]
 pastastore_path = config["pastastore"]["path"]
+root = Path("../gwdatalens")
 
 
 db = PostgreSQLDataSource(config["database"])
@@ -33,7 +35,7 @@ if name.endswith(".zip") and os.path.exists(pastastore_path / name):
     pstore = pst.PastaStore.from_zip(pastastore_path / name)
 else:
     # conn = pst.ArcticDBConnector(name=name, uri=f"lmdb://{pastastore_path}")
-    conn = pst.PasConnector(name=name, path=pastastore_path)
+    conn = pst.PasConnector(name=name, path=root / pastastore_path)
     pstore = pst.PastaStore(conn)
     print(pstore)
 
@@ -49,10 +51,16 @@ gdf = db.gmw_gdf.copy()
 
 for name in tqdm(db.list_observation_wells_with_data(), desc="Read timeseries"):
     try:
-        metadata = gdf.loc[name, :].to_dict()
+        metadata = gdf.loc[name, :]
+        if isinstance(metadata, pd.DataFrame):
+            raise ValueError("Duplicate entries in metadata table")
+        metadata = metadata.to_dict()
     except KeyError:
         no_metadata.append(name)
         continue
+
+    if isinstance(metadata["x"], dict):
+        raise Exception(name)
 
     bro_id, tube_number = name.split("-")
     ts = db.get_timeseries(bro_id, tube_number)
@@ -131,3 +139,5 @@ def two_step_solve(name):
 # %%
 names = pstore.model_names  # solve all
 r = pstore.apply("models", two_step_solve, names=names, parallel=True, max_workers=6)
+
+# %%
