@@ -12,7 +12,7 @@ from gwdatalens.app.src.data.datamodel import (
     ObservationMetadata,
     TubeDynamic,
     TubeStatic,
-    Well,
+    WellStatic,
 )
 
 
@@ -24,7 +24,7 @@ def engine():
 
 def test_query_well(engine):
     with Session(engine) as session:
-        wells = session.query(Well).limit(5).all()
+        wells = session.query(WellStatic).limit(5).all()
         assert isinstance(wells, list)
 
 
