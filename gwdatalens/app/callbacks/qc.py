@@ -128,7 +128,7 @@ def register_qc_callbacks(app, data):
         Input(ids.QC_DROPDOWN_SELECTION, "value"),
         prevent_initial_call=True,
     )
-    def enable_additional_dropdown(value):
+    def enable_additional_dropdown(wid):
         """Enable or disable an additional time series dropdown based.
 
         Parameters
@@ -144,17 +144,16 @@ def register_qc_callbacks(app, data):
             The list of dictionaries contains the options for the dropdown, where each
             dictionary has a 'label' and a 'value' key.
         """
-        if value is not None:
+        if wid is not None:
             # value = value.split("-")
             # value[1] = int(value[1])
-            locs = data.db.list_observation_wells_with_data_sorted_by_distance(value)
+            locs = data.db.list_observation_wells_with_data_sorted_by_distance(wid)
             options = [
                 {
-                    "label": data.db.get_wellcode(i)
-                    + f" ({row.distance / 1e3:.1f} km)",
-                    "value": i,
+                    "label": row["display_name"] + f" ({row.distance / 1e3:.1f} km)",
+                    "value": row["id"],
                 }
-                for i, row in locs.iterrows()
+                for _, row in locs.iterrows()
             ]
             return False, options
         else:
@@ -517,7 +516,7 @@ def register_qc_callbacks(app, data):
         State(ids.SELECTED_OSERIES_STORE, "data"),
         prevent_initial_call=True,
     )
-    def export_ruleset(n_clicks, name):
+    def export_ruleset(n_clicks, wid):
         """Export the current ruleset to a pickle file.
 
         Parameters
@@ -525,8 +524,8 @@ def register_qc_callbacks(app, data):
         n_clicks : int
             The number of times the export button has been clicked. Used to trigger
             function.
-        name : list of str
-            A list containing the name of the ruleset to be exported.
+        wid : list of int
+            internal id of the well
 
         Returns
         -------
@@ -540,6 +539,7 @@ def register_qc_callbacks(app, data):
         of the time series.
         """
         timestr = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+        name = data.db.gmw_gdf.loc[wid, "display_name"]
         filename = f"{timestr}_traval_ruleset_{name[0]}.pickle"
         if data.traval._ruleset is not None:
             ruleset = data.traval._ruleset.get_resolved_ruleset(name)
@@ -558,7 +558,7 @@ def register_qc_callbacks(app, data):
         State(ids.SELECTED_OSERIES_STORE, "data"),
         prevent_initial_call=True,
     )
-    def export_parameters_csv(n_clicks, name):
+    def export_parameters_csv(n_clicks, wid):
         """Export travel parameters to a CSV file.
 
         This function generates a CSV file containing travel parameters based on the
@@ -578,6 +578,7 @@ def register_qc_callbacks(app, data):
             A Dash component that triggers the download of the generated CSV file.
         """
         timestr = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+        name = data.db.gmw_gdf.loc[wid, "display_name"]
         filename = f"{timestr}_traval_parameters_{name[0]}.csv"
         if data.traval._ruleset is not None:
             ruleset = data.traval._ruleset.get_resolved_ruleset(name)
@@ -661,15 +662,15 @@ def register_qc_callbacks(app, data):
         # cancel=[Input(ids.QC_CANCEL_BUTTON, "n_clicks")],
         prevent_initial_call=True,
     )
-    def run_traval(n_clicks, name, tmin, tmax, only_unvalidated):
+    def run_traval(n_clicks, wid, tmin, tmax, only_unvalidated):
         """Run the error detection process based on the provided parameters.
 
         Parameters
         ----------
         n_clicks : int
             The number of clicks to trigger the function.
-        name : str
-            The name identifier in the format "gmw_id-tube_id".
+        wid : int
+            The internal id of the time series.
         tmin : float
             The start time.
         tmax : float
@@ -710,26 +711,16 @@ def register_qc_callbacks(app, data):
 
                 set_props(ids.LOADING_QC_CHART, {"display": "show"})
 
-            if "-" in name:
-                gmw_id, tube_id = name.split("-")
-            elif "_" in name:
-                gmw_id, tube_id = name.split("_")
-            else:
-                raise ValueError(
-                    "Error splitting name into monitoring well ID"
-                    f" and tube number: {name}"
-                )
             try:
                 result, figure = data.traval.run_traval(
-                    gmw_id,
-                    tube_id,
+                    wid,
                     tmin=tmin,
                     tmax=tmax,
                     only_unvalidated=only_unvalidated,
                 )
                 return (
                     # {"layout": {"title": {"text": "Running TRAVAL..."}}},  # figure
-                    (name, figure),
+                    (wid, figure),
                     result.reset_index().to_dict("records"),
                     None,
                     True,
@@ -741,7 +732,6 @@ def register_qc_callbacks(app, data):
                     ),
                 )
             except Exception as e:
-                # raise(e)
                 return (
                     # {"layout": {"title": {"text": "Running TRAVAL..."}}},  # figure
                     no_update,

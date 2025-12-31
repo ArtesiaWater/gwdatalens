@@ -1,3 +1,5 @@
+import logging
+
 import dash_bootstrap_components as dbc
 import i18n
 from dash import Input, Output, State, ctx, html
@@ -6,11 +8,14 @@ from dash.exceptions import PreventUpdate
 from gwdatalens.app.settings import settings
 from gwdatalens.app.src.components import (
     ids,
+    tab_corrections,
     tab_model,
     tab_overview,
     tab_qc,
     tab_qc_result,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def register_general_callbacks(app, data):
@@ -120,6 +125,15 @@ def register_general_callbacks(app, data):
                     "",  # empty alert message
                 ),
             )
+        elif tab == ids.TAB_CORRECTIONS:
+            return (
+                tab_corrections.render_content(data, selected_data),
+                (
+                    False,  # show alert
+                    "success",  # alert color
+                    "",  # empty alert message
+                ),
+            )
         else:
             raise PreventUpdate
 
@@ -136,6 +150,7 @@ def register_general_callbacks(app, data):
         Input(ids.ALERT_LABEL_OBS, "data"),
         Input(ids.ALERT_RUN_TRAVAL, "data"),
         Input(ids.ALERT_TAB_RENDER, "data"),
+        Input(ids.ALERT_STATUS_CORRECTIONS, "data"),
         prevent_initial_call=True,
     )
     def show_alert(*args, **kwargs):
@@ -162,6 +177,8 @@ def register_general_callbacks(app, data):
                     break
             alert_data = args[i]
             is_open, color, message = alert_data
+            if is_open:
+                logger.warning(f"Alert triggered by {triggered_id}: {message}")
         else:
             raise PreventUpdate
         return [

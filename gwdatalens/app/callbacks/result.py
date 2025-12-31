@@ -97,8 +97,9 @@ def register_result_callbacks(app, data):
         State(ids.SELECTED_OSERIES_STORE, "data"),
         prevent_initial_call=True,
     )
-    def download_export_csv(n_clicks, name):
+    def download_export_csv(n_clicks, wid):
         timestr = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+        name = data.db.gmw_gdf.loc[wid, "display_name"]
         filename = f"{timestr}_qc_result_{name[0]}.csv"
         if data.traval.traval_result is not None:
             return dcc.send_string(data.traval.traval_result.to_csv, filename=filename)
@@ -110,7 +111,7 @@ def register_result_callbacks(app, data):
         State(ids.QC_RESULT_EXPORT_QC_STATUS_FLAG, "value"),
         prevent_initial_call=True,
     )
-    def export_to_db(n_clicks, name, non_flagged_reliable):
+    def export_to_db(n_clicks, wid, non_flagged_reliable):
         if n_clicks:
             if data.traval.traval_result is not None:
                 df = data.traval.traval_result.copy()
@@ -163,6 +164,7 @@ def register_result_callbacks(app, data):
                         f"Invalid value {non_flagged_reliable} for non_flagged_reliable"
                     )
 
+                name = data.db.gmw_gdf.loc[wid, "display_name"]
                 try:
                     data.db.save_qualifier(df)
                     return (

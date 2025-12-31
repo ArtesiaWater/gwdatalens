@@ -34,15 +34,15 @@ def register_model_callbacks(app, data):
         State(ids.MODEL_USE_ONLY_VALIDATED, "value"),
         prevent_initial_call=True,
     )
-    def generate_model(n_clicks, value, tmin, tmax, use_only_validated):
+    def generate_model(n_clicks, wid, tmin, tmax, use_only_validated):
         """Generate a time series model based on user input and update the stored copy.
 
         Parameters
         ----------
         n_clicks : int
             Number of clicks on the button that triggers the model generation.
-        value : str
-            Identifier for the time series in the format "gmw_id-tube_id".
+        wid : str
+            internal id for the time series
         tmin : str
             Minimum timestamp for the model in a format recognized by `pd.Timestamp`.
         tmax : str
@@ -69,36 +69,28 @@ def register_model_callbacks(app, data):
             If `n_clicks` is None or `value` is None.
         """
         if n_clicks is not None:
-            if value is not None:
+            if wid is not None:
                 try:
                     tmin = pd.Timestamp(tmin)
                     tmax = pd.Timestamp(tmax)
                     # get time series
-                    if "-" in value:
-                        gmw_id, tube_id = value.split("-")
-                    elif "_" in value:
-                        gmw_id, tube_id = value.split("_")
-                    else:
-                        raise ValueError(
-                            "Error splitting name into monitoring well ID "
-                            f"and tube number: {value}"
-                        )
-                    ts = data.db.get_timeseries(gmw_id, tube_id)
+                    ts = data.db.get_timeseries(wid)
+                    name = ts.index.name
                     if use_only_validated:
                         mask = ts.loc[:, data.db.qualifier_column] == "goedgekeurd"
                         ts = ts.loc[mask, data.db.value_column].dropna()
                     else:
                         ts = ts.loc[:, data.db.value_column].dropna()
 
-                    if value in data.pstore.oseries_names:
+                    if name in data.pstore.oseries_names:
                         # update stored copy
-                        data.pstore.update_oseries(ts, value, force=True)
+                        data.pstore.update_oseries(ts, name, force=True)
                     else:
                         # add series to database
-                        metadata = data.db.gmw_gdf.loc[value].to_dict()
-                        data.pstore.add_oseries(ts, value, metadata)
+                        metadata = data.db.gmw_gdf.loc[wid].to_dict()
+                        data.pstore.add_oseries(ts, name, metadata)
                         print(
-                            f"Head time series '{value}' added to pastastore database."
+                            f"Head time series '{name}' added to pastastore database."
                         )
 
                     if pd.isna(tmin):
@@ -108,7 +100,7 @@ def register_model_callbacks(app, data):
 
                     # get meteorological info, if need be, and pastastore is up-to-date
                     if PASTASTORE_GT_1_7_1:
-                        data.get_knmi_data(value)
+                        data.get_knmi_data(name)
 
                     # create model
                     ml = ps.Model(ts)
@@ -132,7 +124,7 @@ def register_model_callbacks(app, data):
                         (
                             True,  # show alert
                             "success",  # alert color
-                            f"Created time series model for {value}.",
+                            f"Created time series model for {name}.",
                         ),  # empty alert message
                     )
                 except Exception as e:
@@ -212,13 +204,14 @@ def register_model_callbacks(app, data):
         Input(ids.MODEL_DROPDOWN_SELECTION, "value"),
         prevent_initial_call=True,
     )
-    def plot_model_results(value):
+    def plot_model_results(wid):
         """Plot the results and diagnostics of a time series model.
 
         Parameters
         ----------
-        value : str or None
-            The identifier of the model to be plotted. If None, no model is selected.
+        wid : str or None
+            The internal identifier of the times series to be plotted.
+            If None, no model is selected.
 
         Returns
         -------
@@ -241,9 +234,10 @@ def register_model_callbacks(app, data):
         Exception
             If there is an error in retrieving or plotting the model.
         """
-        if value is not None:
+        if wid is not None:
             try:
-                ml = data.pstore.get_models(value)
+                name = data.db.gmw_gdf.loc[wid, "display_name"]
+                ml = data.pstore.get_models(name)
                 return (
                     ml.plotly.results(),
                     ml.plotly.diagnostics(),
@@ -251,7 +245,7 @@ def register_model_callbacks(app, data):
                     (
                         True,  # show alert
                         "success",  # alert color
-                        f"Loaded time series model '{value}' from PastaStore.",
+                        f"Loaded time series model '{name}' from PastaStore.",
                     ),
                     ml.settings["tmin"].to_pydatetime(),
                     ml.settings["tmax"].to_pydatetime(),
@@ -265,14 +259,14 @@ def register_model_callbacks(app, data):
                         True,  # show alert
                         "warning",  # alert color
                         (
-                            f"No model available for {value}. "
+                            f"No model available for {name}. "
                             f"Click 'Generate Model' to create one. Error: {e}"
                         ),
                     ),
                     None,
                     None,
                 )
-        elif value is None:
+        elif wid is None:
             return (
                 {"layout": {"title": {"text": i18n.t("general.no_model")}}},
                 {"layout": {"title": {"text": i18n.t("general.no_model")}}},

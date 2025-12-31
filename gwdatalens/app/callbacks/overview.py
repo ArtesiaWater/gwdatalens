@@ -14,7 +14,7 @@ def register_overview_callbacks(app, data):
         Input(ids.OVERVIEW_MAP, "selectedData"),
         State(ids.SELECTED_OSERIES_STORE, "data"),
     )
-    def store_modeldetails_dropdown_value(selected_data, current_value):
+    def store_selected_oseries_value(selected_data, current_value):
         """Store model results tab dropdown value.
 
         Parameters
@@ -32,8 +32,8 @@ def register_overview_callbacks(app, data):
         if selected_data is not None:
             pts = pd.DataFrame(selected_data["points"])
             if not pts.empty:
-                names = [data.db.wellcode_to_broid(i) for i in pts["text"].tolist()]
-                return names
+                wids = pts["pointNumber"].tolist()
+                return wids
             else:
                 return None if current_value is None else current_value
         else:
@@ -87,9 +87,11 @@ def register_overview_callbacks(app, data):
         """
         usecols = [
             "id",
+            "display_name",
+            "well_code",
             "bro_id",
-            # "nitg_code",
-            "wellcode_name",
+            "nitg_code",
+            "well_static_id",
             "tube_number",
             "screen_top",
             "screen_bot",
@@ -97,6 +99,7 @@ def register_overview_callbacks(app, data):
             "y",
             "metingen",
         ]
+        gdf = data.db.gmw_gdf.copy()
 
         # check for newest entry whether selection was made from table
         date = pd.Timestamp("1900-01-01 00:00:00")  # some early date
@@ -114,11 +117,13 @@ def register_overview_callbacks(app, data):
 
             # get selected points
             if not pts.empty:
-                names = [data.db.wellcode_to_broid(i) for i in pts["text"].tolist()]
+                names = pts["text"].tolist()
+                wids = pts["pointNumber"].tolist()
             else:
                 names = None
+                wids = None
 
-            if names is not None and len(names) > settings["SERIES_LOAD_LIMIT"]:
+            if wids is not None and len(wids) > settings["SERIES_LOAD_LIMIT"]:
                 return (
                     no_update,
                     no_update,
@@ -135,12 +140,10 @@ def register_overview_callbacks(app, data):
             if table_selected:
                 table = no_update
             else:
-                table = (
-                    data.db.gmw_gdf.loc[names, usecols].reset_index().to_dict("records")
-                )
+                table = gdf.loc[wids, usecols].to_dict("records")
 
             try:
-                chart = plot_obs(names, data)
+                chart = plot_obs(wids, data)
                 if chart is not None:
                     return (
                         chart,
@@ -160,10 +163,9 @@ def register_overview_callbacks(app, data):
                         (pd.Timestamp.now().isoformat(), False),
                     )
             except Exception as e:
-                # raise e
                 return (
                     {"layout": {"title": {"text": i18n.t("general.no_series")}}},
-                    data.db.gmw_gdf.loc[:, usecols].reset_index().to_dict("records"),
+                    gdf.loc[:, usecols].to_dict("records"),
                     (
                         True,  # show alert
                         "danger",  # alert color
@@ -172,8 +174,14 @@ def register_overview_callbacks(app, data):
                     (pd.Timestamp.now().isoformat(), False),
                 )
         elif selected_oseries is not None:
-            chart = plot_obs(selected_oseries, data)
-            table = data.db.gmw_gdf.loc[:, usecols].reset_index().to_dict("records")
+            wids = (
+                data.db.gmw_gdf.set_index("display_name")
+                .loc[selected_oseries, ["id"]]
+                .squeeze("columns")
+                .tolist()
+            )
+            chart = plot_obs(wids, data)
+            table = gdf.loc[:, usecols].to_dict("records")
             return (
                 chart,
                 table,
@@ -181,7 +189,7 @@ def register_overview_callbacks(app, data):
                 (pd.Timestamp.now().isoformat(), False),
             )
         else:
-            table = data.db.gmw_gdf.loc[:, usecols].reset_index().to_dict("records")
+            table = gdf.loc[:, usecols].to_dict("records")
             return (
                 {"layout": {"title": {"text": i18n.t("general.no_series")}}},
                 table,
@@ -226,7 +234,7 @@ def register_overview_callbacks(app, data):
         loc = df.loc[rows]
         pts = loc["id"].tolist()
 
-        dfm = data.db.gmw_gdf.reset_index().loc[pts].copy()
+        dfm = data.db.gmw_gdf.loc[pts].copy()
         dfm["curveNumber"] = 1  # all locs plotted in trace 1 for map highlighting
         mask = dfm.loc[:, "metingen"] > 0
 
@@ -243,7 +251,7 @@ def register_overview_callbacks(app, data):
                     "pointIndex": dfm["id"].loc[i],
                     "lon": dfm["lon"].loc[i],
                     "lat": dfm["lat"].loc[i],
-                    "text": dfm["wellcode_name"].loc[i],
+                    "text": dfm["display_name"].loc[i],
                 }
                 for i in loc["id"]
             ]
