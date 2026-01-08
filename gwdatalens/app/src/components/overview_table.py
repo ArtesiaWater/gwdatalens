@@ -1,12 +1,15 @@
+from typing import List, Optional
+
 from dash import dash_table, html
 from dash.dash_table.Format import Format
 
-from ..data.interface import DataInterface
-from . import ids
-from .styling import DATA_TABLE_HEADER_BGCOLOR
+from gwdatalens.app.constants import UI, ColumnNames
+from gwdatalens.app.src.components import ids
+from gwdatalens.app.src.components.styling import DATA_TABLE_HEADER_BGCOLOR
+from gwdatalens.app.src.data.data_manager import DataManager
 
 
-def render(data: DataInterface, selected_data=None):
+def render(data: DataManager, selected_data: Optional[List[int]] = None) -> html.Div:
     """Render an the piezometer overview table.
 
     Parameters
@@ -30,15 +33,15 @@ def render(data: DataInterface, selected_data=None):
     and its cells is customized, including conditional styling for selected
     rows.
     """
-    df = data.db.gmw_gdf.reset_index()
+    df = data.db.gmw_gdf.copy()
     usecols = [
-        "id",
-        "name",
-        "bro_id",
-        "wellcode_name",
-        "tube_number",
-        "screen_top",
-        "screen_bot",
+        ColumnNames.ID,
+        ColumnNames.DISPLAY_NAME,
+        ColumnNames.BRO_ID,
+        ColumnNames.WELL_CODE,
+        ColumnNames.TUBE_NUMBER,
+        ColumnNames.SCREEN_TOP,
+        ColumnNames.SCREEN_BOT,
         "x",
         "y",
         "metingen",
@@ -51,47 +54,47 @@ def render(data: DataInterface, selected_data=None):
                 data=df.loc[:, usecols].to_dict("records"),
                 columns=[
                     {
-                        "id": "wellcode_name",
+                        "id": ColumnNames.DISPLAY_NAME,
                         "name": "Putcode",
                         "type": "text",
                     },
                     {
-                        "id": "bro_id",
+                        "id": ColumnNames.BRO_ID,
                         "name": "BRO-ID",
                         "type": "text",
                     },
                     {
-                        "id": "tube_number",
+                        "id": ColumnNames.TUBE_NUMBER,
                         "name": "Filternummer",
                         "type": "numeric",
                         # "format": Format(scheme="r", precision=1),
                     },
                     {
-                        "id": "screen_top",
+                        "id": ColumnNames.SCREEN_TOP,
                         "name": "Bovenzijde filter\n[m NAP]",
                         "type": "numeric",
                         "format": {"specifier": ".2f"},
                     },
                     {
-                        "id": "screen_bot",
+                        "id": ColumnNames.SCREEN_BOT,
                         "name": "Onderzijde filter\n[m NAP]",
                         "type": "numeric",
                         "format": {"specifier": ".2f"},
                     },
                     {
-                        "id": "x",
+                        "id": ColumnNames.X,
                         "name": "X\n[m RD]",
                         "type": "numeric",
                         "format": Format(scheme="r", precision=5),
                     },
                     {
-                        "id": "y",
+                        "id": ColumnNames.Y,
                         "name": "Y\n[m RD]",
                         "type": "numeric",
                         "format": Format(scheme="r", precision=6),
                     },
                     {
-                        "id": "metingen",
+                        "id": ColumnNames.NUMBER_OF_OBSERVATIONS,
                         "name": "Metingen",
                         "type": "numeric",
                         "format": {"specifier": ".0f"},
@@ -104,7 +107,7 @@ def render(data: DataInterface, selected_data=None):
                 style_table={
                     "height": "45vh",
                     # "overflowY": "auto",
-                    "margin-top": 15,
+                    "margin-top": UI.MARGIN_TOP_LARGE,
                 },
                 # row_selectable="multi",
                 virtualization=True,
@@ -114,17 +117,20 @@ def render(data: DataInterface, selected_data=None):
                         "if": {"column_id": c},
                         "textAlign": "left",
                     }
-                    for c in ["bro_id", "wellcode_name"]
+                    for c in [ColumnNames.BRO_ID, ColumnNames.DISPLAY_NAME]
                 ]
                 + [
-                    {"if": {"column_id": "wellcode_name"}, "width": "15%"},
-                    {"if": {"column_id": "bro_id"}, "width": "10%"},
-                    {"if": {"column_id": "tube_number"}, "width": "10%"},
-                    {"if": {"column_id": "screen_top"}, "width": "15%"},
-                    {"if": {"column_id": "screen_bot"}, "width": "15%"},
-                    {"if": {"column_id": "x"}, "width": "7.5%"},
-                    {"if": {"column_id": "y"}, "width": "7.5%"},
-                    {"if": {"column_id": "metingen"}, "width": "10%"},
+                    {"if": {"column_id": ColumnNames.DISPLAY_NAME}, "width": "15%"},
+                    {"if": {"column_id": ColumnNames.BRO_ID}, "width": "10%"},
+                    {"if": {"column_id": ColumnNames.TUBE_NUMBER}, "width": "10%"},
+                    {"if": {"column_id": ColumnNames.SCREEN_TOP}, "width": "15%"},
+                    {"if": {"column_id": ColumnNames.SCREEN_BOT}, "width": "15%"},
+                    {"if": {"column_id": ColumnNames.X}, "width": "7.5%"},
+                    {"if": {"column_id": ColumnNames.Y}, "width": "7.5%"},
+                    {
+                        "if": {"column_id": ColumnNames.NUMBER_OF_OBSERVATIONS},
+                        "width": "10%",
+                    },
                 ],
                 style_data_conditional=[
                     {

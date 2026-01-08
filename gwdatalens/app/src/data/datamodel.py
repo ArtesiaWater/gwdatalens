@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import DateTime, ForeignKey
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -8,14 +9,18 @@ class Base(DeclarativeBase):
     pass
 
 
-class Well(Base):
+class WellStatic(Base):
     __tablename__ = "groundwater_monitoring_well_static"
     groundwater_monitoring_well_static_id: Mapped[int] = mapped_column(primary_key=True)
+    internal_id: Mapped[int]
     bro_id: Mapped[str]
     well_code: Mapped[str]
     nitg_code: Mapped[str]
     coordinates: Mapped[str]
     reference_system: Mapped[str]
+    construction_date: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class WellDynamic(Base):
@@ -50,6 +55,9 @@ class TubeDynamic(Base):
     )
     tube_top_position: Mapped[float]
     plain_tube_part_length: Mapped[float]
+    date_created: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     groundwater_monitoring_tube_static_id: Mapped[int] = mapped_column(
         ForeignKey(
             "groundwater_monitoring_tube_static.groundwater_monitoring_tube_static_id"
@@ -97,6 +105,11 @@ class MeasurementTvp(Base):
     measurement_point_metadata_id: Mapped[int] = mapped_column(
         ForeignKey("measurement_point_metadata.measurement_point_metadata_id")
     )
+    value_to_be_corrected: Mapped[Optional[float]] = mapped_column(nullable=True)
+    correction_reason: Mapped[Optional[str]] = mapped_column(nullable=True)
+    correction_time: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class MeasurementPointMetadata(Base):
@@ -106,3 +119,17 @@ class MeasurementPointMetadata(Base):
     censor_reason: Mapped[str]
     censor_reason_datalens: Mapped[str]
     value_limit: Mapped[str]
+
+
+# Constants for field names
+FIELD_CALCULATED_VALUE = "calculated_value"
+FIELD_FIELD_VALUE = "field_value"
+FIELD_STATUS_QUALITY_CONTROL = "status_quality_control"
+FIELD_MEASUREMENT_POINT_METADATA_ID = "measurement_point_metadata_id"
+FIELD_MEASUREMENT_TVP_ID = "measurement_tvp_id"
+FIELD_CENSOR_REASON_DATALENS = "censor_reason_datalens"
+FIELD_CENSOR_REASON = "censor_reason"
+FIELD_VALUE_LIMIT = "value_limit"
+FIELD_VALUE_TO_BE_CORRECTED = "value_to_be_corrected"
+FIELD_CORRECTION_REASON = "correction_reason"
+FIELD_CORRECTION_TIME = "correction_time"

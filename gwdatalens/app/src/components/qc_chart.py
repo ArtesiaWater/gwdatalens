@@ -1,18 +1,20 @@
+from dash import __version__ as DASH_VERSION
 from dash import dcc, html
+from packaging.version import parse as parse_version
 
-from gwdatalens.app.settings import settings
-
-from ..cache import TIMEOUT, cache
-from ..utils import conditional_cache
-from . import ids
+from gwdatalens.app.config import config
+from gwdatalens.app.constants import UI, ConfigDefaults
+from gwdatalens.app.src.cache import cache
+from gwdatalens.app.src.components import ids
+from gwdatalens.app.src.utils import conditional_cache
 
 
 @conditional_cache(
     cache.memoize,
-    (not settings["DJANGO_APP"] and settings["CACHING"]),
-    timeout=TIMEOUT,
+    (not config.get("DJANGO_APP") and config.get("CACHING")),
+    timeout=ConfigDefaults.CACHE_TIMEOUT,
 )
-def render():
+def render() -> html.Div:
     """Render QC chart.
 
     Returns
@@ -20,6 +22,11 @@ def render():
     dash_html_components.Div
         A Div component containing the QC chart.
     """
+    kwargs = (
+        {"delay_show": 500}
+        if parse_version(DASH_VERSION) >= parse_version("2.17.0")
+        else {}
+    )
     return html.Div(
         id="series-chart-div",
         children=[
@@ -28,7 +35,6 @@ def render():
                 type="dot",
                 style={"position": "absolute", "align-self": "center"},
                 parent_className="loading-wrapper",
-                # delay_show=100,
                 children=[
                     dcc.Graph(
                         id=ids.QC_CHART,
@@ -38,16 +44,15 @@ def render():
                         },
                         style={
                             "height": "40vh",
-                            # "margin-bottom": "10px",
-                            # "margin-top": 5,
                         },
                     ),
                 ],
+                **kwargs,
             ),
         ],
         style={
             "position": "relative",
             "justify-content": "center",
-            "margin-bottom": 10,
+            "margin-bottom": UI.MARGIN_BOTTOM,
         },
     )
