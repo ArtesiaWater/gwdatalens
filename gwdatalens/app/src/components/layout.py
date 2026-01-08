@@ -1,10 +1,10 @@
 from dash import Dash, dcc, html
 
-from ..data import DataInterface
-from . import button_help_modal, ids, tabs
+from gwdatalens.app.src.components import button_help_modal, ids, tabs
+from gwdatalens.app.src.data import DataManager
 
 
-def create_layout(app: Dash, data: DataInterface) -> html.Div:
+def create_layout(app: Dash, data: DataManager) -> html.Div:
     """Create app layout.
 
     Parameters

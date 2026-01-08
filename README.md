@@ -59,7 +59,7 @@ Once you have modified the TOML files for your setup, the dashboard can be
 launched from the command-line with:
 
 ```bash
-gwdatalens [--debug True|False] [--port int]  # --debug and --port are optional
+gwdatalens
 ```
 
 ### BRO-Connector

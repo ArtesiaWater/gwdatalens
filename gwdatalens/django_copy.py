@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 def copy_gwdatalens_to_django_app(
-    DJANGO_APP_PATH, DATALENS_PATH=pl.Path(__file__).parent
+    DJANGO_APP_PATH, GWDATALENS_PATH=pl.Path(__file__).parent
 ):
     """Copies the GWDataLens application to a specified Django application path.
 
@@ -41,7 +41,7 @@ def copy_gwdatalens_to_django_app(
     logger.info("Copying GWDataLens to Django App...")
     # copy app to gwdatalens folder
     shutil.copytree(
-        DATALENS_PATH / "app",
+        GWDATALENS_PATH / "app",
         DJANGO_APP_PATH / "gwdatalens" / "app",
         ignore=shutil.ignore_patterns(
             "__pycache__",
@@ -56,7 +56,7 @@ def copy_gwdatalens_to_django_app(
 
     logger.info(" - copying assets")
     # copy assets to static/dash folder
-    ASSETS = DATALENS_PATH / "assets"
+    ASSETS = GWDATALENS_PATH / "assets"
     shutil.copytree(
         ASSETS,
         DJANGO_APP_PATH / "static" / "dash",
@@ -69,7 +69,7 @@ def copy_gwdatalens_to_django_app(
     # copy django files to gwdatalens folder
     logger.info(" - copying django files")
     DJANGO_FILES = [
-        f for f in (DATALENS_PATH / "django").iterdir() if f.suffix == ".py"
+        f for f in (GWDATALENS_PATH / "django").iterdir() if f.suffix == ".py"
     ]
     for f in DJANGO_FILES:
         shutil.copy(f, DJANGO_APP_PATH / "gwdatalens")
@@ -77,10 +77,10 @@ def copy_gwdatalens_to_django_app(
     # copy dash template to templates folder
     logger.info(" - copying dash template")
     shutil.copy(
-        DATALENS_PATH / "django" / "templates" / "dash.html",
+        GWDATALENS_PATH / "django" / "templates" / "dash.html",
         DJANGO_APP_PATH / "templates",
     )
-    logger.info(f"Done! Copied GWDataLens to Django project in '{DJANGO_APP_PATH}/'.")
+    logger.info("Done! Copied GWDataLens to Django project in '%s/'.", DJANGO_APP_PATH)
 
 
 # %%

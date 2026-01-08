@@ -1,9 +1,17 @@
 from dash import dcc
 
-from . import ids, tab_corrections, tab_model, tab_overview, tab_qc, tab_qc_result
+from gwdatalens.app.constants import ConfigDefaults
+from gwdatalens.app.src.components import (
+    ids,
+    tab_corrections,
+    tab_model,
+    tab_overview,
+    tab_qc,
+    tab_qc_result,
+)
 
 
-def render():
+def render() -> dcc.Tabs:
     """Renders the tab container.
 
     Returns
@@ -13,7 +21,7 @@ def render():
     """
     return dcc.Tabs(
         id=ids.TAB_CONTAINER,
-        value=ids.TAB_CORRECTIONS,
+        value=ConfigDefaults.DEFAULT_TAB,
         children=[
             tab_overview.render(),
             tab_model.render(),

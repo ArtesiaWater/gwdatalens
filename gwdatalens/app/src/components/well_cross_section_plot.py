@@ -2,6 +2,8 @@
 import pandas as pd
 import plotly.graph_objects as go
 
+from gwdatalens.app.constants import ColumnNames
+
 
 def plot_well_cross_section(df, tube_width=0.15):
     """
@@ -27,16 +29,20 @@ def plot_well_cross_section(df, tube_width=0.15):
     fig = go.Figure()
 
     # Sort by ground level position for better visualization
-    df_sorted = df.sort_values("ground_level_position", ascending=False)
+    df_sorted = df.sort_values(ColumnNames.GROUND_LEVEL_POSITION, ascending=False)
 
     # Create x-positions for each well
     x_positions = list(range(len(df_sorted)))
     df_sorted.index.tolist()
 
     # Determine plot bounds
-    min_elevation = df_sorted[["screen_bot", "ground_level_position"]].min().min()
-    max_elevation = df_sorted["tube_top_position"].max()
-    ground_level = df_sorted["ground_level_position"].iloc[
+    min_elevation = (
+        df_sorted[[ColumnNames.SCREEN_BOT, ColumnNames.GROUND_LEVEL_POSITION]]
+        .min()
+        .min()
+    )
+    max_elevation = df_sorted[ColumnNames.TUBE_TOP_POSITION].max()
+    ground_level = df_sorted[ColumnNames.GROUND_LEVEL_POSITION].iloc[
         0
     ]  # Assuming same ground level
 
@@ -87,11 +93,11 @@ def plot_well_cross_section(df, tube_width=0.15):
             x_pos - half_width,
         ]
         y_tube = [
-            row["tube_top_position"],
-            row["tube_top_position"],
-            row["screen_top"],
-            row["screen_top"],
-            row["tube_top_position"],
+            row[ColumnNames.TUBE_TOP_POSITION],
+            row[ColumnNames.TUBE_TOP_POSITION],
+            row[ColumnNames.SCREEN_TOP],
+            row[ColumnNames.SCREEN_TOP],
+            row[ColumnNames.TUBE_TOP_POSITION],
         ]
 
         fig.add_trace(
@@ -115,7 +121,10 @@ def plot_well_cross_section(df, tube_width=0.15):
         fig.add_trace(
             go.Scatter(
                 x=[x_pos],
-                y=[(row["tube_top_position"] + row["screen_top"]) / 2],
+                y=[
+                    (row[ColumnNames.TUBE_TOP_POSITION] + row[ColumnNames.SCREEN_TOP])
+                    / 2
+                ],
                 # line=dict(color="black", width=2),
                 mode="markers",
                 marker={"size": 15, "opacity": 0, "color": "black"},  # invisible
@@ -136,11 +145,11 @@ def plot_well_cross_section(df, tube_width=0.15):
             x_pos - half_width,
         ]
         y_screen = [
-            row["screen_top"],
-            row["screen_top"],
-            row["screen_bot"],
-            row["screen_bot"],
-            row["screen_top"],
+            row[ColumnNames.SCREEN_TOP],
+            row[ColumnNames.SCREEN_TOP],
+            row[ColumnNames.SCREEN_BOT],
+            row[ColumnNames.SCREEN_BOT],
+            row[ColumnNames.SCREEN_TOP],
         ]
 
         fig.add_trace(
@@ -164,7 +173,7 @@ def plot_well_cross_section(df, tube_width=0.15):
         # Add tube label at the top
         fig.add_annotation(
             x=x_pos,
-            y=row["tube_top_position"],
+            y=row[ColumnNames.TUBE_TOP_POSITION],
             text=tube_name.split("-")[-1],  # Show only the tube number
             showarrow=True,
             arrowhead=2,
@@ -242,10 +251,10 @@ def plot_well_cross_section(df, tube_width=0.15):
 # if __name__ == "__main__":
 # Data from the CSV
 data = {
-    "tube_top_position": [5.38, 5.34, 5.28, 5.29, 5.23],
-    "ground_level_position": [4.45, 4.45, 4.45, 4.45, 4.45],
-    "screen_top": [0.92, -7.5, -19.8, -34.79, -48.9],
-    "screen_bot": [-0.08, -8.5, -20.8, -35.79, -49.9],
+    ColumnNames.TUBE_TOP_POSITION: [5.38, 5.34, 5.28, 5.29, 5.23],
+    ColumnNames.GROUND_LEVEL_POSITION: [4.45, 4.45, 4.45, 4.45, 4.45],
+    ColumnNames.SCREEN_TOP: [0.92, -7.5, -19.8, -34.79, -48.9],
+    ColumnNames.SCREEN_BOT: [-0.08, -8.5, -20.8, -35.79, -49.9],
 }
 df_example = pd.DataFrame(
     data,

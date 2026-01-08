@@ -1,14 +1,17 @@
 """SQLAlchemy statements for querying database Provincie Zeeland."""
 
 # %%
+import logging
 from urllib.parse import quote
 
 import pandas as pd
 from sqlalchemy import and_, create_engine, func, select
 from sqlalchemy.dialects import postgresql
 
-from gwdatalens.app.settings import config
+from gwdatalens.app.config import config
 from gwdatalens.app.src.data import datamodel
+
+logger = logging.getLogger(__name__)
 
 
 def _to_int(v):
@@ -805,8 +808,8 @@ def run_sql(stmt, print_sql: bool = False):
         compiled = stmt.compile(
             dialect=postgresql.dialect(), compile_kwargs={"literal_binds": False}
         )
-        print("\nCompiled SQL (PostgreSQL dialect):\n")
-        print(compiled)
+        logger.debug("\nCompiled SQL (PostgreSQL dialect):\n")
+        logger.debug(compiled)
 
     with engine.connect() as conn:
         df = pd.read_sql(stmt, con=conn)

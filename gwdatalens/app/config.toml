@@ -1,6 +1,6 @@
 [settings]
-DEBUG = true
-LOCALE = "nl"
+DEBUG = true                 # enable debug mode, only for standalone mode
+LOCALE = "nl"                # application language, options: "nl", "en"
 DJANGO_APP = false           # set to True to run under Django application
 CACHING = false              # set to True to enable caching, does not work when DJANGO_APP is true
 SERIES_LOAD_LIMIT = 50       # number of observations to load and plot simultaneously

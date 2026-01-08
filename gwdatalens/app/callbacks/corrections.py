@@ -2,96 +2,157 @@ import logging
 
 import numpy as np
 import pandas as pd
-from dash import Input, Output, State, callback_context, no_update
+from dash import Dash, Input, Output, State, callback_context, no_update
 
+from gwdatalens.app.constants import ColumnNames, ConfigDefaults, UnitConversion
+from gwdatalens.app.exceptions import (
+    EmptyResultError,
+    QueryError,
+    TimeSeriesError,
+)
+from gwdatalens.app.messages import ErrorMessages, SuccessMessages, t_
 from gwdatalens.app.src.components import (
     ids,
 )
 from gwdatalens.app.src.components.overview_chart import plot_obs
 from gwdatalens.app.src.components.tab_corrections import plot_well_cross_section
+from gwdatalens.app.src.data.data_manager import DataManager
+from gwdatalens.app.src.services import TimeSeriesService, WellService
+from gwdatalens.app.src.utils.callback_helpers import (
+    AlertBuilder,
+    CallbackResponse,
+    EmptyFigure,
+    dataframe_to_records,
+    extract_trigger_id,
+)
+from gwdatalens.app.validators import validate_not_empty
 
 logger = logging.getLogger(__name__)
 
 
-def register_correction_callbacks(app, data):
+def register_correction_callbacks(app: Dash, data: DataManager):
+    # Initialize services once per registration
+    ts_service = TimeSeriesService(data.db)
+    well_service = WellService(data.db)
+
     @app.callback(
         Output(ids.CORRECTION_SERIES_CHART, "figure"),
         Input(ids.CORRECTIONS_DROPDOWN_SELECTOR, "value"),
     )
-    def plot_corrections_time_series(value):
-        """Plot time series.
+    def plot_corrections_time_series(value: int | None) -> dict:
+        """Plot time series for selected well.
 
         Parameters
         ----------
         value : str or None
-            The primary series to plot. If None, a message indicating no series is
-            selected will be returned.
-        additional_values : list or None
-            Additional series to include in the plot. If None, no additional series
-            will be included.
-        disabled : bool
-            whether to disable the dropdown.
-        traval_figure : tuple or None
-            A tuple containing a stored name and a traval-result figure. If the stored
-            name matches the primary series name, the traval-figure will be returned.
+            The internal ID of a monitoring location. If None, returns
+            empty figure indicating no selection.
 
         Returns
         -------
         dict
-            A dictionary representing the plot layout or the pre-generated figure if
-            available.
+            Plot figure or empty figure message
         """
         if value is None:
-            return {"layout": {"title": {"text": "No series selected."}}}
-        else:
-            names = data.db.get_tube_numbers(value)
-            wids = (
-                data.db.query_gdf(display_name=names, operator="in", columns=["id"])
-                .squeeze(axis="columns")
-                .tolist()
+            return EmptyFigure.no_selection()
+
+        try:
+            names = well_service.get_tubes_for_location(value)
+            validate_not_empty(names, context="tubes for location")
+            wids = well_service.get_tube_ids_from_names(names)
+
+            if not wids or not ts_service.check_if_wells_have_data(wids):
+                return EmptyFigure.no_data()
+
+            return plot_obs(wids, data, plot_manual_obs=True)
+        except EmptyResultError:
+            logger.warning("No tubes found for location %s", value)
+            return EmptyFigure.with_message(t_(ErrorMessages.NO_LOCATIONS))
+        except QueryError as e:
+            logger.error(
+                "Database query failed for location %s: %s", value, e, exc_info=True
             )
-            hasobs = data.db.list_observation_wells_with_data()["id"].tolist()
-            if np.any(np.isin(wids, hasobs)):
-                return plot_obs(wids, data, plot_manual_obs=True)
-            else:
-                return {"layout": {"title": {"text": "No observation data available."}}}
+            return EmptyFigure.with_message(t_(ErrorMessages.DATABASE_ERROR))
+        except Exception as e:
+            logger.error(
+                "Unexpected error plotting corrections time series: %s",
+                e,
+                exc_info=True,
+            )
+            return EmptyFigure.with_message(t_(ErrorMessages.DATA_LOAD_FAILED))
 
     @app.callback(
         Output(ids.WELL_CONFIGURATION_PLOT, "figure"),
         Output(ids.CORRECTIONS_TUBE_TABLE, "data"),
         Input(ids.CORRECTIONS_DROPDOWN_SELECTOR, "value"),
     )
-    def plot_well_configuration(value):
-        """Plot time series.
+    def plot_well_configuration(value: int | None) -> tuple[dict, list[dict]]:
+        """Plot well configuration and tube metadata.
 
         Parameters
         ----------
         value : str or None
-            The internal id of a times series to plot.
+            The internal ID of a monitoring location. If None, returns
+            empty figure and no data.
 
+        Returns
+        -------
+        tuple
+            (figure, table_data) where figure shows cross-section plot
+            and table_data shows tube metadata
         """
         if value is None:
-            return {"layout": {"title": {"text": "No well selected."}}}, no_update
-        else:
-            names = data.db.get_tube_numbers(value)
-            wids = (
-                data.db.query_gdf(display_name=names, operator="in", columns=["id"])
-                .squeeze(axis="columns")
-                .tolist()
+            return (
+                CallbackResponse()
+                .add_figure(
+                    EmptyFigure.with_message(t_(ErrorMessages.NO_WELLS_SELECTED))
+                )
+                .add(no_update)
+                .build()
             )
-            usecols = [
-                "tube_top_position",
-                "ground_level_position",
-                "screen_top",
-                "screen_bot",
-                "display_name",
-            ]
-            df = data.db.gmw_gdf.loc[wids, usecols].set_index("display_name")
-            if df.empty:
-                return {
-                    "layout": {"title": {"text": "No well configuration data."}}
-                }, no_update
-            return plot_well_cross_section(df), df.reset_index().to_dict("records")
+
+        try:
+            df = well_service.get_well_configuration(value)
+            validate_not_empty(df, context="well configuration")
+
+            table_data = dataframe_to_records(df.reset_index())
+            return (
+                CallbackResponse()
+                .add_figure(plot_well_cross_section(df))
+                .add(table_data)
+                .build()
+            )
+        except EmptyResultError:
+            logger.exception("No well configuration data for location %s", value)
+            well_display = value if value is not None else "?"
+            return (
+                CallbackResponse()
+                .add_figure(
+                    EmptyFigure.with_message(
+                        t_(ErrorMessages.NO_WELL_CONFIGURATION_DATA, well=well_display)
+                    )
+                )
+                .add([])
+                .build()
+            )
+        except QueryError as e:
+            logger.exception("Database query failed for location %s: %s", value, e)
+            return (
+                CallbackResponse()
+                .add_figure(EmptyFigure.with_message(t_(ErrorMessages.DATABASE_ERROR)))
+                .add([])
+                .build()
+            )
+        except Exception as e:
+            logger.exception("Unexpected error plotting well configuration: %s", e)
+            return (
+                CallbackResponse()
+                .add_figure(
+                    EmptyFigure.with_message(t_(ErrorMessages.DATA_LOAD_FAILED))
+                )
+                .add([])
+                .build()
+            )
 
     # Callback 1: Update well dropdowns and handle clear button
     @app.callback(
@@ -104,12 +165,12 @@ def register_correction_callbacks(app, data):
         State(ids.CORRECTIONS_WELL1_DROPDOWN, "value"),
         State(ids.CORRECTIONS_WELL2_DROPDOWN, "value"),
     )
-    def update_well_dropdowns(location_id, _clear_clicks, _well1_val, _well2_val):
+    def update_well_dropdowns(wid, _clear_clicks, _well1_val, _well2_val):
         """Update well selection dropdowns when location selected or clear clicked.
 
         Parameters
         ----------
-        location_id : str or None
+        wid : str or None
             The internal id of the selected location.
         _clear_clicks : int
             Number of clicks on clear button.
@@ -123,42 +184,22 @@ def register_correction_callbacks(app, data):
         tuple
             Options for both dropdowns and values.
         """
-        from dash import callback_context
-
-        # Check which input triggered
         if not callback_context.triggered:
             return [], [], None, None
 
-        trigger_id = callback_context.triggered[0]["prop_id"].split(".")[0]
+        trigger_id = extract_trigger_id(callback_context, parse_json=False)
 
         if trigger_id == ids.CORRECTIONS_CLEAR_SELECTION_BUTTON:
-            # Clear button clicked - keep options, clear values
-            if location_id is None:
+            if wid is None:
                 return [], [], None, None
 
-            names = data.db.get_tube_numbers(location_id)
-            tubes_df = data.db.query_gdf(
-                display_name=names, operator="in", columns=["id", "display_name"]
-            )
-            options = [
-                {"label": row["display_name"], "value": row["id"]}
-                for _, row in tubes_df.iterrows()
-            ]
+            options = well_service.get_tubes_as_dropdown_options(wid)
             return options, options, None, None
 
-        # Location changed
-        if location_id is None:
+        if wid is None:
             return [], [], None, None
 
-        names = data.db.get_tube_numbers(location_id)
-        tubes_df = data.db.query_gdf(
-            display_name=names, operator="in", columns=["id", "display_name"]
-        )
-        options = [
-            {"label": row["display_name"], "value": row["id"]}
-            for _, row in tubes_df.iterrows()
-        ]
-
+        options = well_service.get_tubes_as_dropdown_options(wid)
         return options, options, None, None
 
     # Callback 2: Fetch and merge observations when wells are selected
@@ -208,162 +249,72 @@ def register_correction_callbacks(app, data):
         tuple
             (table1_data, table2_data, original_data_store)
         """
-        from dash import callback_context
-
         if not callback_context.triggered:
             return [], [], None
 
-        trigger_id = callback_context.triggered[0]["prop_id"].split(".")[0]
+        trigger_id = extract_trigger_id(callback_context, parse_json=False)
 
         # Handle reset or commit triggers - reload fresh data from database
-        # using the current well selections
         if (trigger_id == ids.CORRECTIONS_RESET_TRIGGER_STORE and reset_trigger) or (
             trigger_id == ids.CORRECTIONS_COMMIT_TRIGGER_STORE and commit_trigger
         ):
-            # Use state values to know which wells to reload
             well1_id = state_well1_id
             well2_id = state_well2_id
-            # Continue to load fresh data below
-        else:
-            # Handle well selection (load fresh data)
-            # If neither well is selected, clear tables
-            if well1_id is None and well2_id is None:
-                return [], [], None
+
+        # If neither well is selected, clear tables
+        if well1_id is None and well2_id is None:
+            return [], [], None
 
         # If same well selected twice, treat as single well
         if well1_id == well2_id and well1_id is not None:
             well2_id = None
 
         try:
-            obs1 = None
-            obs2 = None
+            obs_dict = {}
 
-            # Load observations for well 1 if selected
-            if well1_id is not None:
-                obs1 = data.db.get_timeseries(
-                    well1_id, observation_type="controlemeting"
+            for wid, key in [(well1_id, "table1"), (well2_id, "table2")]:
+                if wid is None:
+                    continue
+                obs = ts_service.get_series_for_observation_well(
+                    wid, observation_type="controlemeting"
                 )
-                if obs1 is not None and not obs1.empty:
-                    # Keep correction fields along with measurements
-                    obs1 = obs1.loc[
+                if obs is not None and not obs.empty:
+                    obs = obs.loc[
                         :,
                         [
-                            "field_value",
-                            "calculated_value",
-                            "value_to_be_corrected",
+                            ColumnNames.FIELD_VALUE,
+                            ColumnNames.CALCULATED_VALUE,
+                            ColumnNames.VALUE_TO_BE_CORRECTED,
                             "correction_reason",
                             "measurement_tvp_id",
                         ],
-                    ].dropna(how="all", subset=["field_value", "calculated_value"])
-                    obs1.index.name = "datetime"
-                else:
-                    obs1 = None
-
-            # Load observations for well 2 if selected
-            if well2_id is not None:
-                obs2 = data.db.get_timeseries(
-                    well2_id, observation_type="controlemeting"
-                )
-                if obs2 is not None and not obs2.empty:
-                    # Keep correction fields along with measurements
-                    obs2 = obs2.loc[
-                        :,
-                        [
-                            "field_value",
-                            "calculated_value",
-                            "value_to_be_corrected",
-                            "correction_reason",
-                            "measurement_tvp_id",
-                        ],
-                    ].dropna(how="all", subset=["field_value", "calculated_value"])
-                    obs2.index.name = "datetime"
-                else:
-                    obs2 = None
+                    ].dropna(
+                        how="all",
+                        subset=[ColumnNames.FIELD_VALUE, ColumnNames.CALCULATED_VALUE],
+                    )
+                    obs.index.name = "datetime"
+                    obs_dict[key] = obs
 
             # If no data loaded, return empty
-            if obs1 is None and obs2 is None:
+            if not obs_dict:
                 return [], [], None
+
+            obs1 = obs_dict.get("table1")
+            obs2 = obs_dict.get("table2")
 
             # Align indices using outer join so both tables show same datetimes
             if obs1 is not None and obs2 is not None:
-                # Outer join to align all datetimes
                 all_datetimes = obs1.index.union(obs2.index)
                 obs1 = obs1.reindex(all_datetimes)
                 obs2 = obs2.reindex(all_datetimes)
 
-            # Prepare table 1 data
-            table1_data = []
-            if obs1 is not None:
-                table1_df = obs1.reset_index()
-                current_calculated = table1_df["calculated_value"]
-                # Display original calculated value (value_to_be_corrected when present)
-                table1_df["calculated_value"] = np.where(
-                    pd.notna(table1_df["value_to_be_corrected"]),
-                    table1_df["value_to_be_corrected"],
-                    current_calculated,
-                )
-                # Show corrected value if it exists; blank otherwise
-                table1_df["corrected_value"] = np.where(
-                    pd.notna(table1_df["value_to_be_corrected"]),
-                    current_calculated,
-                    np.nan,
-                )
-                # Show correction reason in comment column if it exists
-                table1_df["comment"] = table1_df["correction_reason"].fillna("")
-                # Format datetime
-                table1_df["datetime"] = table1_df["datetime"].dt.strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                )
-                # Select columns for display
-                table1_data = table1_df[
-                    [
-                        "datetime",
-                        "field_value",
-                        "calculated_value",
-                        "corrected_value",
-                        "comment",
-                        "measurement_tvp_id",
-                        "value_to_be_corrected",
-                    ]
-                ].to_dict("records")
+            table1_data = (
+                _prepare_observation_table_data(obs1) if obs1 is not None else []
+            )
+            table2_data = (
+                _prepare_observation_table_data(obs2) if obs2 is not None else []
+            )
 
-            # Prepare table 2 data
-            table2_data = []
-            if obs2 is not None:
-                table2_df = obs2.reset_index()
-                current_calculated = table2_df["calculated_value"]
-                # Display original calculated value (value_to_be_corrected when present)
-                table2_df["calculated_value"] = np.where(
-                    pd.notna(table2_df["value_to_be_corrected"]),
-                    table2_df["value_to_be_corrected"],
-                    current_calculated,
-                )
-                # Show corrected value if it exists; blank otherwise
-                table2_df["corrected_value"] = np.where(
-                    pd.notna(table2_df["value_to_be_corrected"]),
-                    current_calculated,
-                    np.nan,
-                )
-                # Show correction reason in comment column if it exists
-                table2_df["comment"] = table2_df["correction_reason"].fillna("")
-                # Format datetime
-                table2_df["datetime"] = table2_df["datetime"].dt.strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                )
-                # Select columns for display
-                table2_data = table2_df[
-                    [
-                        "datetime",
-                        "field_value",
-                        "calculated_value",
-                        "corrected_value",
-                        "comment",
-                        "measurement_tvp_id",
-                        "value_to_be_corrected",
-                    ]
-                ].to_dict("records")
-
-            # Store original data for comparison (both tables)
             original_data = {
                 "table1": table1_data,
                 "table2": table2_data,
@@ -372,8 +323,8 @@ def register_correction_callbacks(app, data):
 
             return table1_data, table2_data, original_data
 
-        except Exception as e:
-            logger.error("Error loading observations: %s", e)
+        except TimeSeriesError as e:
+            logger.exception("Error loading observations: %s", e)
             return [], [], None
 
     # Callback 2b: Enable/disable commit and reset buttons based on dropdown selections
@@ -465,7 +416,11 @@ def register_correction_callbacks(app, data):
             if isinstance(val, str) and val.strip() == "":
                 return None
 
-            if col in {"calculated_value", "field_value", "corrected_value"}:
+            if col in {
+                ColumnNames.CALCULATED_VALUE,
+                ColumnNames.FIELD_VALUE,
+                "corrected_value",
+            }:
                 # Consider NaN as None
                 try:
                     # If already numeric, keep
@@ -474,7 +429,7 @@ def register_correction_callbacks(app, data):
                     # Try parsing string number
                     parsed = float(str(val))
                     return parsed
-                except Exception:
+                except TypeError:
                     # Non-parsable -> treat as None
                     return None
 
@@ -503,8 +458,8 @@ def register_correction_callbacks(app, data):
 
         def is_empty_row(row):
             """Check if a row is an alignment placeholder (all editable cols empty)."""
-            calculated_val = row.get("calculated_value")
-            field_val = row.get("field_value")
+            calculated_val = row.get(ColumnNames.CALCULATED_VALUE)
+            field_val = row.get(ColumnNames.FIELD_VALUE)
             corrected_val = row.get("corrected_value")
             comment_val = row.get("comment", "")
 
@@ -514,8 +469,8 @@ def register_correction_callbacks(app, data):
                 return n is None or pd.isna(n)
 
             return (
-                empty(calculated_val, "calculated_value")
-                and empty(field_val, "field_value")
+                empty(calculated_val, ColumnNames.CALCULATED_VALUE)
+                and empty(field_val, ColumnNames.FIELD_VALUE)
                 and empty(corrected_val, "corrected_value")
                 and (
                     comment_val is None
@@ -543,8 +498,8 @@ def register_correction_callbacks(app, data):
                     original_row = original_table1[row_idx]
                     # Check each editable column for edits
                     for col in [
-                        "calculated_value",
-                        "field_value",
+                        ColumnNames.CALCULATED_VALUE,
+                        ColumnNames.FIELD_VALUE,
                         "corrected_value",
                         "comment",
                     ]:
@@ -582,8 +537,8 @@ def register_correction_callbacks(app, data):
                     original_row = original_table2[row_idx]
                     # Check each editable column for edits
                     for col in [
-                        "calculated_value",
-                        "field_value",
+                        ColumnNames.CALCULATED_VALUE,
+                        ColumnNames.FIELD_VALUE,
                         "corrected_value",
                         "comment",
                     ]:
@@ -674,7 +629,13 @@ def register_correction_callbacks(app, data):
             (alert_data, commit_trigger, no_update)
         """
         if not original_data or (not table1_data and not table2_data):
-            return no_update, no_update, no_update
+            return (
+                CallbackResponse()
+                .add(AlertBuilder.no_alert())
+                .add(no_update)
+                .add(no_update)
+                .build()
+            )
 
         def _normalize_value(val, col):
             """Normalize values for comparison."""
@@ -682,7 +643,11 @@ def register_correction_callbacks(app, data):
                 return None
             if isinstance(val, str) and val.strip() == "":
                 return None
-            if col in {"calculated_value", "field_value", "corrected_value"}:
+            if col in {
+                ColumnNames.CALCULATED_VALUE,
+                ColumnNames.FIELD_VALUE,
+                "corrected_value",
+            }:
                 try:
                     if isinstance(val, (int, float)):
                         return val if not pd.isna(val) else None
@@ -737,8 +702,10 @@ def register_correction_callbacks(app, data):
                                             "measurement_tvp_id"
                                         ],
                                         "original_calculated_value": _normalize_value(
-                                            original_row.get("calculated_value"),
-                                            "calculated_value",
+                                            original_row.get(
+                                                ColumnNames.CALCULATED_VALUE
+                                            ),
+                                            ColumnNames.CALCULATED_VALUE,
                                         ),
                                         "corrected_value": corrected_val,
                                         "comment": current_row.get("comment", ""),
@@ -774,8 +741,10 @@ def register_correction_callbacks(app, data):
                                             "measurement_tvp_id"
                                         ],
                                         "original_calculated_value": _normalize_value(
-                                            original_row.get("calculated_value"),
-                                            "calculated_value",
+                                            original_row.get(
+                                                ColumnNames.CALCULATED_VALUE
+                                            ),
+                                            ColumnNames.CALCULATED_VALUE,
                                         ),
                                         "corrected_value": corrected_val,
                                         "comment": current_row.get("comment", ""),
@@ -783,15 +752,17 @@ def register_correction_callbacks(app, data):
                                 )
 
             if len(corrections_to_save) == 0:
-                return no_update, no_update, no_update
+                return (
+                    CallbackResponse()
+                    .add(AlertBuilder.no_alert())
+                    .add(no_update)
+                    .add(no_update)
+                    .build()
+                )
 
             # Save corrections to database
             corrections_df = pd.DataFrame(corrections_to_save)
-            data.db.save_correction(corrections_df)
-
-            success_msg = (
-                f"Successfully committed {len(corrections_to_save)} correction(s)"
-            )
+            ts_service.save_correction(corrections_df)
 
             # Prepare trigger store data to reload fresh data
             trigger_data = {
@@ -799,16 +770,23 @@ def register_correction_callbacks(app, data):
                 "timestamp": pd.Timestamp.now().isoformat(),
             }
 
+            alert = AlertBuilder.success(
+                t_(
+                    SuccessMessages.CORRECTIONS_COMMITTED,
+                    count=len(corrections_to_save),
+                )
+            )
+
             return (
-                (True, "success", success_msg),
-                trigger_data,
-                no_update,
+                CallbackResponse().add(alert).add(trigger_data).add(no_update).build()
             )
 
         except Exception as e:
-            error_msg = f"Error committing corrections: {str(e)}"
             logger.error("Error committing corrections", exc_info=True)
-            return (True, "danger", error_msg), no_update, no_update
+            alert = AlertBuilder.danger(
+                t_(ErrorMessages.CORRECTIONS_COMMIT_FAILED, error=str(e))
+            )
+            return CallbackResponse().add(alert).add(no_update).add(no_update).build()
 
     def _handle_reset_corrections(table1_data, table2_data, original_data):
         """Handle resetting corrections in the database.
@@ -828,7 +806,13 @@ def register_correction_callbacks(app, data):
             (alert_data, no_update, reset_trigger)
         """
         if not table1_data and not table2_data:
-            return no_update, no_update, no_update
+            return (
+                CallbackResponse()
+                .add(AlertBuilder.no_alert())
+                .add(no_update)
+                .add(no_update)
+                .build()
+            )
 
         try:
             corrections_to_reset = []
@@ -838,13 +822,17 @@ def register_correction_callbacks(app, data):
                 for row in table1_data:
                     # Only reset if value_to_be_corrected is not null
                     # (meaning it was corrected)
-                    if row.get("value_to_be_corrected") is not None and not pd.isna(
-                        row.get("value_to_be_corrected")
+                    if row.get(
+                        ColumnNames.VALUE_TO_BE_CORRECTED
+                    ) is not None and not pd.isna(
+                        row.get(ColumnNames.VALUE_TO_BE_CORRECTED)
                     ):
                         corrections_to_reset.append(
                             {
                                 "measurement_tvp_id": row["measurement_tvp_id"],
-                                "value_to_be_corrected": row["value_to_be_corrected"],
+                                ColumnNames.VALUE_TO_BE_CORRECTED: row[
+                                    ColumnNames.VALUE_TO_BE_CORRECTED
+                                ],
                             }
                         )
 
@@ -853,26 +841,32 @@ def register_correction_callbacks(app, data):
                 for row in table2_data:
                     # Only reset if value_to_be_corrected is not null
                     # (meaning it was corrected)
-                    if row.get("value_to_be_corrected") is not None and not pd.isna(
-                        row.get("value_to_be_corrected")
+                    if row.get(
+                        ColumnNames.VALUE_TO_BE_CORRECTED
+                    ) is not None and not pd.isna(
+                        row.get(ColumnNames.VALUE_TO_BE_CORRECTED)
                     ):
                         corrections_to_reset.append(
                             {
                                 "measurement_tvp_id": row["measurement_tvp_id"],
-                                "value_to_be_corrected": row["value_to_be_corrected"],
+                                ColumnNames.VALUE_TO_BE_CORRECTED: row[
+                                    ColumnNames.VALUE_TO_BE_CORRECTED
+                                ],
                             }
                         )
 
             if len(corrections_to_reset) == 0:
-                return no_update, no_update, no_update
+                return (
+                    CallbackResponse()
+                    .add(AlertBuilder.no_alert())
+                    .add(no_update)
+                    .add(no_update)
+                    .build()
+                )
 
             # Reset corrections in database
             corrections_df = pd.DataFrame(corrections_to_reset)
-            data.db.reset_correction(corrections_df)
-
-            success_msg = (
-                f"Successfully reset {len(corrections_to_reset)} correction(s)"
-            )
+            ts_service.reset_correction(corrections_df)
 
             # Prepare trigger store data to reload fresh data
             trigger_data = {
@@ -880,16 +874,20 @@ def register_correction_callbacks(app, data):
                 "timestamp": pd.Timestamp.now().isoformat(),
             }
 
+            alert = AlertBuilder.success(
+                t_(SuccessMessages.CORRECTIONS_RESET, count=len(corrections_to_reset))
+            )
+
             return (
-                (True, "success", success_msg),
-                no_update,
-                trigger_data,
+                CallbackResponse().add(alert).add(no_update).add(trigger_data).build()
             )
 
         except Exception as e:
-            error_msg = f"Error resetting corrections: {str(e)}"
             logger.error("Error resetting corrections", exc_info=True)
-            return (True, "danger", error_msg), no_update, no_update
+            alert = AlertBuilder.danger(
+                t_(ErrorMessages.CORRECTIONS_RESET_FAILED, error=str(e))
+            )
+            return CallbackResponse().add(alert).add(no_update).add(no_update).build()
 
     # Callback: Calculate groundwater level conversions
     @app.callback(
@@ -929,26 +927,72 @@ def register_correction_callbacks(app, data):
             if bkb is not None:
                 if obs_cm is not None:
                     # Recalculate m NAP from cm
-                    new_mnap = bkb - (obs_cm / 100.0)
+                    new_mnap = bkb - (obs_cm * UnitConversion.CM_TO_M)
                     return no_update, round(new_mnap, 4)
                 elif obs_mnap is not None:
                     # Recalculate cm from m NAP
-                    new_cm = (bkb - obs_mnap) * 100.0
+                    new_cm = (bkb - obs_mnap) * UnitConversion.M_TO_CM
                     return round(new_cm, 2), no_update
             return no_update, no_update
 
         # If observation in cm changed, calculate m NAP
         elif trigger_id == ids.CORRECTIONS_OBSERVATION_CM_INPUT:
             if bkb is not None and obs_cm is not None:
-                new_mnap = bkb - (obs_cm / 100.0)
+                new_mnap = bkb - (obs_cm * UnitConversion.CM_TO_M)
                 return no_update, round(new_mnap, 4)
             return no_update, no_update
 
         # If observation in m NAP changed, calculate cm
         elif trigger_id == ids.CORRECTIONS_OBSERVATION_MNAP_INPUT:
             if bkb is not None and obs_mnap is not None:
-                new_cm = (bkb - obs_mnap) * 100.0
+                new_cm = (bkb - obs_mnap) * UnitConversion.M_TO_CM
                 return round(new_cm, 2), no_update
             return no_update, no_update
 
         return no_update, no_update
+
+
+def _prepare_observation_table_data(obs_df):
+    """Prepare observation DataFrame for table display."""
+    try:
+        validate_not_empty(obs_df, context="observation data for table")
+    except EmptyResultError:
+        return []
+
+    table_df = obs_df.reset_index()
+
+    # Display original calculated value when correction exists
+    current_calculated = table_df[ColumnNames.CALCULATED_VALUE]
+    table_df[ColumnNames.CALCULATED_VALUE] = np.where(
+        table_df[ColumnNames.VALUE_TO_BE_CORRECTED].notna(),
+        table_df[ColumnNames.VALUE_TO_BE_CORRECTED],
+        current_calculated,
+    )
+
+    # Show corrected value if it exists; blank otherwise
+    table_df["corrected_value"] = np.where(
+        table_df[ColumnNames.VALUE_TO_BE_CORRECTED].notna(),
+        current_calculated,
+        np.nan,
+    )
+
+    # Show correction reason in comment column if it exists
+    table_df["comment"] = table_df["correction_reason"].fillna("")
+
+    # Format datetime
+    table_df["datetime"] = table_df["datetime"].dt.strftime(
+        ConfigDefaults.DATETIME_FORMAT
+    )
+
+    # Select columns for display
+    return table_df[
+        [
+            "datetime",
+            ColumnNames.FIELD_VALUE,
+            ColumnNames.CALCULATED_VALUE,
+            "corrected_value",
+            "comment",
+            "measurement_tvp_id",
+            ColumnNames.VALUE_TO_BE_CORRECTED,
+        ]
+    ].to_dict("records")

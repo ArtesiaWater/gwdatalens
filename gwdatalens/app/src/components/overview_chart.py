@@ -1,14 +1,18 @@
-import i18n
+from typing import Any, Dict, List, Optional
+
 import plotly.express as px
 import plotly.graph_objs as go
 from dash import __version__ as DASH_VERSION
 from dash import dcc, html
 from packaging.version import parse as parse_version
 
+from gwdatalens.app.constants import UI, ColumnNames, PlotConstants
+from gwdatalens.app.messages import t_
 from gwdatalens.app.src.components import ids
+from gwdatalens.app.src.data.data_manager import DataManager
 
 
-def render(data, selected_data):
+def render(data: DataManager, selected_data: Optional[List[int]] = None) -> html.Div:
     kwargs = (
         {"delay_show": 500}
         if parse_version(DASH_VERSION) >= parse_version("2.17.0")
@@ -32,8 +36,6 @@ def render(data, selected_data):
                         },
                         style={
                             "height": "40vh",
-                            # "margin-bottom": "10px",
-                            # "margin-top": 5,
                         },
                     ),
                 ],
@@ -43,12 +45,16 @@ def render(data, selected_data):
         style={
             "position": "relative",
             "justify-content": "center",
-            "margin-bottom": 10,
+            "margin-bottom": UI.MARGIN_BOTTOM,
         },
     )
 
 
-def plot_obs(wids, data, plot_manual_obs=False):
+def plot_obs(
+    wids: Optional[List[int]],
+    data: DataManager,
+    plot_manual_obs: bool = False,
+) -> Dict[str, Any]:
     """Plots observation data for given monitoring wells and tube numbers.
 
     Parameters
@@ -72,9 +78,9 @@ def plot_obs(wids, data, plot_manual_obs=False):
     - For multiple iids, plots the timeseries data with markers and lines.
     """
     if wids is None:
-        return {"layout": {"title": {"text": i18n.t("general.no_plot")}}}
+        return {"layout": {"title": {"text": t_("general.no_plot")}}}
 
-    hasobs = list(data.db.list_observation_wells_with_data()["id"])
+    hasobs = list(data.db.list_observation_wells_with_data[ColumnNames.ID])
     no_data = []
 
     traces = []
@@ -112,16 +118,16 @@ def plot_obs(wids, data, plot_manual_obs=False):
                 ts = df.loc[mask, data.db.value_column]
                 legendrank = 1000
                 if qualifier in ["goedgekeurd"]:
-                    color = "green"
+                    color = PlotConstants.STATUS_RELIABLE
                 elif qualifier in ["onbeslist"]:
-                    color = "orange"
+                    color = PlotConstants.STATUS_UNDECIDED
                 elif qualifier in ["afgekeurd"]:
-                    color = "red"
+                    color = PlotConstants.STATUS_UNRELIABLE
                 elif qualifier == "":
-                    color = "#636EFA"
+                    color = PlotConstants.STATUS_NO_QUALIFIER
                     # legendrank = 999
                 else:
-                    color = "gray"
+                    color = PlotConstants.STATUS_UNKNOWN
                 trace_i = go.Scattergl(
                     x=ts.index,
                     y=ts.values,
@@ -141,8 +147,11 @@ def plot_obs(wids, data, plot_manual_obs=False):
                     x=manual_obs.index,
                     y=manual_obs[data.db.value_column],
                     mode="markers",
-                    marker={"color": "red", "size": 7},
-                    name=i18n.t("general.manual_observations"),
+                    marker={
+                        "color": PlotConstants.CONTROL_OBS_COLOR,
+                        "size": PlotConstants.CONTROL_OBS_SIZE,
+                    },
+                    name=t_("general.manual_observations"),
                     legendgroup="manual obs",
                     showlegend=True,
                     legendrank=1001,
@@ -181,7 +190,7 @@ def plot_obs(wids, data, plot_manual_obs=False):
                             "line_width": 2,
                             "line_color": colors[i % len(colors)],
                         },
-                        name=i18n.t("general.manual_observations"),
+                        name=t_("general.manual_observations"),
                         legendgroup=display_name,
                         legendrank=1000,
                         showlegend=True,

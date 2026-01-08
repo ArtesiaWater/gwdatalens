@@ -1,10 +1,13 @@
-import i18n
+from typing import Any, List, Optional
+
 from dash import dcc, html
 
-from . import ids
+from gwdatalens.app.constants import ColumnNames
+from gwdatalens.app.messages import t_
+from gwdatalens.app.src.components import ids
 
 
-def render(data, selected_data):
+def render(data: Any, selected_data: Optional[List[int]]) -> html.Div:
     """Renders a dropdown component for selecting a time series.
 
     Parameters
@@ -21,10 +24,11 @@ def render(data, selected_data):
     html.Div
         A Dash HTML Div component containing a Dropdown for selecting a location.
     """
-    locs = data.db.list_observation_wells_with_data()
-    locs.sort_values("display_name", inplace=True)
+    locs = data.db.list_observation_wells_with_data
+    locs.sort_values(ColumnNames.DISPLAY_NAME, inplace=True)
     options = [
-        {"label": row["display_name"], "value": row["id"]} for _, row in locs.iterrows()
+        {"label": row[ColumnNames.DISPLAY_NAME], "value": row[ColumnNames.ID]}
+        for _, row in locs.iterrows()
     ]
 
     if selected_data is not None and len(selected_data) == 1:
@@ -37,7 +41,7 @@ def render(data, selected_data):
             dcc.Dropdown(
                 id=ids.MODEL_DROPDOWN_SELECTION,
                 clearable=True,
-                placeholder=i18n.t("general.select_location"),
+                placeholder=t_("general.select_location"),
                 value=value,
                 multi=False,
                 searchable=True,

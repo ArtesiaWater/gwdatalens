@@ -1,20 +1,21 @@
 from typing import List
 
 import dash_bootstrap_components as dbc
-import i18n
 import pandas as pd
 import plotly.graph_objects as go
 from dash import __version__ as DASH_VERSION
 from dash import dash_table, dcc, html
 from packaging.version import parse as parse_version
 
-from ..data.interface import DataInterface
-from . import ids
-from .overview_chart import plot_obs
-from .styling import DATA_TABLE_HEADER_BGCOLOR
+from gwdatalens.app.constants import UI, ColumnNames
+from gwdatalens.app.messages import t_
+from gwdatalens.app.src.components import ids
+from gwdatalens.app.src.components.overview_chart import plot_obs
+from gwdatalens.app.src.components.styling import DATA_TABLE_HEADER_BGCOLOR
+from gwdatalens.app.src.data.data_manager import DataManager
 
 
-def render():
+def render() -> dcc.Tab:
     """Renders the Model Tab.
 
     Returns
@@ -23,14 +24,14 @@ def render():
         The model tab
     """
     return dcc.Tab(
-        label=i18n.t("general.tab_corrections"),
+        label=t_("general.tab_corrections"),
         value=ids.TAB_CORRECTIONS,
         className="custom-tab",
         selected_className="custom-tab--selected",
     )
 
 
-def render_content(data: DataInterface, selected_data: List):
+def render_content(data: DataManager, selected_data: List):
     """Renders the content for the model tab.
 
     Parameters
@@ -63,19 +64,6 @@ def render_content(data: DataInterface, selected_data: List):
                 style={"height": "35vh"},
             ),
             html.Hr(style={"margin": "20px 0"}),
-            # dbc.Row(
-            #     [
-            #         dbc.Col(
-            #             [
-            #                 html.H5(
-            #                     i18n.t("general.observation_comparison"),
-            #                     style={"margin-bottom": "15px"},
-            #                 )
-            #             ],
-            #             width=12,
-            #         ),
-            #     ]
-            # ),
             dbc.Row(
                 [
                     dbc.Col([render_well_selection(data, selected_data)], width=12),
@@ -119,11 +107,11 @@ def render_tube_table(data, selected_data):
         A Dash HTML Div component containing a table of tube information.
     """
     usecols = [
-        "display_name",
-        "tube_top_position",
-        "ground_level_position",
-        "screen_top",
-        "screen_bot",
+        ColumnNames.DISPLAY_NAME,
+        ColumnNames.TUBE_TOP_POSITION,
+        ColumnNames.GROUND_LEVEL_POSITION,
+        ColumnNames.SCREEN_TOP,
+        ColumnNames.SCREEN_BOT,
     ]
     if selected_data is not None and len(selected_data) == 1:
         names = data.db.get_tube_numbers(selected_data[0])
@@ -139,30 +127,30 @@ def render_tube_table(data, selected_data):
                 data=df.to_dict("records"),
                 columns=[
                     {
-                        "id": "display_name",
+                        "id": ColumnNames.DISPLAY_NAME,
                         "name": "Naam",
                         "type": "text",
                     },
                     {
-                        "id": "tube_top_position",
+                        "id": ColumnNames.TUBE_TOP_POSITION,
                         "name": "BKB\n[m NAP]",
                         "type": "numeric",
                         "format": {"specifier": ".2f"},
                     },
                     {
-                        "id": "ground_level_position",
+                        "id": ColumnNames.GROUND_LEVEL_POSITION,
                         "name": "MV\n[m NAP]",
                         "type": "numeric",
                         "format": {"specifier": ".2f"},
                     },
                     {
-                        "id": "screen_top",
+                        "id": ColumnNames.SCREEN_TOP,
                         "name": "BKF\n[m NAP]",
                         "type": "numeric",
                         "format": {"specifier": ".2f"},
                     },
                     {
-                        "id": "screen_bot",
+                        "id": ColumnNames.SCREEN_BOT,
                         "name": "OKF\n[m NAP]",
                         "type": "numeric",
                         "format": {"specifier": ".2f"},
@@ -178,14 +166,20 @@ def render_tube_table(data, selected_data):
                         "if": {"column_id": c},
                         "textAlign": "left",
                     }
-                    for c in ["display_name"]
+                    for c in [ColumnNames.DISPLAY_NAME]
                 ]
                 + [
-                    {"if": {"column_id": "display_name"}, "width": "30%"},
-                    {"if": {"column_id": "tube_top_position"}, "width": "17.5%"},
-                    {"if": {"column_id": "ground_level_position"}, "width": "17.5%"},
-                    {"if": {"column_id": "screen_top"}, "width": "17.5%"},
-                    {"if": {"column_id": "screen_bot"}, "width": "17.5%"},
+                    {"if": {"column_id": ColumnNames.DISPLAY_NAME}, "width": "30%"},
+                    {
+                        "if": {"column_id": ColumnNames.TUBE_TOP_POSITION},
+                        "width": "17.5%",
+                    },
+                    {
+                        "if": {"column_id": ColumnNames.GROUND_LEVEL_POSITION},
+                        "width": "17.5%",
+                    },
+                    {"if": {"column_id": ColumnNames.SCREEN_TOP}, "width": "17.5%"},
+                    {"if": {"column_id": ColumnNames.SCREEN_BOT}, "width": "17.5%"},
                 ],
                 style_data_conditional=[
                     {
@@ -220,7 +214,7 @@ def render_corrections_dropdown(data, selected_data):
     html.Div
         A Dash HTML Div component containing a Dropdown for selecting a location.
     """
-    locs = data.db.list_locations()
+    locs = data.db.list_locations.copy()
 
     options = []
     for _, row in locs.iterrows():
@@ -236,7 +230,11 @@ def render_corrections_dropdown(data, selected_data):
             )
 
         options.append(
-            {"label": label, "value": row["id"], "search": row["location_name"]}
+            {
+                "label": label,
+                "value": row[ColumnNames.ID],
+                "search": row["location_name"],
+            }
         )
 
     if selected_data is not None and len(selected_data) == 1:
@@ -249,7 +247,7 @@ def render_corrections_dropdown(data, selected_data):
             dcc.Dropdown(
                 id=ids.CORRECTIONS_DROPDOWN_SELECTOR,
                 clearable=True,
-                placeholder=i18n.t("general.select_location"),
+                placeholder=t_("general.select_location"),
                 value=value,
                 multi=False,
                 searchable=True,
@@ -274,7 +272,9 @@ def render_chart(data, selected_data):
             # get ids for all tubes in the selected well
             names = data.db.get_tube_numbers(selected_data[0])
             wids = (
-                data.db.query_gdf(display_name=names, operator="in", columns=["id"])
+                data.db.query_gdf(
+                    display_name=names, operator="in", columns=[ColumnNames.ID]
+                )
                 .squeeze(axis="columns")
                 .tolist()
             )
@@ -299,10 +299,9 @@ def render_chart(data, selected_data):
                         },
                         style={
                             "height": "35vh",
-                            "margin-top": 5,
+                            "margin-top": UI.MARGIN_TOP_COMPACT,
                             "margin-left": 5,
                             "margin-right": 5,
-                            # "margin-bottom": "10px",
                         },
                     ),
                 ],
@@ -312,23 +311,23 @@ def render_chart(data, selected_data):
         style={
             "position": "relative",
             "justify-content": "center",
-            "margin-bottom": 10,
+            "margin-bottom": UI.MARGIN_BOTTOM,
         },
     )
 
 
 def render_well_configuration(data, selected_data):
     usecols = [
-        "tube_top_position",
-        "ground_level_position",
-        "screen_top",
-        "screen_bot",
-        "display_name",
+        ColumnNames.TUBE_TOP_POSITION,
+        ColumnNames.GROUND_LEVEL_POSITION,
+        ColumnNames.SCREEN_TOP,
+        ColumnNames.SCREEN_BOT,
+        ColumnNames.DISPLAY_NAME,
     ]
     if selected_data is not None and len(selected_data) == 1:
         names = data.db.get_tube_numbers(selected_data[0])
         df = data.db.query_gdf(display_name=names, operator="in", columns=usecols)
-        df = df.set_index("display_name")
+        df = df.set_index(ColumnNames.DISPLAY_NAME)
     else:
         df = pd.DataFrame(index=None, columns=usecols)
 
@@ -349,8 +348,6 @@ def render_well_configuration(data, selected_data):
                         },
                         style={
                             "height": "35vh",
-                            # "margin-bottom": "10px",
-                            # "margin-top": 5,
                         },
                     ),
                 ],
@@ -382,21 +379,25 @@ def plot_well_cross_section(df, tube_width=0.15):
         Plotly figure object
     """
     if df.empty:
-        return {"layout": {"title": {"text": i18n.t("general.no_well_data")}}}
+        return {"layout": {"title": {"text": t_("general.no_well_data")}}}
 
     fig = go.Figure()
 
     # Sort by ground level position for better visualization
-    df_sorted = df.sort_values("ground_level_position", ascending=False)
+    df_sorted = df.sort_values(ColumnNames.GROUND_LEVEL_POSITION, ascending=False)
 
     # Create x-positions for each well
     x_positions = list(range(len(df_sorted)))
     df_sorted.index.tolist()
 
     # Determine plot bounds
-    min_elevation = df_sorted[["screen_bot", "ground_level_position"]].min().min()
-    max_elevation = df_sorted["tube_top_position"].max()
-    ground_level = df_sorted["ground_level_position"].iloc[
+    min_elevation = (
+        df_sorted[[ColumnNames.SCREEN_BOT, ColumnNames.GROUND_LEVEL_POSITION]]
+        .min()
+        .min()
+    )
+    max_elevation = df_sorted[ColumnNames.TUBE_TOP_POSITION].max()
+    ground_level = df_sorted[ColumnNames.GROUND_LEVEL_POSITION].iloc[
         0
     ]  # Assuming same ground level
 
@@ -447,11 +448,11 @@ def plot_well_cross_section(df, tube_width=0.15):
             x_pos - half_width,
         ]
         y_tube = [
-            row["tube_top_position"],
-            row["tube_top_position"],
-            row["screen_top"],
-            row["screen_top"],
-            row["tube_top_position"],
+            row[ColumnNames.TUBE_TOP_POSITION],
+            row[ColumnNames.TUBE_TOP_POSITION],
+            row[ColumnNames.SCREEN_TOP],
+            row[ColumnNames.SCREEN_TOP],
+            row[ColumnNames.TUBE_TOP_POSITION],
         ]
 
         fig.add_trace(
@@ -475,7 +476,10 @@ def plot_well_cross_section(df, tube_width=0.15):
         fig.add_trace(
             go.Scatter(
                 x=[x_pos],
-                y=[(row["tube_top_position"] + row["screen_top"]) / 2],
+                y=[
+                    (row[ColumnNames.TUBE_TOP_POSITION] + row[ColumnNames.SCREEN_TOP])
+                    / 2
+                ],
                 # line=dict(color="black", width=2),
                 mode="markers",
                 marker={"size": 15, "opacity": 0, "color": "black"},  # invisible
@@ -496,11 +500,11 @@ def plot_well_cross_section(df, tube_width=0.15):
             x_pos - half_width,
         ]
         y_screen = [
-            row["screen_top"],
-            row["screen_top"],
-            row["screen_bot"],
-            row["screen_bot"],
-            row["screen_top"],
+            row[ColumnNames.SCREEN_TOP],
+            row[ColumnNames.SCREEN_TOP],
+            row[ColumnNames.SCREEN_BOT],
+            row[ColumnNames.SCREEN_BOT],
+            row[ColumnNames.SCREEN_TOP],
         ]
 
         fig.add_trace(
@@ -524,7 +528,7 @@ def plot_well_cross_section(df, tube_width=0.15):
         # Add tube label at the top
         fig.add_annotation(
             x=x_pos,
-            y=row["tube_top_position"],
+            y=row[ColumnNames.TUBE_TOP_POSITION],
             text=tube_name.split("-")[-1],  # Show only the tube number
             showarrow=True,
             arrowhead=2,
@@ -618,10 +622,12 @@ def render_well_selection(data, selected_data):
     if selected_data is not None and len(selected_data) == 1:
         names = data.db.get_tube_numbers(selected_data[0])
         tubes_df = data.db.query_gdf(
-            display_name=names, operator="in", columns=["id", "display_name"]
+            display_name=names,
+            operator="in",
+            columns=[ColumnNames.ID, ColumnNames.DISPLAY_NAME],
         )
         options = [
-            {"label": row["display_name"], "value": row["id"]}
+            {"label": row[ColumnNames.DISPLAY_NAME], "value": row[ColumnNames.ID]}
             for _, row in tubes_df.iterrows()
         ]
     else:
@@ -634,13 +640,16 @@ def render_well_selection(data, selected_data):
                     dbc.Col(
                         [
                             html.Label(
-                                i18n.t("general.select_well_1"),
-                                style={"font-weight": "bold", "margin-bottom": "5px"},
+                                t_("general.select_well_1"),
+                                style={
+                                    "font-weight": "bold",
+                                    "margin-bottom": UI.MARGIN_BOTTOM_COMPACT,
+                                },
                             ),
                             dcc.Dropdown(
                                 id=ids.CORRECTIONS_WELL1_DROPDOWN,
                                 options=options,
-                                placeholder=i18n.t("general.select_well_1"),
+                                placeholder=t_("general.select_well_1"),
                                 clearable=True,
                                 searchable=True,
                             ),
@@ -650,13 +659,16 @@ def render_well_selection(data, selected_data):
                     dbc.Col(
                         [
                             html.Label(
-                                i18n.t("general.select_well_2"),
-                                style={"font-weight": "bold", "margin-bottom": "5px"},
+                                t_("general.select_well_2"),
+                                style={
+                                    "font-weight": "bold",
+                                    "margin-bottom": UI.MARGIN_BOTTOM_COMPACT,
+                                },
                             ),
                             dcc.Dropdown(
                                 id=ids.CORRECTIONS_WELL2_DROPDOWN,
                                 options=options,
-                                placeholder=i18n.t("general.select_well_2"),
+                                placeholder=t_("general.select_well_2"),
                                 clearable=True,
                                 searchable=True,
                             ),
@@ -667,10 +679,10 @@ def render_well_selection(data, selected_data):
                         [
                             html.Label(
                                 "\u00a0",  # Non-breaking space for alignment
-                                style={"margin-bottom": "5px"},
+                                style={"margin-bottom": UI.MARGIN_BOTTOM_COMPACT},
                             ),
                             dbc.Button(
-                                i18n.t("general.clear_selection_button"),
+                                t_("general.clear_selection_button"),
                                 id=ids.CORRECTIONS_CLEAR_SELECTION_BUTTON,
                                 color="secondary",
                                 size="sm",
@@ -680,7 +692,7 @@ def render_well_selection(data, selected_data):
                         width=1,
                     ),
                 ],
-                style={"margin-bottom": "20px"},
+                style={"margin-bottom": UI.MARGIN_BOTTOM_LARGE},
             ),
         ]
     )
@@ -723,21 +735,21 @@ def render_observations_table(_data, _selected_data):
                                         id=ids.CORRECTIONS_OBSERVATIONS_TABLE_1,
                                         columns=[
                                             {
-                                                "id": "datetime",
+                                                "id": ColumnNames.DATETIME,
                                                 "name": "Date/Time",
                                                 "type": "datetime",
                                                 "editable": False,
                                             },
                                             {
-                                                "id": "field_value",
+                                                "id": ColumnNames.FIELD_VALUE,
                                                 "name": "Field value",
                                                 "type": "numeric",
                                                 "editable": False,
                                                 "format": {"specifier": ".3f"},
                                             },
                                             {
-                                                "id": "calculated_value",
-                                                "name": i18n.t(
+                                                "id": ColumnNames.CALCULATED_VALUE,
+                                                "name": t_(
                                                     "general.calculated_value_original"
                                                 ),
                                                 "type": "numeric",
@@ -745,14 +757,14 @@ def render_observations_table(_data, _selected_data):
                                                 "format": {"specifier": ".3f"},
                                             },
                                             {
-                                                "id": "corrected_value",
+                                                "id": ColumnNames.CORRECTED_VALUE,
                                                 "name": "Corrected value",
                                                 "type": "numeric",
                                                 "editable": True,
                                                 "format": {"specifier": ".3f"},
                                             },
                                             {
-                                                "id": "comment",
+                                                "id": ColumnNames.COMMENT,
                                                 "name": "Comment",
                                                 "type": "text",
                                                 "editable": True,
@@ -765,7 +777,7 @@ def render_observations_table(_data, _selected_data):
                                         style_table={
                                             "height": "27.5vh",
                                             "overflowY": "auto",
-                                            "margin-top": 5,
+                                            "margin-top": UI.MARGIN_TOP_COMPACT,
                                         },
                                         style_cell={
                                             "textAlign": "left",
@@ -779,11 +791,17 @@ def render_observations_table(_data, _selected_data):
                                                 "width": "20%",
                                             },
                                             {
-                                                "if": {"column_id": "field_value"},
+                                                "if": {
+                                                    "column_id": ColumnNames.FIELD_VALUE
+                                                },
                                                 "width": "20%",
                                             },
                                             {
-                                                "if": {"column_id": "calculated_value"},
+                                                "if": {
+                                                    "column_id": (
+                                                        ColumnNames.CALCULATED_VALUE
+                                                    )
+                                                },
                                                 "width": "20%",
                                             },
                                             {
@@ -810,23 +828,23 @@ def render_observations_table(_data, _selected_data):
                                             "fontSize": 11,
                                         },
                                         tooltip_header={
-                                            "calculated_value": {
+                                            ColumnNames.CALCULATED_VALUE: {
                                                 "type": "markdown",
-                                                "value": i18n.t(
+                                                "value": t_(
                                                     "general.calculated_value_original_tooltip"
                                                 ),
                                             },
                                             "corrected_value": {
                                                 # "use_with": "both",
                                                 "type": "markdown",
-                                                "value": i18n.t(
+                                                "value": t_(
                                                     "general.corrected_value_tooltip"
                                                 ),
                                             },
                                             "comment": {
                                                 # "use_with": "both",
                                                 "type": "markdown",
-                                                "value": i18n.t(
+                                                "value": t_(
                                                     "general.correction_reason_tooltip"
                                                 ),
                                             },
@@ -850,21 +868,21 @@ def render_observations_table(_data, _selected_data):
                                         id=ids.CORRECTIONS_OBSERVATIONS_TABLE_2,
                                         columns=[
                                             {
-                                                "id": "datetime",
+                                                "id": ColumnNames.DATETIME,
                                                 "name": "Date/Time",
                                                 "type": "datetime",
                                                 "editable": False,
                                             },
                                             {
-                                                "id": "field_value",
+                                                "id": ColumnNames.FIELD_VALUE,
                                                 "name": "Field value",
                                                 "type": "numeric",
                                                 "editable": False,
                                                 "format": {"specifier": ".3f"},
                                             },
                                             {
-                                                "id": "calculated_value",
-                                                "name": i18n.t(
+                                                "id": ColumnNames.CALCULATED_VALUE,
+                                                "name": t_(
                                                     "general.calculated_value_original"
                                                 ),
                                                 "type": "numeric",
@@ -872,14 +890,14 @@ def render_observations_table(_data, _selected_data):
                                                 "format": {"specifier": ".3f"},
                                             },
                                             {
-                                                "id": "corrected_value",
+                                                "id": ColumnNames.CORRECTED_VALUE,
                                                 "name": "Corrected value",
                                                 "type": "numeric",
                                                 "editable": True,
                                                 "format": {"specifier": ".3f"},
                                             },
                                             {
-                                                "id": "comment",
+                                                "id": ColumnNames.COMMENT,
                                                 "name": "Comment",
                                                 "type": "text",
                                                 "editable": True,
@@ -892,7 +910,7 @@ def render_observations_table(_data, _selected_data):
                                         style_table={
                                             "height": "27.5vh",
                                             "overflowY": "auto",
-                                            "margin-top": 5,
+                                            "margin-top": UI.MARGIN_TOP_COMPACT,
                                         },
                                         style_cell={
                                             "textAlign": "left",
@@ -906,19 +924,27 @@ def render_observations_table(_data, _selected_data):
                                                 "width": "20%",
                                             },
                                             {
-                                                "if": {"column_id": "field_value"},
+                                                "if": {
+                                                    "column_id": ColumnNames.FIELD_VALUE
+                                                },
                                                 "width": "20%",
                                             },
                                             {
-                                                "if": {"column_id": "calculated_value"},
+                                                "if": {
+                                                    "column_id": ColumnNames.CALCULATED_VALUE  # noqa
+                                                },
                                                 "width": "20%",
                                             },
                                             {
-                                                "if": {"column_id": "corrected_value"},
+                                                "if": {
+                                                    "column_id": ColumnNames.CORRECTED_VALUE  # noqa
+                                                },
                                                 "width": "20%",
                                             },
                                             {
-                                                "if": {"column_id": "comment"},
+                                                "if": {
+                                                    "column_id": ColumnNames.COMMENT
+                                                },
                                                 "width": "20%",
                                             },
                                         ],
@@ -937,23 +963,23 @@ def render_observations_table(_data, _selected_data):
                                             "fontSize": 11,
                                         },
                                         tooltip_header={
-                                            "calculated_value": {
+                                            ColumnNames.CALCULATED_VALUE: {
                                                 "type": "markdown",
-                                                "value": i18n.t(
+                                                "value": t_(
                                                     "general.calculated_value_original_tooltip"
                                                 ),
                                             },
                                             "corrected_value": {
                                                 # "use_with": "both",
                                                 "type": "markdown",
-                                                "value": i18n.t(
+                                                "value": t_(
                                                     "general.corrected_value_tooltip"
                                                 ),
                                             },
                                             "comment": {
                                                 # "use_with": "both",
                                                 "type": "markdown",
-                                                "value": i18n.t(
+                                                "value": t_(
                                                     "general.correction_reason_tooltip"
                                                 ),
                                             },
@@ -969,7 +995,7 @@ def render_observations_table(_data, _selected_data):
                 style={
                     "position": "relative",
                     "justify-content": "center",
-                    "margin-bottom": 20,
+                    "margin-bottom": UI.MARGIN_BOTTOM_LARGE,
                 },
             ),
         ]
@@ -991,14 +1017,14 @@ def render_correction_controls():
                     dbc.Col(
                         [
                             dbc.Button(
-                                i18n.t("general.commit_corrections"),
+                                t_("general.commit_corrections"),
                                 id=ids.CORRECTIONS_COMMIT_BUTTON,
                                 color="primary",
                                 disabled=True,
                                 style={"margin-right": "10px"},
                             ),
                             dbc.Button(
-                                i18n.t("general.reset_changes"),
+                                t_("general.reset_changes"),
                                 id=ids.CORRECTIONS_RESET_BUTTON,
                                 color="primary",
                                 disabled=True,
@@ -1011,7 +1037,7 @@ def render_correction_controls():
                             html.Div(
                                 [
                                     dbc.Label(
-                                        i18n.t("general.bkb_label"),
+                                        t_("general.bkb_label"),
                                         html_for=ids.CORRECTIONS_BKB_INPUT,
                                         style={
                                             "font-weight": "bold",
@@ -1021,7 +1047,7 @@ def render_correction_controls():
                                     dbc.Input(
                                         id=ids.CORRECTIONS_BKB_INPUT,
                                         type="number",
-                                        placeholder=i18n.t("general.example") + " 1.50",
+                                        placeholder=t_("general.example") + " 1.50",
                                         step=0.01,
                                         style={
                                             "width": "120px",
@@ -1029,7 +1055,7 @@ def render_correction_controls():
                                         },
                                     ),
                                     dbc.Tooltip(
-                                        i18n.t("general.bkb_tooltip"),
+                                        t_("general.bkb_tooltip"),
                                         target=ids.CORRECTIONS_BKB_INPUT,
                                         placement="top",
                                     ),
@@ -1042,7 +1068,7 @@ def render_correction_controls():
                             html.Div(
                                 [
                                     dbc.Label(
-                                        i18n.t("general.observation_cm_label"),
+                                        t_("general.observation_cm_label"),
                                         html_for=ids.CORRECTIONS_OBSERVATION_CM_INPUT,
                                         style={
                                             "font-weight": "bold",
@@ -1052,7 +1078,7 @@ def render_correction_controls():
                                     dbc.Input(
                                         id=ids.CORRECTIONS_OBSERVATION_CM_INPUT,
                                         type="number",
-                                        placeholder=i18n.t("general.example") + " 135",
+                                        placeholder=t_("general.example") + " 135",
                                         step=1.0,
                                         style={
                                             "width": "120px",
@@ -1060,7 +1086,7 @@ def render_correction_controls():
                                         },
                                     ),
                                     dbc.Tooltip(
-                                        i18n.t("general.observation_cm_tooltip"),
+                                        t_("general.observation_cm_tooltip"),
                                         target=ids.CORRECTIONS_OBSERVATION_CM_INPUT,
                                         placement="top",
                                     ),
@@ -1073,7 +1099,7 @@ def render_correction_controls():
                             html.Div(
                                 [
                                     dbc.Label(
-                                        i18n.t("general.observation_mnap_label"),
+                                        t_("general.observation_mnap_label"),
                                         html_for=ids.CORRECTIONS_OBSERVATION_MNAP_INPUT,
                                         style={
                                             "font-weight": "bold",
@@ -1083,7 +1109,7 @@ def render_correction_controls():
                                     dbc.Input(
                                         id=ids.CORRECTIONS_OBSERVATION_MNAP_INPUT,
                                         type="number",
-                                        placeholder=i18n.t("general.example") + " 0.15",
+                                        placeholder=t_("general.example") + " 0.15",
                                         step=0.01,
                                         style={
                                             "width": "120px",
@@ -1091,7 +1117,7 @@ def render_correction_controls():
                                         },
                                     ),
                                     dbc.Tooltip(
-                                        i18n.t("general.observation_mnap_tooltip"),
+                                        t_("general.observation_mnap_tooltip"),
                                         target=ids.CORRECTIONS_OBSERVATION_MNAP_INPUT,
                                         placement="top",
                                     ),
@@ -1103,7 +1129,7 @@ def render_correction_controls():
                         style={"text-align": "right"},
                     ),
                 ],
-                style={"margin-top": "10px"},
+                style={"margin-top": UI.MARGIN_TOP},
             ),
         ]
     )

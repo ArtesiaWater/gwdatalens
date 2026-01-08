@@ -1,14 +1,22 @@
-from typing import List
+from typing import List, Optional
 
 import dash_bootstrap_components as dbc
-import i18n
 from dash import dcc, html
 
-from ..data.interface import DataInterface
-from . import ids, qc_chart, qc_dropdowns, qc_rules_form, qc_traval_buttons
+from gwdatalens.app.constants import UI
+from gwdatalens.app.messages import t_
+from gwdatalens.app.src.components import (
+    ids,
+    qc_chart,
+    qc_dropdowns,
+    qc_rules_form,
+    qc_traval_buttons,
+)
+from gwdatalens.app.src.data.data_manager import DataManager
+from gwdatalens.app.src.services import WellService
 
 
-def render():
+def render() -> dcc.Tab:
     """Renders a Dash Tab component for the QC tab.
 
     Returns
@@ -17,14 +25,16 @@ def render():
         Qc tab for running error detection on time series.
     """
     return dcc.Tab(
-        label=i18n.t("general.tab_qc"),
+        label=t_("general.tab_qc"),
         value=ids.TAB_QC,
         className="custom-tab",
         selected_className="custom-tab--selected",
     )
 
 
-def render_datepicker_tmin(data, selected_data):
+def render_datepicker_tmin(
+    data: DataManager, selected_data: Optional[List[int]]
+) -> dcc.DatePickerSingle:
     """Renders a DatePickerSingle component for selecting the minimum date (tmin).
 
     Parameters
@@ -52,7 +62,7 @@ def render_datepicker_tmin(data, selected_data):
 
     return dcc.DatePickerSingle(
         date=start_date,
-        placeholder=i18n.t("general.tmin"),
+        placeholder=t_("general.tmin"),
         display_format="YYYY-MM-DD",
         show_outside_days=True,
         number_of_months_shown=1,
@@ -63,7 +73,9 @@ def render_datepicker_tmin(data, selected_data):
     )
 
 
-def render_datepicker_tmax(data, selected_data):
+def render_datepicker_tmax(
+    data: DataManager, selected_data: Optional[List[int]]
+) -> dcc.DatePickerSingle:
     """Renders a DatePickerSingle component for selecting the maximum date (tmax).
 
     Parameters
@@ -91,7 +103,7 @@ def render_datepicker_tmax(data, selected_data):
 
     return dcc.DatePickerSingle(
         date=end_date,
-        placeholder=i18n.t("general.tmax"),
+        placeholder=t_("general.tmax"),
         display_format="YYYY-MM-DD",
         show_outside_days=True,
         number_of_months_shown=1,
@@ -102,7 +114,7 @@ def render_datepicker_tmax(data, selected_data):
     )
 
 
-def render_checkbox():
+def render_checkbox() -> dbc.Checkbox:
     """Renders a checkbox component for running error detection on a subset of obs.
 
     Returns
@@ -113,12 +125,12 @@ def render_checkbox():
     """
     return dbc.Checkbox(
         id=ids.QC_RUN_ONLY_UNVALIDATED_CHECKBOX,
-        label=i18n.t("general.run_only_on_unvalidated"),
+        label=t_("general.run_only_on_unvalidated"),
         value=True,
     )
 
 
-def render_content(data: DataInterface, selected_data: List):
+def render_content(data: DataManager, selected_data: List[int]) -> dbc.Container:
     """Renders the content for the QC tab.
 
     Parameters
@@ -133,6 +145,7 @@ def render_content(data: DataInterface, selected_data: List):
     dbc.Container
         A Dash Bootstrap Components container with the rendered content.
     """
+    well_service = WellService(data.db)
     return dbc.Container(
         [
             dbc.Row(
@@ -166,12 +179,12 @@ def render_content(data: DataInterface, selected_data: List):
                         dbc.Button(
                             [
                                 html.I(className="fa-solid fa-chevron-right"),
-                                " " + i18n.t("general.show_parameters"),
+                                " " + t_("general.show_parameters"),
                             ],
                             style={
-                                "backgroundcolor": "#006f92",
-                                "margin-top": 10,
-                                "margin-bottom": 10,
+                                "backgroundcolor": UI.DEFAULT_BUTTON_COLOR,
+                                "margin-top": UI.MARGIN_TOP,
+                                "margin-bottom": UI.MARGIN_BOTTOM,
                             },
                             id=ids.QC_COLLAPSE_BUTTON,
                             n_clicks=0,
@@ -191,13 +204,16 @@ def render_content(data: DataInterface, selected_data: List):
                         [render_datepicker_tmax(data, selected_data)], width="auto"
                     ),
                     dbc.Col([render_checkbox()], width="auto"),
-                ]
+                ],
+                className="align-items-center",
             ),
             dbc.Collapse(
                 dbc.Row(
                     id=ids.TRAVAL_FORM_ROW,
                     children=[
-                        qc_rules_form.render_traval_form(data),
+                        qc_rules_form.render_traval_form(
+                            data, well_service=well_service
+                        ),
                         dbc.Row(
                             [
                                 dbc.Col(
