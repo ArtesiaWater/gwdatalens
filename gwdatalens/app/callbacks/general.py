@@ -15,6 +15,7 @@ from gwdatalens.app.src.components import (
     tab_qc,
     tab_qc_result,
 )
+from gwdatalens.app.src.utils import log_callback
 from gwdatalens.app.src.utils.callback_helpers import (
     AlertBuilder,
     get_callback_context,
@@ -30,6 +31,12 @@ def register_general_callbacks(app, data):
         Input(ids.HELP_BUTTON_OPEN, "n_clicks"),
         Input(ids.HELP_BUTTON_CLOSE, "n_clicks"),
         State(ids.HELP_MODAL, "is_open"),
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def toggle_modal(n1: int | None, n2: int | None, is_open: bool) -> bool:
         """Toggle help modal window.
@@ -58,6 +65,12 @@ def register_general_callbacks(app, data):
         Input(ids.TAB_CONTAINER, "value"),
         State(ids.SELECTED_OSERIES_STORE, "data"),
         State(ids.TRAVAL_RESULT_FIGURE_STORE, "data"),
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def render_tab_content(
         tab: str, selected_data: list[int] | None, figure: tuple | None
@@ -90,7 +103,7 @@ def register_general_callbacks(app, data):
                 return tab_model.render_content(data, selected_data), alert
             # For overview tab, clear selection to avoid performance issues
             elif tab == ids.TAB_OVERVIEW:
-                alert = AlertBuilder.info(
+                alert = AlertBuilder.warning(
                     f"Selection limited to {ConfigDefaults.MAX_WELLS_SELECTION} "
                     "wells for performance"
                 )
@@ -128,6 +141,12 @@ def register_general_callbacks(app, data):
         Input(ids.ALERT_TAB_RENDER, "data"),
         Input(ids.ALERT_STATUS_CORRECTIONS, "data"),
         prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def show_alert(*args: tuple, **kwargs: Any) -> list[dbc.Alert]:
         """Display alert message from any alert input.

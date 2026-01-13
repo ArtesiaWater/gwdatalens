@@ -8,10 +8,11 @@ from dash import ALL, Input, Output, Patch, State, dcc, no_update
 from dash.exceptions import PreventUpdate
 
 from gwdatalens.app.config import config
-from gwdatalens.app.constants import ColumnNames, PlotConstants, QCFlags
+from gwdatalens.app.constants import ColumnNames, ConfigDefaults, PlotConstants, QCFlags
 from gwdatalens.app.messages import ErrorMessages, SuccessMessages, t_
 from gwdatalens.app.src.components import ids
 from gwdatalens.app.src.services import TimeSeriesService, WellService
+from gwdatalens.app.src.utils import log_callback
 from gwdatalens.app.src.utils.callback_helpers import (
     AlertBuilder,
     CallbackResponse,
@@ -67,6 +68,12 @@ def register_result_callbacks(app, data):
         State(ids.QC_RESULT_CHART, "selectedData"),
         prevent_initial_call=True,
     )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
     def apply_qc_label(
         value: str | None, table_view: list[dict], selected_points: dict | None
     ) -> tuple[list[dict] | Any, tuple, None]:
@@ -121,6 +128,12 @@ def register_result_callbacks(app, data):
         State(ids.SELECTED_OSERIES_STORE, "data"),
         prevent_initial_call=True,
     )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
     def download_export_csv(n_clicks, wid):
         if wid is None:
             logger.debug("QC export CSV: wid is None, preventing update")
@@ -138,6 +151,12 @@ def register_result_callbacks(app, data):
         State(ids.SELECTED_OSERIES_STORE, "data"),
         State(ids.QC_RESULT_EXPORT_QC_STATUS_FLAG, "value"),
         prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def export_to_db(n_clicks, wid, non_flagged_reliable):
         """Export QC results to database.
@@ -221,6 +240,12 @@ def register_result_callbacks(app, data):
         State(ids.QC_RESULT_TABLE, "filter_query"),
         prevent_initial_call=True,
     )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
     def show_all_observations(value, query):
         if value and (query != ""):
             return ""
@@ -258,6 +283,12 @@ def register_result_callbacks(app, data):
         Input(ids.QC_RESULT_TABLE_SELECT_ALL, "n_clicks"),
         State(ids.QC_RESULT_TABLE, "derived_virtual_data"),
         prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def synchronize_selected_observations(
         table_selection,
@@ -497,6 +528,12 @@ def register_result_callbacks(app, data):
         State(ids.QC_RESULT_CHART, "selectedData"),
         prevent_initial_call=True,
     )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
     def mark_obs(n, table_view, selected_points, **kwargs):
         """Mark observations with QC status.
 
@@ -568,6 +605,12 @@ def register_result_callbacks(app, data):
         Output(ids.QC_RESULT_TABLE, "style_data_conditional"),
         Input(ids.QC_RESULT_TABLE, "data"),
     )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
     def style_qc_status_cells(table_data):
         """Apply conditional styling to QC status cells based on their values.
 
@@ -613,6 +656,12 @@ def register_result_callbacks(app, data):
         Input(ids.QC_RESULT_TABLE_STORE_2, "data"),
         Input(ids.QC_RESULT_TABLE_STORE_3, "data"),
         prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def update_results_table_data(*tables, **kwargs):
         """Update results table data from triggered store.

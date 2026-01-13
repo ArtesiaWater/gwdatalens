@@ -12,13 +12,13 @@ from dash import (
     Input,
     Output,
     State,
-    ctx,
     dcc,
     html,
     no_update,
 )
 from dash.exceptions import PreventUpdate
 
+from gwdatalens.app.constants import ConfigDefaults
 from gwdatalens.app.exceptions import (
     EmptyResultError,
 )
@@ -30,11 +30,13 @@ from gwdatalens.app.src.components.qc_rules_form import (
     generate_traval_rule_components,
 )
 from gwdatalens.app.src.services import QCService, TimeSeriesService, WellService
+from gwdatalens.app.src.utils import log_callback
 from gwdatalens.app.src.utils.callback_helpers import (
     AlertBuilder,
     CallbackResponse,
     EmptyFigure,
     extract_trigger_id,
+    get_callback_context,
 )
 from gwdatalens.app.validators import validate_not_empty
 
@@ -63,12 +65,19 @@ def register_qc_callbacks(app, data):
         Input({"type": "rule_input", "index": MATCH}, "disabled"),
         prevent_initial_call=True,
     )
-    def update_ruleset_values(val: Any, disabled: bool) -> list[str]:
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def update_ruleset_values(val: Any, disabled: bool, **kwargs) -> list[str]:
         """Update the values of a ruleset."""
         if disabled:
             return no_update
 
-        triggered_id = extract_trigger_id(ctx)
+        ctx_obj = get_callback_context(**kwargs)
+        triggered_id = extract_trigger_id(ctx_obj, parse_json=True)
         _, rule_name, param = triggered_id["index"].split("-")
         qc_service.update_rule_parameter(rule_name, param, val)
         return [str(val)]
@@ -79,6 +88,12 @@ def register_qc_callbacks(app, data):
         Input(ids.QC_DROPDOWN_ADDITIONAL, "value"),
         # State(ids.QC_DROPDOWN_ADDITIONAL, "disabled"),  # NOTE: not sure what for?
         State(ids.TRAVAL_RESULT_FIGURE_STORE, "data"),
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def plot_qc_time_series(
         value: int | None,
@@ -123,6 +138,12 @@ def register_qc_callbacks(app, data):
         Input(ids.QC_DROPDOWN_SELECTION, "value"),
         prevent_initial_call=True,
     )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
     def enable_additional_dropdown(wid: int | None) -> tuple[bool, list[dict] | Any]:
         """Enable or disable an additional time series dropdown based.
 
@@ -152,6 +173,12 @@ def register_qc_callbacks(app, data):
         Output(ids.QC_DATEPICKER_TMAX, "date"),
         Input(ids.QC_DROPDOWN_SELECTION, "value"),
         prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def enable_datepickers(wid: int | None) -> tuple[bool, Any, bool, Any]:
         """Enable datepickers and set dates when a well is selected.
@@ -191,14 +218,24 @@ def register_qc_callbacks(app, data):
         State(ids.TRAVAL_RULES_FORM, "children"),
         prevent_initial_call=True,
     )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
     def delete_rule(
-        n_clicks: list[int | None], _clickstate: list[int | None], rules: list[dict]
+        n_clicks: list[int | None],
+        _clickstate: list[int | None],
+        rules: list[dict],
+        **kwargs,
     ) -> tuple[list[dict], bool]:
         """Delete a rule from the ruleset when its clear button is clicked."""
         if all(v is None for v in n_clicks):
             raise PreventUpdate
 
-        triggered_id = extract_trigger_id(ctx)
+        ctx_obj = get_callback_context(**kwargs)
+        triggered_id = extract_trigger_id(ctx_obj, parse_json=True)
         keep = [
             rule
             for rule in rules
@@ -214,6 +251,12 @@ def register_qc_callbacks(app, data):
         State(ids.TRAVAL_ADD_RULE_DROPDOWN, "value"),
         State(ids.TRAVAL_RULES_FORM, "children"),
         prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def add_rule(
         n_clicks: int | None, rule_to_add: str, current_rules: list[dict]
@@ -250,6 +293,12 @@ def register_qc_callbacks(app, data):
         Output(ids.ALERT_DISPLAY_RULES_FOR_SERIES, "data"),
         Input(ids.QC_DROPDOWN_SELECTION, "value"),
         prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def display_rules_for_series(
         wid: int | None,
@@ -298,9 +347,12 @@ def register_qc_callbacks(app, data):
         for i in range(1, nrules + 1):
             irule = qc_service.get_rule_from_ruleset(istep=i)
             irule_orig = qc_service.traval.ruleset.get_rule(istep=i)
-            for (k, v), (_, vorig) in zip(
-                irule["kwargs"].items(), irule_orig["kwargs"].items(), strict=False
-            ):
+            orig_kwargs = irule_orig.get("kwargs", {}) or {}
+            for k, v in irule["kwargs"].items():
+                # savedir is not rendered as an input; skip to keep output lengths aligned
+                if irule["name"] == "pastas" and k == "savedir":
+                    continue
+                vorig = orig_kwargs.get(k)
                 derived_value = v
                 if callable(vorig) and name is not None:
                     try:
@@ -355,6 +407,12 @@ def register_qc_callbacks(app, data):
         State(ids.QC_DROPDOWN_SELECTION, "value"),
         prevent_initial_call=True,
     )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
     def reset_ruleset_to_current_default(
         n_clicks: int | None, name: str | None
     ) -> list[dict]:
@@ -398,6 +456,12 @@ def register_qc_callbacks(app, data):
         Output(ids.TRAVAL_ADD_RULE_BUTTON, "disabled"),
         Input(ids.TRAVAL_ADD_RULE_DROPDOWN, "value"),
     )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
     def activate_add_rule_button(value: Any) -> bool:
         """Set the state of the "Add Rule" button.
 
@@ -420,6 +484,12 @@ def register_qc_callbacks(app, data):
         Output(ids.ALERT_LOAD_RULESET, "data"),
         Input(ids.TRAVAL_LOAD_RULESET_BUTTON, "contents"),
         prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def load_ruleset(contents: str | None) -> tuple[list[dict] | Any, tuple]:
         """Get input timeseries data.
@@ -473,6 +543,12 @@ def register_qc_callbacks(app, data):
         State(ids.SELECTED_OSERIES_STORE, "data"),
         prevent_initial_call=True,
     )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
     def export_ruleset(n_clicks: int | None, wid: list[int] | None) -> Any:
         """Export the current ruleset to a pickle file.
 
@@ -515,6 +591,12 @@ def register_qc_callbacks(app, data):
         State(ids.SELECTED_OSERIES_STORE, "data"),
         prevent_initial_call=True,
     )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
     def export_parameters_csv(n_clicks: int | None, wid: list[int] | None) -> Any:
         """Export travel parameters to a CSV file.
 
@@ -547,6 +629,12 @@ def register_qc_callbacks(app, data):
         Output(ids.QC_COLLAPSE_BUTTON, "children"),
         Input(ids.QC_COLLAPSE_BUTTON, "n_clicks"),
         State(ids.QC_COLLAPSE_CONTENT, "is_open"),
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def toggle_collapse(n: int | None, is_open: bool) -> tuple[bool, str]:
         """Toggles the collapse state of the parameters form.
@@ -618,6 +706,12 @@ def register_qc_callbacks(app, data):
         # ],
         # cancel=[Input(ids.QC_CANCEL_BUTTON, "n_clicks")],
         prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def run_traval(
         n_clicks: int | None,
@@ -721,6 +815,12 @@ def register_qc_callbacks(app, data):
         Input(ids.TRAVAL_RESULT_TABLE_STORE, "data"),
         prevent_initial_call=True,
     )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
     def update_traval_figure(figure, table):
         """Update the traval figure and stored traval result table.
 
@@ -753,7 +853,13 @@ def register_qc_callbacks(app, data):
         Input(ids.QC_DROPDOWN_ADDITIONAL_DISABLED_2, "data"),
         prevent_initial_call=True,
     )
-    def toggle_qc_dropdown_additional(*disabled):
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def toggle_qc_dropdown_additional(*disabled, **kwargs):
         """Toggles the active state of the QC dropdown.
 
         Parameters
@@ -774,8 +880,9 @@ def register_qc_callbacks(app, data):
         PreventUpdate
             If no inputs are disabled.
         """
-        triggered_id = ctx.triggered_id
-        inputs_list = ctx.inputs_list
+        ctx_obj = get_callback_context(**kwargs)
+        triggered_id = ctx_obj.triggered_id
+        inputs_list = ctx_obj.inputs_list
 
         if any(disabled):
             idx = _get_trigger_index(triggered_id, inputs_list)
@@ -791,7 +898,13 @@ def register_qc_callbacks(app, data):
         Input(ids.TRAVAL_RULES_FORM_STORE_4, "data"),
         prevent_initial_call=True,
     )
-    def update_traval_rules_form(*forms):
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def update_traval_rules_form(*forms, **kwargs):
         """Updates the travel rules form.
 
         Parameters
@@ -806,8 +919,9 @@ def register_qc_callbacks(app, data):
         form
             The updated form object if found, otherwise `no_update`.
         """
-        triggered_id = ctx.triggered_id
-        inputs_list = ctx.inputs_list
+        ctx_obj = get_callback_context(**kwargs)
+        triggered_id = ctx_obj.triggered_id
+        inputs_list = ctx_obj.inputs_list
 
         idx = _get_trigger_index(triggered_id, inputs_list)
         return forms[idx] if forms[idx] is not None else no_update
@@ -819,7 +933,13 @@ def register_qc_callbacks(app, data):
         Input(ids.TRAVAL_RESET_RULESET_BUTTON_STORE_3, "data"),
         prevent_initial_call=True,
     )
-    def toggle_reset_ruleset_button(*bools):
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def toggle_reset_ruleset_button(*bools, **kwargs):
         """Toggles the reset ruleset button.
 
         Parameters
@@ -839,8 +959,9 @@ def register_qc_callbacks(app, data):
         PreventUpdate
             If none of the boolean values are not None.
         """
-        triggered_id = ctx.triggered_id
-        inputs_list = ctx.inputs_list
+        ctx_obj = get_callback_context(**kwargs)
+        triggered_id = ctx_obj.triggered_id
+        inputs_list = ctx_obj.inputs_list
 
         if any(boolean is not None for boolean in bools):
             idx = _get_trigger_index(triggered_id, inputs_list)
@@ -877,7 +998,13 @@ def register_qc_callbacks(app, data):
         Input(ids.QC_CHART_STORE_2, "data"),
         prevent_initial_call=True,
     )
-    def display_qc_chart(*figures):
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def display_qc_chart(*figures, **kwargs):
         """Display a QC chart.
 
         Parameters
@@ -899,8 +1026,9 @@ def register_qc_callbacks(app, data):
         PreventUpdate
             If no figures are provided.
         """
-        triggered_id = ctx.triggered_id
-        inputs_list = ctx.inputs_list
+        ctx_obj = get_callback_context(**kwargs)
+        triggered_id = ctx_obj.triggered_id
+        inputs_list = ctx_obj.inputs_list
 
         if any(figures):
             idx = _get_trigger_index(triggered_id, inputs_list)

@@ -2,7 +2,8 @@ import logging
 
 import numpy as np
 import pandas as pd
-from dash import Dash, Input, Output, State, callback_context, no_update
+from dash import Dash, Input, Output, State, no_update
+from dash.exceptions import PreventUpdate
 
 from gwdatalens.app.constants import ColumnNames, ConfigDefaults, UnitConversion
 from gwdatalens.app.exceptions import (
@@ -18,12 +19,14 @@ from gwdatalens.app.src.components.overview_chart import plot_obs
 from gwdatalens.app.src.components.tab_corrections import plot_well_cross_section
 from gwdatalens.app.src.data.data_manager import DataManager
 from gwdatalens.app.src.services import TimeSeriesService, WellService
+from gwdatalens.app.src.utils import log_callback
 from gwdatalens.app.src.utils.callback_helpers import (
     AlertBuilder,
     CallbackResponse,
     EmptyFigure,
     dataframe_to_records,
     extract_trigger_id,
+    get_callback_context,
 )
 from gwdatalens.app.validators import validate_not_empty
 
@@ -38,8 +41,18 @@ def register_correction_callbacks(app: Dash, data: DataManager):
     @app.callback(
         Output(ids.CORRECTION_SERIES_CHART, "figure"),
         Input(ids.CORRECTIONS_DROPDOWN_SELECTOR, "value"),
+        State(ids.CORRECTIONS_DROPDOWN_SELECTOR, "value"),
+        prevent_initial_call=True,
     )
-    def plot_corrections_time_series(value: int | None) -> dict:
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def plot_corrections_time_series(
+        value: int | None, value_state: int | None
+    ) -> dict:
         """Plot time series for selected well.
 
         Parameters
@@ -53,8 +66,10 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         dict
             Plot figure or empty figure message
         """
-        if value is None:
+        if value is None and value_state is None:
             return EmptyFigure.no_selection()
+        if value is None and value_state is not None:
+            value = value_state
 
         try:
             names = well_service.get_tubes_for_location(value)
@@ -85,8 +100,18 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         Output(ids.WELL_CONFIGURATION_PLOT, "figure"),
         Output(ids.CORRECTIONS_TUBE_TABLE, "data"),
         Input(ids.CORRECTIONS_DROPDOWN_SELECTOR, "value"),
+        State(ids.CORRECTIONS_DROPDOWN_SELECTOR, "value"),
+        prevent_initial_call=True,
     )
-    def plot_well_configuration(value: int | None) -> tuple[dict, list[dict]]:
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def plot_well_configuration(
+        value: int | None, value_state: int | None
+    ) -> tuple[dict, list[dict]]:
         """Plot well configuration and tube metadata.
 
         Parameters
@@ -101,7 +126,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
             (figure, table_data) where figure shows cross-section plot
             and table_data shows tube metadata
         """
-        if value is None:
+        if value is None and value_state is None:
             return (
                 CallbackResponse()
                 .add_figure(
@@ -110,6 +135,8 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                 .add(no_update)
                 .build()
             )
+        if value is None and value_state is not None:
+            value = value_state
 
         try:
             df = well_service.get_well_configuration(value)
@@ -164,8 +191,15 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         Input(ids.CORRECTIONS_CLEAR_SELECTION_BUTTON, "n_clicks"),
         State(ids.CORRECTIONS_WELL1_DROPDOWN, "value"),
         State(ids.CORRECTIONS_WELL2_DROPDOWN, "value"),
+        prevent_initial_call=True,
     )
-    def update_well_dropdowns(wid, _clear_clicks, _well1_val, _well2_val):
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def update_well_dropdowns(wid, _clear_clicks, _well1_val, _well2_val, **kwargs):
         """Update well selection dropdowns when location selected or clear clicked.
 
         Parameters
@@ -184,10 +218,11 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         tuple
             Options for both dropdowns and values.
         """
-        if not callback_context.triggered:
-            return [], [], None, None
+        ctx_obj = get_callback_context(**kwargs)
+        if not ctx_obj.triggered:
+            raise PreventUpdate
 
-        trigger_id = extract_trigger_id(callback_context, parse_json=False)
+        trigger_id = extract_trigger_id(ctx_obj, parse_json=False)
 
         if trigger_id == ids.CORRECTIONS_CLEAR_SELECTION_BUTTON:
             if wid is None:
@@ -203,6 +238,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         return options, options, None, None
 
     # Callback 2: Fetch and merge observations when wells are selected
+
     @app.callback(
         Output(ids.CORRECTIONS_OBSERVATIONS_TABLE_1, "data"),
         Output(ids.CORRECTIONS_OBSERVATIONS_TABLE_2, "data"),
@@ -213,6 +249,13 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         Input(ids.CORRECTIONS_COMMIT_TRIGGER_STORE, "data"),
         State(ids.CORRECTIONS_WELL1_DROPDOWN, "value"),
         State(ids.CORRECTIONS_WELL2_DROPDOWN, "value"),
+        prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def load_observations(
         well1_id,
@@ -221,6 +264,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         commit_trigger,
         state_well1_id,
         state_well2_id,
+        **kwargs,
     ):
         """Load observations from selected well(s) into separate aligned tables.
 
@@ -249,10 +293,11 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         tuple
             (table1_data, table2_data, original_data_store)
         """
-        if not callback_context.triggered:
+        ctx_obj = get_callback_context(**kwargs)
+        if not ctx_obj.triggered:
             return [], [], None
 
-        trigger_id = extract_trigger_id(callback_context, parse_json=False)
+        trigger_id = extract_trigger_id(ctx_obj, parse_json=False)
 
         # Handle reset or commit triggers - reload fresh data from database
         if (trigger_id == ids.CORRECTIONS_RESET_TRIGGER_STORE and reset_trigger) or (
@@ -284,7 +329,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                         [
                             ColumnNames.FIELD_VALUE,
                             ColumnNames.CALCULATED_VALUE,
-                            ColumnNames.VALUE_TO_BE_CORRECTED,
+                            ColumnNames.INITIAL_CALCULATED_VALUE,
                             "correction_reason",
                             "measurement_tvp_id",
                         ],
@@ -335,6 +380,13 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         Input(ids.CORRECTIONS_WELL2_DROPDOWN, "value"),
         Input(ids.CORRECTIONS_OBSERVATIONS_TABLE_1, "data"),
         Input(ids.CORRECTIONS_OBSERVATIONS_TABLE_2, "data"),
+        prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def enable_correction_buttons(well1_id, well2_id, table1_data, table2_data):
         """Enable commit and reset buttons when wells selected and data is available.
@@ -374,6 +426,13 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         Input(ids.CORRECTIONS_OBSERVATIONS_TABLE_2, "data"),
         State(ids.CORRECTIONS_ORIGINAL_DATA_STORE, "data"),
         State(ids.CORRECTIONS_EDIT_HISTORY_STORE, "data"),
+        prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def track_edits(table1_data, table2_data, original_data, _edit_history):
         """Track edits in both observation tables and apply visual styling.
@@ -570,8 +629,14 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         State(ids.CORRECTIONS_ORIGINAL_DATA_STORE, "data"),
         prevent_initial_call=True,
     )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
     def commit_or_reset_corrections(
-        _commit_clicks, _reset_clicks, table1_data, table2_data, original_data
+        _commit_clicks, _reset_clicks, table1_data, table2_data, original_data, **kwargs
     ):
         """Commit or reset corrections based on which button was clicked.
 
@@ -596,13 +661,13 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         tuple
             (alert_data, commit_trigger, reset_trigger)
         """
-        from dash import callback_context
+        ctx_obj = get_callback_context(**kwargs)
 
-        if not callback_context.triggered:
+        if not ctx_obj.triggered:
             return no_update, no_update, no_update
 
         # Determine which button was clicked
-        trigger_id = callback_context.triggered[0]["prop_id"].split(".")[0]
+        trigger_id = ctx_obj.triggered_id
 
         if trigger_id == ids.CORRECTIONS_COMMIT_BUTTON:
             return _handle_commit_corrections(table1_data, table2_data, original_data)
@@ -823,15 +888,15 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                     # Only reset if value_to_be_corrected is not null
                     # (meaning it was corrected)
                     if row.get(
-                        ColumnNames.VALUE_TO_BE_CORRECTED
+                        ColumnNames.INITIAL_CALCULATED_VALUE
                     ) is not None and not pd.isna(
-                        row.get(ColumnNames.VALUE_TO_BE_CORRECTED)
+                        row.get(ColumnNames.INITIAL_CALCULATED_VALUE)
                     ):
                         corrections_to_reset.append(
                             {
                                 "measurement_tvp_id": row["measurement_tvp_id"],
-                                ColumnNames.VALUE_TO_BE_CORRECTED: row[
-                                    ColumnNames.VALUE_TO_BE_CORRECTED
+                                ColumnNames.INITIAL_CALCULATED_VALUE: row[
+                                    ColumnNames.INITIAL_CALCULATED_VALUE
                                 ],
                             }
                         )
@@ -842,15 +907,15 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                     # Only reset if value_to_be_corrected is not null
                     # (meaning it was corrected)
                     if row.get(
-                        ColumnNames.VALUE_TO_BE_CORRECTED
+                        ColumnNames.INITIAL_CALCULATED_VALUE
                     ) is not None and not pd.isna(
-                        row.get(ColumnNames.VALUE_TO_BE_CORRECTED)
+                        row.get(ColumnNames.INITIAL_CALCULATED_VALUE)
                     ):
                         corrections_to_reset.append(
                             {
                                 "measurement_tvp_id": row["measurement_tvp_id"],
-                                ColumnNames.VALUE_TO_BE_CORRECTED: row[
-                                    ColumnNames.VALUE_TO_BE_CORRECTED
+                                ColumnNames.INITIAL_CALCULATED_VALUE: row[
+                                    ColumnNames.INITIAL_CALCULATED_VALUE
                                 ],
                             }
                         )
@@ -898,7 +963,13 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         Input(ids.CORRECTIONS_OBSERVATION_MNAP_INPUT, "value"),
         prevent_initial_call=True,
     )
-    def calculate_groundwater_level(bkb, obs_cm, obs_mnap):
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def calculate_groundwater_level(bkb, obs_cm, obs_mnap, **kwargs):
         """Calculate groundwater level conversions between cm and m NAP.
 
         Formula: BKB (m NAP) - Observation (cm) / 100 = Observation (m NAP)
@@ -917,10 +988,11 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         tuple
             (obs_cm, obs_mnap) - updated values based on which field changed
         """
-        if not callback_context.triggered:
+        ctx_obj = get_callback_context(**kwargs)
+        if not ctx_obj.triggered:
             return no_update, no_update
 
-        trigger_id = callback_context.triggered[0]["prop_id"].split(".")[0]
+        trigger_id = extract_trigger_id(ctx_obj, parse_json=False)
 
         # If BKB changed and we have one of the observation values, recalculate
         if trigger_id == ids.CORRECTIONS_BKB_INPUT:
@@ -964,35 +1036,35 @@ def _prepare_observation_table_data(obs_df):
     # Display original calculated value when correction exists
     current_calculated = table_df[ColumnNames.CALCULATED_VALUE]
     table_df[ColumnNames.CALCULATED_VALUE] = np.where(
-        table_df[ColumnNames.VALUE_TO_BE_CORRECTED].notna(),
-        table_df[ColumnNames.VALUE_TO_BE_CORRECTED],
+        table_df[ColumnNames.INITIAL_CALCULATED_VALUE].notna(),
+        table_df[ColumnNames.INITIAL_CALCULATED_VALUE],
         current_calculated,
     )
 
     # Show corrected value if it exists; blank otherwise
-    table_df["corrected_value"] = np.where(
-        table_df[ColumnNames.VALUE_TO_BE_CORRECTED].notna(),
+    table_df[ColumnNames.CORRECTED_VALUE] = np.where(
+        table_df[ColumnNames.INITIAL_CALCULATED_VALUE].notna(),
         current_calculated,
         np.nan,
     )
 
     # Show correction reason in comment column if it exists
-    table_df["comment"] = table_df["correction_reason"].fillna("")
+    table_df[ColumnNames.COMMENT] = table_df[ColumnNames.CORRECTION_REASON].fillna("")
 
     # Format datetime
-    table_df["datetime"] = table_df["datetime"].dt.strftime(
+    table_df[ColumnNames.DATETIME] = table_df[ColumnNames.DATETIME].dt.strftime(
         ConfigDefaults.DATETIME_FORMAT
     )
 
     # Select columns for display
     return table_df[
         [
-            "datetime",
+            ColumnNames.DATETIME,
             ColumnNames.FIELD_VALUE,
             ColumnNames.CALCULATED_VALUE,
-            "corrected_value",
-            "comment",
-            "measurement_tvp_id",
-            ColumnNames.VALUE_TO_BE_CORRECTED,
+            ColumnNames.CORRECTED_VALUE,
+            ColumnNames.COMMENT,
+            ColumnNames.MEASUREMENT_TVP_ID,
+            ColumnNames.INITIAL_CALCULATED_VALUE,
         ]
     ].to_dict("records")

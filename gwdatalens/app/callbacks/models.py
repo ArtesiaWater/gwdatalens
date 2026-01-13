@@ -12,9 +12,11 @@ from pastas.extensions import register_plotly
 from pastas.io.pas import PastasEncoder
 from pastastore.version import __version__ as PASTASTORE_VERSION
 
+from gwdatalens.app.constants import ConfigDefaults
 from gwdatalens.app.messages import ErrorMessages, SuccessMessages, t_
 from gwdatalens.app.src.components import ids
 from gwdatalens.app.src.services import TimeSeriesService, WellService
+from gwdatalens.app.src.utils import log_callback
 from gwdatalens.app.src.utils.callback_helpers import (
     AlertBuilder,
     CallbackResponse,
@@ -50,6 +52,12 @@ def register_model_callbacks(app, data):
             (Output(ids.LOADING_MODEL_DIAGNOSTICS_CHART, "display"), "show", "auto"),
         ],
         prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def generate_model(
         n_clicks: int | None,
@@ -138,6 +146,12 @@ def register_model_callbacks(app, data):
         State(ids.PASTAS_MODEL_STORE, "data"),
         prevent_initial_call=True,
     )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
     def save_model(n_clicks: int | None, mljson: str | None) -> tuple:
         """Save a model to Pastastore.
 
@@ -172,6 +186,12 @@ def register_model_callbacks(app, data):
         Output(ids.MODEL_DATEPICKER_TMAX, "date"),
         Input(ids.MODEL_DROPDOWN_SELECTION, "value"),
         prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def plot_model_results(wid: int | None) -> tuple[dict, dict, bool, tuple, Any, Any]:
         """Plot results and diagnostics for a stored model.
@@ -230,6 +250,12 @@ def register_model_callbacks(app, data):
         Input(ids.MODEL_RESULTS_CHART_2, "data"),
         prevent_initial_call=True,
     )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
     def update_model_results_chart(*figs: dict, **kwargs: Any) -> dict:
         """Update model results chart from triggered input.
 
@@ -255,6 +281,12 @@ def register_model_callbacks(app, data):
         Input(ids.MODEL_DIAGNOSTICS_CHART_2, "data"),
         prevent_initial_call=True,
     )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
     def update_model_diagnostics_chart(*figs: dict, **kwargs: Any) -> dict:
         """Update model diagnostics chart from triggered input.
 
@@ -279,6 +311,12 @@ def register_model_callbacks(app, data):
         Input(ids.MODEL_SAVE_BUTTON_1, "data"),
         Input(ids.MODEL_SAVE_BUTTON_2, "data"),
         prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def toggle_model_save_button(*b: bool | None, **kwargs: Any) -> bool:
         """Toggle model save button enabled/disabled state.

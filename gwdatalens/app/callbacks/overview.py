@@ -6,12 +6,13 @@ import pandas as pd
 from dash import Input, Output, Patch, State, no_update
 
 from gwdatalens.app.config import config
-from gwdatalens.app.constants import ColumnNames
+from gwdatalens.app.constants import ColumnNames, ConfigDefaults
 from gwdatalens.app.exceptions import EmptyResultError, QueryError
 from gwdatalens.app.messages import ErrorMessages, t_
 from gwdatalens.app.src.components import ids
 from gwdatalens.app.src.components.overview_chart import plot_obs
 from gwdatalens.app.src.services import TimeSeriesService, WellService
+from gwdatalens.app.src.utils import log_callback
 from gwdatalens.app.src.utils.callback_helpers import (
     AlertBuilder,
     CallbackResponse,
@@ -31,6 +32,12 @@ def register_overview_callbacks(app, data):
         Output(ids.SELECTED_OSERIES_STORE, "data"),
         Input(ids.OVERVIEW_MAP, "selectedData"),
         State(ids.SELECTED_OSERIES_STORE, "data"),
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def store_selected_oseries_value(
         selected_data: dict | None, current_value: list[int] | None
@@ -72,6 +79,12 @@ def register_overview_callbacks(app, data):
         background=False,
         prevent_initial_call=True,
     )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
     def plot_overview_time_series(
         selectedData: dict | None,
         selected_oseries: list[int] | None,
@@ -89,8 +102,6 @@ def register_overview_callbacks(app, data):
         # Extract well IDs from map selection
         if selectedData is not None:
             names, wids = well_service.get_selected_wells_from_map_data(selectedData)
-            print(selectedData)
-            print(names, wids)
             # If no valid wells extracted (e.g., during table filtering),
             # preserve current state
             if not wids:
@@ -242,6 +253,12 @@ def register_overview_callbacks(app, data):
         Input(ids.OVERVIEW_TABLE, "selected_cells"),
         State(ids.OVERVIEW_TABLE, "derived_virtual_data"),
         prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def highlight_point_on_map_from_table(selected_cells, table):
         """Sync map selection from table row selection.
