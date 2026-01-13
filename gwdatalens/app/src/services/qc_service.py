@@ -183,7 +183,6 @@ class QCService:
 
             # Update combine_results
             remaining_rules = len(self.traval._ruleset.rules) - 1
-            print("remaining rules:", remaining_rules)
             if remaining_rules > 1:
                 try:
                     self.traval._ruleset.del_rule("combine_results")
