@@ -35,7 +35,7 @@ def render(data: DataManager, selected_data: Optional[List[int]] = None) -> html
                             "scrollZoom": True,
                         },
                         style={
-                            "height": "40vh",
+                            "height": "40cqh",
                         },
                     ),
                 ],

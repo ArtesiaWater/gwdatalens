@@ -101,7 +101,7 @@ def render_content(data: DataManager, selected_data: str):
                         width=6,
                     ),
                 ],
-                style={"height": "45vh"},
+                style={"height": "45cqh"},
             ),
             # dbc.Row([render_cancel_button()]),
             dbc.Row(

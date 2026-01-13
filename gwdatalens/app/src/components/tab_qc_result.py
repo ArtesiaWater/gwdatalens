@@ -307,7 +307,7 @@ def render_qc_chart(figure: dict):
                         },
                         figure=figure,
                         style={
-                            "height": "40vh",
+                            "height": "40cqh",
                         },
                     ),
                 ],
@@ -513,18 +513,35 @@ def render_content(data: DataManager, figure: dict):
                                 placement="top",
                             ),
                         ],
-                        width=True,
+                        width="auto",
                     ),
                     dbc.Col([render_select_all_in_table_button()], width="auto"),
                     dbc.Col([render_clear_table_selection_button()], width="auto"),
-                    dbc.Col([html.Div(className="col-right-border")], width="auto"),
+                    dbc.Col(
+                        [
+                            html.Div(
+                                className="col-right-border", style={"height": "60px"}
+                            )
+                        ],
+                        width="auto",
+                        style={"min-width": "15px"},
+                    ),
                     dbc.Col([render_mark_selection_reliable_button()], width="auto"),
                     dbc.Col([render_mark_selection_unreliable_button()], width="auto"),
                     dbc.Col([render_mark_selection_undecided_button()], width="auto"),
                     dbc.Col([render_mark_selection_unknown_button()], width="auto"),
-                    dbc.Col([html.Div(className="col-right-border")], width="auto"),
+                    dbc.Col(
+                        [
+                            html.Div(
+                                className="col-right-border", style={"height": "60px"}
+                            )
+                        ],
+                        width="auto",
+                        style={"min-width": "15px"},
+                    ),
                     dbc.Col([render_qc_label_dropdown()], width=2),
                 ],
+                className="align-items-center",
             ),
             dbc.Row([qc_results_table.render(data)]),
             dbc.Row(

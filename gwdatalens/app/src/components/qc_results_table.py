@@ -110,9 +110,10 @@ def render(data: Any) -> html.Div:
                 page_action="none",
                 filter_action="native",
                 filter_query='{comment} != ""',
-                virtualization=False,
+                virtualization=True,  # NOTE: this causes clipping of the last row
                 style_table={
-                    "height": "35vh",
+                    "height": "35cqh",
+                    "maxHeight": "35cqh",
                     "overflowY": "auto",
                 },
                 # row_selectable="multi",

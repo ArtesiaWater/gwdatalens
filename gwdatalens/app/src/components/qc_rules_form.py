@@ -158,6 +158,7 @@ def generate_traval_rule_components(
             # "padding": 1,
             "height": "30px",
             "width": "30px",
+            "margin-left": "15px",
         },
         type="button",
     )
@@ -250,6 +251,8 @@ def generate_traval_rule_components(
                     size="sm",
                     debounce=True,
                 )
+        elif name == "pastas" and k == "savedir":
+            continue  # skip savedir parameter
         else:
             inp = dbc.Input(
                 id={"type": "rule_input", "index": f"{idx}-{name}-{k}"},

@@ -43,7 +43,7 @@ def render() -> html.Div:
                             "scrollZoom": True,
                         },
                         style={
-                            "height": "40vh",
+                            "height": "40cqh",
                         },
                     ),
                 ],

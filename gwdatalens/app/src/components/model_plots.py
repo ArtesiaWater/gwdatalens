@@ -29,7 +29,7 @@ def render_results() -> html.Div:
                         id=ids.MODEL_RESULTS_CHART,
                         config={"displayModeBar": True, "scrollZoom": True},
                         style={
-                            "height": "78vh",
+                            "height": "78cqh",
                             "margin-bottom": UI.MARGIN_BOTTOM,
                         },
                     )
@@ -63,7 +63,7 @@ def render_diagnostics() -> html.Div:
                         id=ids.MODEL_DIAGNOSTICS_CHART,
                         config={"displayModeBar": True, "scrollZoom": True},
                         style={
-                            "height": "78vh",
+                            "height": "78cqh",
                             "margin-bottom": UI.MARGIN_BOTTOM,
                         },
                     )

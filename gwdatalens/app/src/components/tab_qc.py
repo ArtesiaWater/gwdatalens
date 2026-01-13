@@ -166,12 +166,14 @@ def render_content(data: DataManager, selected_data: List[int]) -> dbc.Container
                         ],
                         width=4,
                     ),
-                ]
+                ],
+                style={"flex": "0 0 auto"},
             ),
             dbc.Row(
                 [
                     dbc.Col([qc_chart.render()], width=12),
-                ]
+                ],
+                style={"flex": "0 0 auto"},
             ),
             dbc.Row(
                 [
@@ -205,6 +207,7 @@ def render_content(data: DataManager, selected_data: List[int]) -> dbc.Container
                     ),
                     dbc.Col([render_checkbox()], width="auto"),
                 ],
+                style={"flex": "0 0 auto"},
                 className="align-items-center",
             ),
             dbc.Collapse(
@@ -223,7 +226,8 @@ def render_content(data: DataManager, selected_data: List[int]) -> dbc.Container
                                     [qc_traval_buttons.render_add_rule_button()],
                                     width="auto",
                                 ),
-                            ]
+                            ],
+                            className="align-items-center",
                         ),
                         dbc.Row(
                             [

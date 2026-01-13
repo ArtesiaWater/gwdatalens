@@ -105,11 +105,13 @@ def render(data: DataManager, selected_data: Optional[List[int]] = None) -> html
                 filter_action="native",
                 sort_action="native",
                 style_table={
-                    "height": "45vh",
-                    # "overflowY": "auto",
+                    "height": "47cqh",
+                    "maxHeight": "45cqh",
+                    "overflowY": "auto",
                     "margin-top": UI.MARGIN_TOP_LARGE,
                 },
-                # row_selectable="multi",
+                # NOTE: table will have scroll bar despite fitting on page when
+                # virtualization is set to True...
                 virtualization=True,
                 style_cell={"whiteSpace": "pre-line", "fontSize": 12},
                 style_cell_conditional=[

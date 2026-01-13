@@ -47,7 +47,7 @@ def render(
         else draw_map(df, selected_data=selected_data),
         style={
             "margin-top": UI.MARGIN_TOP_LARGE,
-            "height": "45vh",
+            "height": "45cqh",
         },
         config={
             "displayModeBar": True,

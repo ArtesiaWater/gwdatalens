@@ -61,7 +61,7 @@ def render_content(data: DataManager, selected_data: List):
                     dbc.Col([render_tube_table(data, selected_data)], width=3),
                     dbc.Col([render_chart(data, selected_data)], width=7),
                 ],
-                style={"height": "35vh"},
+                style={"height": "35cqh"},
             ),
             html.Hr(style={"margin": "20px 0"}),
             dbc.Row(
@@ -218,7 +218,10 @@ def render_corrections_dropdown(data, selected_data):
 
     options = []
     for _, row in locs.iterrows():
-        label_text = f"{row['location_name']}: {row['ntubes']} tube(s)"
+        label_text = (
+            f"{row[ColumnNames.LOCATION_NAME]}: "
+            f"{row[ColumnNames.NUMBER_OF_TUBES]} tube(s)"
+        )
         if row["hasdata"]:
             # Normal styling for locations with data
             label = label_text
@@ -233,15 +236,32 @@ def render_corrections_dropdown(data, selected_data):
             {
                 "label": label,
                 "value": row[ColumnNames.ID],
-                "search": row["location_name"],
+                "search": row[ColumnNames.LOCATION_NAME],
             }
         )
 
+    value = None
     if selected_data is not None and len(selected_data) == 1:
-        value = selected_data[0]
-    else:
-        value = None
+        try:
+            selected_wid = int(selected_data[0])
+        except (TypeError, ValueError):
+            selected_wid = None
 
+        if selected_wid is not None:
+            option_values = set(locs[ColumnNames.ID].tolist())
+
+            if selected_wid in option_values:
+                value = selected_wid
+            else:
+                try:
+                    well_static_id = data.db.gmw_gdf.at[
+                        selected_wid, ColumnNames.WELL_STATIC_ID
+                    ]
+                    value = locs.set_index(ColumnNames.WELL_STATIC_ID).at[
+                        well_static_id, ColumnNames.ID
+                    ]
+                except KeyError:
+                    value = None
     return html.Div(
         [
             dcc.Dropdown(
@@ -298,7 +318,7 @@ def render_chart(data, selected_data):
                             "scrollZoom": True,
                         },
                         style={
-                            "height": "35vh",
+                            "height": "35cqh",
                             "margin-top": UI.MARGIN_TOP_COMPACT,
                             "margin-left": 5,
                             "margin-right": 5,
@@ -347,7 +367,7 @@ def render_well_configuration(data, selected_data):
                             "scrollZoom": True,
                         },
                         style={
-                            "height": "35vh",
+                            "height": "35cqh",
                         },
                     ),
                 ],
@@ -775,7 +795,7 @@ def render_observations_table(_data, _selected_data):
                                         row_deletable=False,
                                         page_action="none",
                                         style_table={
-                                            "height": "27.5vh",
+                                            "height": "27.5cqh",
                                             "overflowY": "auto",
                                             "margin-top": UI.MARGIN_TOP_COMPACT,
                                         },
@@ -908,7 +928,7 @@ def render_observations_table(_data, _selected_data):
                                         row_deletable=False,
                                         page_action="none",
                                         style_table={
-                                            "height": "27.5vh",
+                                            "height": "27.5cqh",
                                             "overflowY": "auto",
                                             "margin-top": UI.MARGIN_TOP_COMPACT,
                                         },
