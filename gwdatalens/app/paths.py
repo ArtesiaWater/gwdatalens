@@ -14,7 +14,7 @@ GWDATALENS_APP_PATH = Path(__file__).parent
 
 # Asset paths depend on whether running as Django app or standalone
 if config.get("DJANGO_APP"):
-    ASSETS_PATH = GWDATALENS_APP_ROOT / "static" / "dash"
+    ASSETS_PATH = GWDATALENS_APP_ROOT.parent / "static" / "dash"
 else:
     ASSETS_PATH = GWDATALENS_APP_PATH.parent / "assets"
 

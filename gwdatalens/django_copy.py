@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 def copy_gwdatalens_to_django_app(
-    DJANGO_APP_PATH, GWDATALENS_PATH=pl.Path(__file__).parent
+    DJANGO_APP_PATH, GWDATALENS_PATH=pl.Path(__file__).parent, skip_config=False
 ):
     """Copies the GWDataLens application to a specified Django application path.
 
@@ -19,6 +19,8 @@ def copy_gwdatalens_to_django_app(
     DATALENS_PATH : pathlib.Path, optional
         The path to the GWDataLens source directory. Defaults to the parent directory
         of the current file.
+    skip_config : bool, optional
+        If True, skip copying the config.toml file. Defaults to False.
 
     Notes
     -----
@@ -40,17 +42,21 @@ def copy_gwdatalens_to_django_app(
 
     logger.info("Copying GWDataLens to Django App...")
     # copy app to gwdatalens folder
+    ignore_patterns = [
+        "__pycache__",
+        ".cache",
+        ".pi_cache",
+        ".ruff_cache",
+        "database.toml",
+        "*.zip",
+    ]
+    if skip_config:
+        ignore_patterns.append("config.toml")
+    
     shutil.copytree(
         GWDATALENS_PATH / "app",
         DJANGO_APP_PATH / "gwdatalens" / "app",
-        ignore=shutil.ignore_patterns(
-            "__pycache__",
-            ".cache",
-            ".pi_cache",
-            ".ruff_cache",
-            "database.toml",
-            "*.zip",
-        ),
+        ignore=shutil.ignore_patterns(*ignore_patterns),
         dirs_exist_ok=True,
     )
 

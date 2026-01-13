@@ -12,7 +12,14 @@ class ConfigDefaults:
     """Default configuration values."""
 
     DEFAULT_TAB = ids.TAB_OVERVIEW
-    STARTUP_LOG_LEVEL = "INFO"
+
+    # Logging
+    STARTUP_LOG_LEVEL = "INFO"  # NOTE: this is the log-level before config is loaded
+    CALLBACK_LOGGING = False  # Enable/disable callback logging globally
+    CALLBACK_LOG_TIME = False  # show computation time, for debug purposes
+    CALLBACK_LOG_INPUTS = True  # show inputs, for debug purposes
+    CALLBACK_LOG_OUTPUTS = True  # show outputs, for debug purposes
+    CALLBACK_LOG_TRIGGER = True  # show trigger, for debug purposes
 
     # Series constraints
     MAX_WELLS_SELECTION = 50
@@ -27,6 +34,24 @@ class ConfigDefaults:
 
     # Date/Time
     DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+
+class DatabaseFields:
+    """Database field name constants."""
+
+    # Constants for field names
+    FIELD_CALCULATED_VALUE = "calculated_value"
+    FIELD_FIELD_VALUE = "field_value"
+    FIELD_STATUS_QUALITY_CONTROL = "status_quality_control"
+    FIELD_MEASUREMENT_POINT_METADATA_ID = "measurement_point_metadata_id"
+    FIELD_MEASUREMENT_TVP_ID = "measurement_tvp_id"
+    FIELD_CENSOR_REASON_DATALENS = "status_quality_control_reason_datalens"
+    FIELD_CENSOR_REASON = "censor_reason"
+    FIELD_VALUE_LIMIT = "value_limit"
+    FIELD_INITIAL_CALCULATED_VALUE = "initial_calculated_value"
+    FIELD_CORRECTION_REASON = "correction_reason"
+    FIELD_CORRECTION_TIME = "correction_time"
+    FIELD_VALUE_LIMIT = "value_limit"
 
 
 class ColumnNames:
@@ -64,22 +89,24 @@ class ColumnNames:
     CORRECTION_QUALIFIER = "correction_qualifier"
     UNIT = "unit"
     NUMBER_OF_OBSERVATIONS = "metingen"
+    NUMBER_OF_TUBES = "ntubes"
 
     # Internal columns
     INTERNAL_ID = "internal_id"
     ID = "id"
 
-    # Observation/correction columns
-    FIELD_VALUE = "field_value"
-    CALCULATED_VALUE = "calculated_value"
-    VALUE_TO_BE_CORRECTED = "value_to_be_corrected"
-
-    # QC results & corrections
+    # Observation / QC results & corrections
+    MEASUREMENT_TVP_ID = DatabaseFields.FIELD_MEASUREMENT_TVP_ID
+    FIELD_VALUE = DatabaseFields.FIELD_FIELD_VALUE
+    CALCULATED_VALUE = DatabaseFields.FIELD_CALCULATED_VALUE
+    INITIAL_CALCULATED_VALUE = DatabaseFields.FIELD_INITIAL_CALCULATED_VALUE
+    STATUS_QUALITY_CONTROL = DatabaseFields.FIELD_STATUS_QUALITY_CONTROL
+    CORRECTION_REASON = DatabaseFields.FIELD_CORRECTION_REASON
+    CORRECTION_TIME = DatabaseFields.FIELD_CORRECTION_TIME
     FLAGGED = "flagged"
     VALUE = "value"
     COMMENT = "comment"
     INCOMING_STATUS_QUALITY_CONTROL = "incoming_status_quality_control"
-    STATUS_QUALITY_CONTROL = "status_quality_control"
     CATEGORY = "category"
     DATETIME = "datetime"
     CORRECTED_VALUE = "corrected_value"

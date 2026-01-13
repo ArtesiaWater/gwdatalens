@@ -124,6 +124,12 @@ def cp_gwdatalens_to_broconnector():
         help="BRO-Connector root directory.",
     )
 
+    parser.add_argument(
+        "--skip-config",
+        action="store_true",
+        help="Skip copying config.toml file to the Django app.",
+    )
+
     kwargs = vars(parser.parse_args())
 
     try:

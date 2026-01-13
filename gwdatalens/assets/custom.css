@@ -1,3 +1,20 @@
+/* ROOT LAYOUT - Ensure full viewport height */
+html, body {
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+
+#_dash-app-content {
+    height: 100vh;
+}
+
+.gwdatalens-main {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
 /* HEADER */
 
 #header {
@@ -54,6 +71,55 @@
 }
 
 /* TABS */
+
+/* The dcc.Tabs component wrapper needs flex growth */
+.gwdatalens-main > .tabs {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* The tabs content area */
+#tab-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    min-height: 0;
+}
+
+/* Ensure all intermediary divs and dcc.Tabs content fill the tab-content */
+#tab-content > * {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+#tab-content > .tab-content {
+    height: 100%;
+}
+
+/* Dash-generated tab wrapper */
+.tab-content > * {
+    height: 100%;
+}
+
+/* Override Bootstrap container max-width to fill available space */
+.container-fluid {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* Make rows inside container-fluid expand to fill space */
+.container-fluid > .row {
+    flex: 1;
+    min-height: 0;
+}
 
 .custom-tabs-container {
     width: 85%;

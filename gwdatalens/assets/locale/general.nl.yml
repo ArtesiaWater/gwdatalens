@@ -39,10 +39,10 @@ nl:
   category: "Selecteer een passende code volgens het QC Protocol."
   tmin: Startdatum
   tmax: Einddatum
-  mark_reliable: "Meting(en) goedgekeurd"
-  mark_unreliable: "Meting(en) afgekeurd"
-  mark_undecided: "Meting(en) onbeslist"
-  mark_unknown: "Meting(en) onbekend"
+  mark_reliable: "Goedgekeurd"
+  mark_unreliable: "Afgekeurd"
+  mark_undecided: "Onbeslist"
+  mark_unknown: "Onbekend"
   clear_selection_table: "Deselecteer alles in tabel"
   clear_selection_button: "Wis selectie"
   alert_failed_labeling: Kan labels niet updaten voor niet-zichtbare metingen in tabel. Gebruik 'Toon alle metingen' om alle metingen weer te geven.

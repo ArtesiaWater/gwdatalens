@@ -138,6 +138,9 @@ if config.get("DJANGO_APP"):
     app = DjangoDash(
         "gwdatalens",
         external_stylesheets=external_stylesheets,
+        external_scripts=[
+            {"src": django_settings.STATIC_URL + "dash/custom_scripts.js"},
+        ],
         suppress_callback_exceptions=True,
         add_bootstrap_links=True,
         background_callback_manager=background_callback_manager,
@@ -147,8 +150,7 @@ if config.get("DJANGO_APP"):
     app.css.append_css(
         {
             "external_url": [
-                django_settings.STATIC_URL
-                + "dash/custom.css",  # Adjust this based on your directory structure
+                django_settings.STATIC_URL + "dash/custom.css",
             ]
         }
     )
