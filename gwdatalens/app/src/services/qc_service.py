@@ -183,6 +183,7 @@ class QCService:
 
             # Update combine_results
             remaining_rules = len(self.traval._ruleset.rules) - 1
+            print("remaining rules:", remaining_rules)
             if remaining_rules > 1:
                 try:
                     self.traval._ruleset.del_rule("combine_results")
@@ -194,6 +195,11 @@ class QCService:
                     rulelib.rule_combine_nan_or,
                     apply_to=tuple(range(1, remaining_rules + 1)),
                 )
+            else:
+                try:
+                    self.traval._ruleset.del_rule("combine_results")
+                except KeyError:
+                    pass
         except KeyError as e:
             logger.error("Failed to delete rule %s: %s", rule_identifier, e)
             raise
