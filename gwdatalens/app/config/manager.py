@@ -60,6 +60,11 @@ class ConfigManager:
             "BACKGROUND_CALLBACKS": False,
             "USE_MAPBOX": False,
             "LOG_LEVEL": "INFO",
+            "CALLBACK_LOGGING": ConfigDefaults.CALLBACK_LOGGING,
+            "CALLBACK_LOG_TIME": ConfigDefaults.CALLBACK_LOG_TIME,
+            "CALLBACK_LOG_INPUTS": ConfigDefaults.CALLBACK_LOG_INPUTS,
+            "CALLBACK_LOG_OUTPUTS": ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+            "CALLBACK_LOG_TRIGGER": ConfigDefaults.CALLBACK_LOG_TRIGGER,
             "pastastore": {
                 "name": "pastastore",
                 "path": "./gwdatalens/pastasdb/",
@@ -144,6 +149,26 @@ class ConfigManager:
             f"{env_prefix}LOG_LEVEL": ("LOG_LEVEL", str),
             f"{env_prefix}USE_MAPBOX": (
                 "USE_MAPBOX",
+                lambda x: x.lower() in ("true", "1", "yes"),
+            ),
+            f"{env_prefix}CALLBACK_LOGGING": (
+                "CALLBACK_LOGGING",
+                lambda x: x.lower() in ("true", "1", "yes"),
+            ),
+            f"{env_prefix}CALLBACK_LOG_TIME": (
+                "CALLBACK_LOG_TIME",
+                lambda x: x.lower() in ("true", "1", "yes"),
+            ),
+            f"{env_prefix}CALLBACK_LOG_INPUTS": (
+                "CALLBACK_LOG_INPUTS",
+                lambda x: x.lower() in ("true", "1", "yes"),
+            ),
+            f"{env_prefix}CALLBACK_LOG_OUTPUTS": (
+                "CALLBACK_LOG_OUTPUTS",
+                lambda x: x.lower() in ("true", "1", "yes"),
+            ),
+            f"{env_prefix}CALLBACK_LOG_TRIGGER": (
+                "CALLBACK_LOG_TRIGGER",
                 lambda x: x.lower() in ("true", "1", "yes"),
             ),
             # Database environment variables
