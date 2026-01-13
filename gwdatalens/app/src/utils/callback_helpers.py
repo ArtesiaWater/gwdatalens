@@ -11,6 +11,7 @@ from typing import Any, Callable, Optional, Tuple
 import pandas as pd
 from dash.exceptions import PreventUpdate
 
+from gwdatalens.app.config import config
 from gwdatalens.app.messages import ErrorMessages, t_
 
 logger = logging.getLogger(__name__)
@@ -179,6 +180,26 @@ class EmptyFigure:
         return EmptyFigure.with_message(t_(ErrorMessages.NO_SERIES_DATA))
 
 
+class CallbackContext:
+    """Helper class to allow attribute-style access to callback context."""
+
+    def __init__(self, callback_context):
+        """Initialize with callback context dict.
+
+        Parameters
+        ----------
+        callback_context : dict
+            Dash callback context dict
+        """
+        self.ctx = callback_context
+        self.triggered = self.ctx.triggered
+        if self.triggered:
+            self.triggered_id = self.ctx.triggered[0]["prop_id"].split(".")[0]
+        else:
+            self.triggered_id = None
+        self.inputs_list = self.ctx.inputs_list
+
+
 def get_callback_context(**kwargs):
     """Get callback context compatible with both Dash standalone and Django.
 
@@ -195,14 +216,16 @@ def get_callback_context(**kwargs):
     object
         Callback context with triggered, triggered_id, and inputs_list attributes
     """
-    if len(kwargs) > 0 and "callback_context" in kwargs:
+    if len(kwargs) > 0 and "callback_context" in kwargs and config.get("DJANGO_APP"):
         # Django environment - parse from kwargs
-        return kwargs["callback_context"]
-    else:
+        return CallbackContext(kwargs["callback_context"])
+    elif not config.get("DJANGO_APP"):
         # Standalone Dash - use ctx
         from dash import ctx
 
         return ctx
+    else:
+        raise RuntimeError("Callback context not available.")
 
 
 def extract_trigger_id(ctx_or_kwargs=None, parse_json: bool = True, **kwargs):
@@ -241,7 +264,7 @@ def extract_trigger_id(ctx_or_kwargs=None, parse_json: bool = True, **kwargs):
     if not ctx_obj.triggered:
         raise PreventUpdate
 
-    trigger_id = ctx_obj.triggered[0]["prop_id"].split(".")[0]
+    trigger_id = ctx_obj.triggered_id
 
     if parse_json:
         from ast import literal_eval
