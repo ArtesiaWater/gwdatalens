@@ -120,7 +120,13 @@ def make_rule_pastas_obswell(db):
             ml.stats.rsq(),
         )
         return traval.rulelib.rule_pastas_outside_pi(
-            series, ml, ci=ci, min_ci=min_ci, smoothfreq=smoothfreq, tmin=tmin, tmax=tmax
+            series,
+            ml,
+            ci=ci,
+            min_ci=min_ci,
+            smoothfreq=smoothfreq,
+            tmin=tmin,
+            tmax=tmax,
         )
 
     return pastas_obswell

@@ -24,7 +24,7 @@ from pyproj import Transformer
 from sqlalchemy import bindparam, func, select, update
 from sqlalchemy.orm import Session
 
-from gwdatalens.app.constants import ColumnNames, UnitConversion
+from gwdatalens.app.constants import ColumnNames, DatabaseFields, UnitConversion
 from gwdatalens.app.messages import t_
 from gwdatalens.app.src.data import datamodel, sql
 from gwdatalens.app.src.data.database_connector import DatabaseConnector
@@ -192,8 +192,8 @@ class PostgreSQLDataSource(DataSourceTemplate):
             spatial_transformer=SpatialTransformer(),
         )
 
-        self.value_column = datamodel.FIELD_CALCULATED_VALUE
-        self.qualifier_column = datamodel.FIELD_STATUS_QUALITY_CONTROL
+        self.value_column = DatabaseFields.FIELD_CALCULATED_VALUE
+        self.qualifier_column = DatabaseFields.FIELD_STATUS_QUALITY_CONTROL
         self.source = "zeeland"
 
     @property
@@ -689,27 +689,31 @@ class PostgreSQLDataSource(DataSourceTemplate):
         df : pandas.DataFrame
             The DataFrame containing the qualifier data to be saved. It must include
             the following columns:
-            - datamodel.FIELD_MEASUREMENT_TVP_ID
-            - datamodel.FIELD_STATUS_QUALITY_CONTROL
-            - datamodel.FIELD_CENSOR_REASON_DATALENS
-            - datamodel.FIELD_CENSOR_REASON
-            - datamodel.VALUE_LIMIT
+            - DatabaseFields.FIELD_MEASUREMENT_TVP_ID
+            - DatabaseFields.FIELD_STATUS_QUALITY_CONTROL
+            - DatabaseFields.FIELD_CENSOR_REASON_DATALENS
+            - DatabaseFields.FIELD_CENSOR_REASON
+            - DatabaseFields.VALUE_LIMIT
         """
         df = self.set_qc_fields_for_database(df)
 
         param_map = {
-            "b_measurement_point_metadata_id": datamodel.FIELD_MEASUREMENT_POINT_METADATA_ID,  # noqa
-            "b_status_quality_control": datamodel.FIELD_STATUS_QUALITY_CONTROL,
-            "b_censor_reason_datalens": datamodel.FIELD_CENSOR_REASON_DATALENS,
-            "b_censor_reason": datamodel.FIELD_CENSOR_REASON,
-            "b_value_limit": datamodel.FIELD_VALUE_LIMIT,
+            "b_measurement_point_metadata_id": (
+                DatabaseFields.FIELD_MEASUREMENT_POINT_METADATA_ID
+            ),
+            "b_status_quality_control": DatabaseFields.FIELD_STATUS_QUALITY_CONTROL,
+            "b_status_quality_control_reason_datalens": (
+                DatabaseFields.FIELD_CENSOR_REASON_DATALENS
+            ),
+            "b_censor_reason": DatabaseFields.FIELD_CENSOR_REASON,
+            "b_value_limit": DatabaseFields.FIELD_VALUE_LIMIT,
         }
         params = []
         for row in df.to_dict("records"):
             param_dict = {alias: row[col] for alias, col in param_map.items()}
             # ORM bulk update requires PK with actual column name
-            param_dict[datamodel.FIELD_MEASUREMENT_POINT_METADATA_ID] = row[
-                datamodel.FIELD_MEASUREMENT_POINT_METADATA_ID
+            param_dict[DatabaseFields.FIELD_MEASUREMENT_POINT_METADATA_ID] = row[
+                DatabaseFields.FIELD_MEASUREMENT_POINT_METADATA_ID
             ]
             params.append(param_dict)
 
@@ -724,8 +728,8 @@ class PostgreSQLDataSource(DataSourceTemplate):
                     datamodel.MeasurementPointMetadata.status_quality_control: bindparam(  # noqa
                         "b_status_quality_control"
                     ),
-                    datamodel.MeasurementPointMetadata.censor_reason_datalens: bindparam(  # noqa
-                        "b_censor_reason_datalens"
+                    datamodel.MeasurementPointMetadata.status_quality_control_reason_datalens: bindparam(  # noqa
+                        "b_status_quality_control_reason_datalens"
                     ),
                     datamodel.MeasurementPointMetadata.censor_reason: bindparam(
                         "b_censor_reason"
@@ -777,13 +781,13 @@ class PostgreSQLDataSource(DataSourceTemplate):
 
             param = {
                 "b_measurement_tvp_id": measurement_tvp_id,
-                ColumnNames.VALUE_TO_BE_CORRECTED: original_calc_value,
+                ColumnNames.INITIAL_CALCULATED_VALUE: original_calc_value,
                 ColumnNames.CALCULATED_VALUE: corrected_value,
-                "correction_reason": row.get("comment", ""),
-                "correction_time": datetime.now(timezone.utc),
+                ColumnNames.CORRECTION_REASON: row.get("comment", ""),
+                ColumnNames.CORRECTION_TIME: datetime.now(timezone.utc),
             }
             # include PK with actual column name for ORM bulk update
-            param[datamodel.FIELD_MEASUREMENT_TVP_ID] = measurement_tvp_id
+            param[DatabaseFields.FIELD_MEASUREMENT_TVP_ID] = measurement_tvp_id
             params.append(param)
 
         # Execute batch update
@@ -795,14 +799,14 @@ class PostgreSQLDataSource(DataSourceTemplate):
             )
             .values(
                 {
-                    ColumnNames.VALUE_TO_BE_CORRECTED: bindparam(
-                        ColumnNames.VALUE_TO_BE_CORRECTED
+                    ColumnNames.INITIAL_CALCULATED_VALUE: bindparam(
+                        ColumnNames.INITIAL_CALCULATED_VALUE
                     ),
                     ColumnNames.CALCULATED_VALUE: bindparam(
                         ColumnNames.CALCULATED_VALUE
                     ),
-                    "correction_reason": bindparam("correction_reason"),
-                    "correction_time": bindparam("correction_time"),
+                    ColumnNames.CORRECTION_REASON: bindparam("correction_reason"),
+                    ColumnNames.CORRECTION_TIME: bindparam("correction_time"),
                 }
             )
             .execution_options(synchronize_session=False)
@@ -832,19 +836,19 @@ class PostgreSQLDataSource(DataSourceTemplate):
         for _, row in df.iterrows():
             # Convert numpy types to Python native types
             measurement_tvp_id = int(row["measurement_tvp_id"])
-            value_to_be_corrected = row.get(ColumnNames.VALUE_TO_BE_CORRECTED)
+            value_to_be_corrected = row.get(ColumnNames.INITIAL_CALCULATED_VALUE)
             if value_to_be_corrected is not None and pd.notna(value_to_be_corrected):
                 value_to_be_corrected = float(value_to_be_corrected)
 
             param = {
                 "b_measurement_tvp_id": measurement_tvp_id,
                 ColumnNames.CALCULATED_VALUE: value_to_be_corrected,
-                ColumnNames.VALUE_TO_BE_CORRECTED: None,
-                "correction_reason": None,
-                "correction_time": None,
+                ColumnNames.INITIAL_CALCULATED_VALUE: None,
+                ColumnNames.CORRECTION_REASON: None,
+                ColumnNames.CORRECTION_TIME: None,
             }
             # include PK with actual column name for ORM bulk update
-            param[datamodel.FIELD_MEASUREMENT_TVP_ID] = measurement_tvp_id
+            param[DatabaseFields.FIELD_MEASUREMENT_TVP_ID] = measurement_tvp_id
             params.append(param)
 
         # Execute batch update
@@ -859,11 +863,11 @@ class PostgreSQLDataSource(DataSourceTemplate):
                     ColumnNames.CALCULATED_VALUE: bindparam(
                         ColumnNames.CALCULATED_VALUE
                     ),
-                    ColumnNames.VALUE_TO_BE_CORRECTED: bindparam(
-                        ColumnNames.VALUE_TO_BE_CORRECTED
+                    ColumnNames.INITIAL_CALCULATED_VALUE: bindparam(
+                        ColumnNames.INITIAL_CALCULATED_VALUE
                     ),
-                    "correction_reason": bindparam("correction_reason"),
-                    "correction_time": bindparam("correction_time"),
+                    ColumnNames.CORRECTION_REASON: bindparam("correction_reason"),
+                    ColumnNames.CORRECTION_TIME: bindparam("correction_time"),
                 }
             )
             .execution_options(synchronize_session=False)
@@ -884,9 +888,9 @@ class PostgreSQLDataSource(DataSourceTemplate):
             ]
         )
         if mask.any():
-            df.loc[mask & mask2, datamodel.FIELD_CENSOR_REASON_DATALENS] = None
-            df.loc[mask & mask2, "censor_reason"] = None
-            df.loc[mask & mask2, "value_limit"] = None
+            df.loc[mask & mask2, DatabaseFields.FIELD_CENSOR_REASON_DATALENS] = None
+            df.loc[mask & mask2, DatabaseFields.FIELD_CENSOR_REASON] = None
+            df.loc[mask & mask2, DatabaseFields.FIELD_VALUE_LIMIT] = None
 
         # flagged obs: create censor_reason_datalens
         mask2 = df.loc[:, self.qualifier_column].isin(
@@ -896,7 +900,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
             ]
         )
         if mask2.any():
-            df.loc[mask & mask2, datamodel.FIELD_CENSOR_REASON_DATALENS] = df.loc[
+            df.loc[mask & mask2, DatabaseFields.FIELD_CENSOR_REASON_DATALENS] = df.loc[
                 mask & mask2, ["comment", "category"]
             ].apply(lambda s: ",".join(s), axis=1)
 
