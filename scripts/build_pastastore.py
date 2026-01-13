@@ -10,7 +10,7 @@ import pastastore as pst
 from pastastore.extensions import activate_hydropandas_extension
 from tqdm.auto import tqdm
 
-from gwdatalens.app.settings import config
+from gwdatalens.app.config import config
 from gwdatalens.app.src.data import PostgreSQLDataSource
 
 # %%
@@ -23,66 +23,72 @@ logger.setLevel(logging.DEBUG)
 ps.logger.setLevel(logging.ERROR)
 
 # %%
-name = config["pastastore"]["name"]
+pastastore_name = config["pastastore"]["name"]
 pastastore_path = config["pastastore"]["path"]
-root = Path("../gwdatalens")
+root = Path("../")
 
-
-db = PostgreSQLDataSource(config["database"])
+db = PostgreSQLDataSource(config=config.get_database_config())
 
 # %%
-if name.endswith(".zip") and os.path.exists(pastastore_path / name):
-    pstore = pst.PastaStore.from_zip(pastastore_path / name)
+if pastastore_name.endswith(".zip") and os.path.exists(
+    pastastore_path / pastastore_name
+):
+    pstore = pst.PastaStore.from_zip(pastastore_path / pastastore_name)
 else:
     # conn = pst.ArcticDBConnector(name=name, uri=f"lmdb://{pastastore_path}")
-    conn = pst.PasConnector(name=name, path=root / pastastore_path)
+    conn = pst.PasConnector(name=pastastore_name, path=root / pastastore_path)
     pstore = pst.PastaStore(conn)
     print(pstore)
 
+1 / 0
 # %% load head time series into pastastore
 
 no_metadata = []
 too_short = []
 ts_none = []
 
-value_column = "calculated_value"  # or "field_value"
-
 gdf = db.gmw_gdf.copy()
 
-for name in tqdm(db.list_observation_wells_with_data(), desc="Read timeseries"):
+for wid in tqdm(db.list_observation_wells_with_data.index, desc="Read timeseries"):
     try:
-        metadata = gdf.loc[name, :]
+        metadata = gdf.loc[wid, :]
         if isinstance(metadata, pd.DataFrame):
             raise ValueError("Duplicate entries in metadata table")
         metadata = metadata.to_dict()
     except KeyError:
-        no_metadata.append(name)
+        no_metadata.append(wid)
         continue
 
     if isinstance(metadata["x"], dict):
-        raise Exception(name)
+        raise Exception(wid)
 
-    bro_id, tube_number = name.split("-")
-    ts = db.get_timeseries(bro_id, tube_number)
+    display_name = metadata["display_name"]
+    ts = db.get_timeseries(wid)
+
     if ts.index.dtype == "O":
         ts.index = pd.to_datetime(ts.index, utc=True)
     ts.index = ts.index.tz_localize(None)
 
     if ts is None:
-        ts_none.append((bro_id, tube_number))
+        ts_none.append(display_name)
         continue
     else:
-        ts = ts.loc[:, value_column]
+        ts = ts.loc[:, db.value_column]
 
     if ts.index.size < 50:
-        too_short.append((bro_id, tube_number))
+        too_short.append(display_name)
         continue
 
     # drop dupes
     ts = ts.loc[~ts.index.duplicated(keep="first")]
 
     # drop nans
-    pstore.add_oseries(ts.dropna(), name, metadata=metadata, overwrite=True)
+    pstore.add_oseries(
+        ts.dropna(),
+        display_name,
+        metadata=metadata,
+        overwrite=True,
+    )
 
 print("No. of errors:", len(no_metadata) + len(too_short) + len(ts_none))
 
@@ -91,10 +97,7 @@ print("No. of errors:", len(no_metadata) + len(too_short) + len(ts_none))
 pstore.hpd.download_knmi_precipitation(tmin="1958-01-01")
 pstore.hpd.download_knmi_evaporation(tmin="1958-01-01")
 
-# %%
-
 # %% build time series models
-# %%
 
 skipped_nobs = []
 skipped_period = []
@@ -138,6 +141,7 @@ def two_step_solve(name):
 
 # %%
 names = pstore.model_names  # solve all
-r = pstore.apply("models", two_step_solve, names=names, parallel=True, max_workers=6)
+r = pstore.apply("models", two_step_solve, names=names, parallel=True)
 
+r.T.to_csv("solve_stats.csv")
 # %%
