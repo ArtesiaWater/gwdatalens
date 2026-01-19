@@ -40,7 +40,6 @@ else:
     pstore = pst.PastaStore(conn)
     print(pstore)
 
-1 / 0
 # %% load head time series into pastastore
 
 no_metadata = []
@@ -74,6 +73,9 @@ for wid in tqdm(db.list_observation_wells_with_data.index, desc="Read timeseries
         continue
     else:
         ts = ts.loc[:, db.value_column]
+
+    if ts.dtype == "O":
+        ts = pd.to_numeric(ts, errors="coerce").dropna()
 
     if ts.index.size < 50:
         too_short.append(display_name)

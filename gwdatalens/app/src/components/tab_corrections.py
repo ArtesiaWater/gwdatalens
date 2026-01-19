@@ -71,6 +71,11 @@ def render_content(data: DataManager, selected_data: List):
             ),
             dbc.Row(
                 [
+                    dbc.Col([render_date_range_filter()], width=12),
+                ]
+            ),
+            dbc.Row(
+                [
                     dbc.Col([render_observations_table(data, selected_data)], width=12),
                 ]
             ),
@@ -84,6 +89,7 @@ def render_content(data: DataManager, selected_data: List):
             dcc.Store(id=ids.CORRECTIONS_EDIT_HISTORY_STORE),
             dcc.Store(id=ids.CORRECTIONS_COMMIT_TRIGGER_STORE),
             dcc.Store(id=ids.CORRECTIONS_RESET_TRIGGER_STORE),
+            dcc.Store(id=ids.CORRECTIONS_DATE_RANGE_STORE),
         ],
         fluid=True,
     )
@@ -718,6 +724,42 @@ def render_well_selection(data, selected_data):
     )
 
 
+def render_date_range_filter():
+    """Renders date range filter info display.
+
+    Returns
+    -------
+    html.Div
+        A Dash HTML Div component containing the date range info.
+    """
+    return html.Div(
+        [
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            html.Div(
+                                id=ids.CORRECTIONS_DATE_RANGE_INFO,
+                                style={
+                                    "padding": "8px 12px",
+                                    "background-color": "#f8f9fa",
+                                    "border-radius": "4px",
+                                    "font-size": "0.9rem",
+                                    "color": "#6c757d",
+                                    "text-align": "center",
+                                },
+                                children=t_("general.select_wells_to_filter"),
+                            ),
+                        ],
+                        width=12,
+                    ),
+                ],
+                style={"margin-bottom": UI.MARGIN_BOTTOM_COMPACT},
+            ),
+        ]
+    )
+
+
 def render_observations_table(_data, _selected_data):
     """Renders two side-by-side editable tables for comparing observations from 2 wells.
 
@@ -741,16 +783,16 @@ def render_observations_table(_data, _selected_data):
 
     return html.Div(
         [
-            dbc.Row(
-                [
-                    dbc.Col(
+            dcc.Loading(
+                id=ids.LOADING_CORRECTIONS_TABLE,
+                type="dot",
+                style={"position": "relative", "display": "block"},
+                parent_className="loading-wrapper",
+                children=[
+                    dbc.Row(
                         [
-                            dcc.Loading(
-                                id=ids.LOADING_CORRECTIONS_TABLE,
-                                type="dot",
-                                style={"position": "absolute", "align-self": "center"},
-                                parent_className="loading-wrapper",
-                                children=[
+                            dbc.Col(
+                                [
                                     dash_table.DataTable(
                                         id=ids.CORRECTIONS_OBSERVATIONS_TABLE_1,
                                         columns=[
@@ -761,6 +803,12 @@ def render_observations_table(_data, _selected_data):
                                                 "editable": False,
                                             },
                                             {
+                                                "id": ColumnNames.OBSERVATION_TYPE,
+                                                "name": "Type",
+                                                "type": "text",
+                                                "editable": False,
+                                            },
+                                            {
                                                 "id": ColumnNames.FIELD_VALUE,
                                                 "name": "Field value",
                                                 "type": "numeric",
@@ -794,6 +842,8 @@ def render_observations_table(_data, _selected_data):
                                         editable=True,
                                         row_deletable=False,
                                         page_action="none",
+                                        virtualization=True,
+                                        fixed_rows={"headers": True},
                                         style_table={
                                             "height": "27.5cqh",
                                             "overflowY": "auto",
@@ -808,13 +858,19 @@ def render_observations_table(_data, _selected_data):
                                         style_cell_conditional=[
                                             {
                                                 "if": {"column_id": "datetime"},
-                                                "width": "20%",
+                                                "width": "18%",
+                                            },
+                                            {
+                                                "if": {
+                                                    "column_id": ColumnNames.OBSERVATION_TYPE  # noqa
+                                                },
+                                                "width": "12%",
                                             },
                                             {
                                                 "if": {
                                                     "column_id": ColumnNames.FIELD_VALUE
                                                 },
-                                                "width": "20%",
+                                                "width": "17%",
                                             },
                                             {
                                                 "if": {
@@ -822,15 +878,15 @@ def render_observations_table(_data, _selected_data):
                                                         ColumnNames.CALCULATED_VALUE
                                                     )
                                                 },
-                                                "width": "20%",
+                                                "width": "17%",
                                             },
                                             {
                                                 "if": {"column_id": "corrected_value"},
-                                                "width": "20%",
+                                                "width": "18%",
                                             },
                                             {
                                                 "if": {"column_id": "comment"},
-                                                "width": "20%",
+                                                "width": "18%",
                                             },
                                         ],
                                         style_data_conditional=[
@@ -846,6 +902,9 @@ def render_observations_table(_data, _selected_data):
                                             "fontWeight": "bold",
                                             "padding": "4px 8px",
                                             "fontSize": 11,
+                                            "position": "sticky",
+                                            "top": 0,
+                                            "zIndex": 1,
                                         },
                                         tooltip_header={
                                             ColumnNames.CALCULATED_VALUE: {
@@ -871,19 +930,10 @@ def render_observations_table(_data, _selected_data):
                                         },
                                     ),
                                 ],
-                                **kwargs,
+                                width=6,
                             ),
-                        ],
-                        width=6,
-                    ),
-                    dbc.Col(
-                        [
-                            dcc.Loading(
-                                id=ids.LOADING_CORRECTIONS_TABLE_2,
-                                type="dot",
-                                style={"position": "absolute", "align-self": "center"},
-                                parent_className="loading-wrapper",
-                                children=[
+                            dbc.Col(
+                                [
                                     dash_table.DataTable(
                                         id=ids.CORRECTIONS_OBSERVATIONS_TABLE_2,
                                         columns=[
@@ -894,6 +944,12 @@ def render_observations_table(_data, _selected_data):
                                                 "editable": False,
                                             },
                                             {
+                                                "id": ColumnNames.OBSERVATION_TYPE,
+                                                "name": "Type",
+                                                "type": "text",
+                                                "editable": False,
+                                            },
+                                            {
                                                 "id": ColumnNames.FIELD_VALUE,
                                                 "name": "Field value",
                                                 "type": "numeric",
@@ -927,6 +983,8 @@ def render_observations_table(_data, _selected_data):
                                         editable=True,
                                         row_deletable=False,
                                         page_action="none",
+                                        virtualization=True,
+                                        fixed_rows={"headers": True},
                                         style_table={
                                             "height": "27.5cqh",
                                             "overflowY": "auto",
@@ -941,31 +999,37 @@ def render_observations_table(_data, _selected_data):
                                         style_cell_conditional=[
                                             {
                                                 "if": {"column_id": "datetime"},
-                                                "width": "20%",
+                                                "width": "18%",
+                                            },
+                                            {
+                                                "if": {
+                                                    "column_id": ColumnNames.OBSERVATION_TYPE  # noqa
+                                                },
+                                                "width": "12%",
                                             },
                                             {
                                                 "if": {
                                                     "column_id": ColumnNames.FIELD_VALUE
                                                 },
-                                                "width": "20%",
+                                                "width": "17%",
                                             },
                                             {
                                                 "if": {
                                                     "column_id": ColumnNames.CALCULATED_VALUE  # noqa
                                                 },
-                                                "width": "20%",
+                                                "width": "17%",
                                             },
                                             {
                                                 "if": {
                                                     "column_id": ColumnNames.CORRECTED_VALUE  # noqa
                                                 },
-                                                "width": "20%",
+                                                "width": "18%",
                                             },
                                             {
                                                 "if": {
                                                     "column_id": ColumnNames.COMMENT
                                                 },
-                                                "width": "20%",
+                                                "width": "18%",
                                             },
                                         ],
                                         style_data_conditional=[
@@ -981,6 +1045,9 @@ def render_observations_table(_data, _selected_data):
                                             "fontWeight": "bold",
                                             "padding": "4px 8px",
                                             "fontSize": 11,
+                                            "position": "sticky",
+                                            "top": 0,
+                                            "zIndex": 1,
                                         },
                                         tooltip_header={
                                             ColumnNames.CALCULATED_VALUE: {
@@ -1006,17 +1073,17 @@ def render_observations_table(_data, _selected_data):
                                         },
                                     ),
                                 ],
-                                **kwargs,
+                                width=6,
                             ),
                         ],
-                        width=6,
-                    ),
+                        style={
+                            "position": "relative",
+                            "justify-content": "center",
+                            "margin-bottom": UI.MARGIN_BOTTOM_LARGE,
+                        },
+                    )
                 ],
-                style={
-                    "position": "relative",
-                    "justify-content": "center",
-                    "margin-bottom": UI.MARGIN_BOTTOM_LARGE,
-                },
+                **kwargs,
             ),
         ]
     )
