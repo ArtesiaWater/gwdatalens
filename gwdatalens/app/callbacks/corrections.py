@@ -226,16 +226,18 @@ def register_correction_callbacks(app: Dash, data: DataManager):
 
         if trigger_id == ids.CORRECTIONS_CLEAR_SELECTION_BUTTON:
             if wid is None:
-                return [], [], None, None
+                return CallbackResponse().add([]).add([]).add(None).add(None).build()
 
             options = well_service.get_tubes_as_dropdown_options(wid)
-            return options, options, None, None
+            return (
+                CallbackResponse().add(options).add(options).add(None).add(None).build()
+            )
 
         if wid is None:
-            return [], [], None, None
+            return CallbackResponse().add([]).add([]).add(None).add(None).build()
 
         options = well_service.get_tubes_as_dropdown_options(wid)
-        return options, options, None, None
+        return CallbackResponse().add(options).add(options).add(None).add(None).build()
 
     # Callback 2: Fetch and merge observations when wells are selected
 
@@ -243,10 +245,12 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         Output(ids.CORRECTIONS_OBSERVATIONS_TABLE_1, "data"),
         Output(ids.CORRECTIONS_OBSERVATIONS_TABLE_2, "data"),
         Output(ids.CORRECTIONS_ORIGINAL_DATA_STORE, "data"),
+        Output(ids.CORRECTIONS_DATE_RANGE_INFO, "children"),
         Input(ids.CORRECTIONS_WELL1_DROPDOWN, "value"),
         Input(ids.CORRECTIONS_WELL2_DROPDOWN, "value"),
         Input(ids.CORRECTIONS_RESET_TRIGGER_STORE, "data"),
         Input(ids.CORRECTIONS_COMMIT_TRIGGER_STORE, "data"),
+        Input(ids.CORRECTIONS_DATE_RANGE_STORE, "data"),
         State(ids.CORRECTIONS_WELL1_DROPDOWN, "value"),
         State(ids.CORRECTIONS_WELL2_DROPDOWN, "value"),
         prevent_initial_call=True,
@@ -262,6 +266,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         well2_id,
         reset_trigger,
         commit_trigger,
+        date_range,
         state_well1_id,
         state_well2_id,
         **kwargs,
@@ -271,7 +276,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         Loads observations from one or two wells. When two wells are selected,
         observations are aligned by datetime (outer join) so both tables show
         the same timestamp rows. Handles reset and commit triggers by reloading
-        fresh data from the database.
+        fresh data from the database. Applies date range filtering if specified.
 
         Parameters
         ----------
@@ -283,6 +288,8 @@ def register_correction_callbacks(app: Dash, data: DataManager):
             Trigger from reset button.
         commit_trigger : dict or None
             Trigger from commit button.
+        date_range : dict or None
+            Date range filter with 'start' and 'end' keys.
         state_well1_id : str or None
             Current state of first well dropdown (for reload context).
         state_well2_id : str or None
@@ -291,11 +298,11 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         Returns
         -------
         tuple
-            (table1_data, table2_data, original_data_store)
+            (table1_data, table2_data, original_data_store, info_text)
         """
         ctx_obj = get_callback_context(**kwargs)
         if not ctx_obj.triggered:
-            return [], [], None
+            return CallbackResponse().add([]).add([]).add(None).add("").build()
 
         trigger_id = extract_trigger_id(ctx_obj, parse_json=False)
 
@@ -308,7 +315,14 @@ def register_correction_callbacks(app: Dash, data: DataManager):
 
         # If neither well is selected, clear tables
         if well1_id is None and well2_id is None:
-            return [], [], None
+            return (
+                CallbackResponse()
+                .add([])
+                .add([])
+                .add(None)
+                .add(t_("general.select_wells_to_filter"))
+                .build()
+            )
 
         # If same well selected twice, treat as single well
         if well1_id == well2_id and well1_id is not None:
@@ -321,17 +335,28 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                 if wid is None:
                     continue
                 obs = ts_service.get_series_for_observation_well(
-                    wid, observation_type="controlemeting"
+                    wid, observation_type=None
                 )
                 if obs is not None and not obs.empty:
+                    if ColumnNames.OBSERVATION_TYPE not in obs.columns:
+                        obs = obs.assign(**{ColumnNames.OBSERVATION_TYPE: None})
+                    if obs.index.has_duplicates:
+                        dup_count = obs.index.duplicated().sum()
+                        logger.warning(
+                            "Dropping %s duplicate timestamps for wid %s",
+                            dup_count,
+                            wid,
+                        )
+                        obs = obs[~obs.index.duplicated(keep="first")]
                     obs = obs.loc[
                         :,
                         [
                             ColumnNames.FIELD_VALUE,
                             ColumnNames.CALCULATED_VALUE,
                             ColumnNames.INITIAL_CALCULATED_VALUE,
-                            "correction_reason",
-                            "measurement_tvp_id",
+                            ColumnNames.OBSERVATION_TYPE,
+                            ColumnNames.CORRECTION_REASON,
+                            ColumnNames.MEASUREMENT_TVP_ID,
                         ],
                     ].dropna(
                         how="all",
@@ -342,7 +367,14 @@ def register_correction_callbacks(app: Dash, data: DataManager):
 
             # If no data loaded, return empty
             if not obs_dict:
-                return [], [], None
+                return (
+                    CallbackResponse()
+                    .add([])
+                    .add([])
+                    .add(None)
+                    .add(t_("general.no_data_available"))
+                    .build()
+                )
 
             obs1 = obs_dict.get("table1")
             obs2 = obs_dict.get("table2")
@@ -360,17 +392,106 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                 _prepare_observation_table_data(obs2) if obs2 is not None else []
             )
 
+            # Get data date range for info text
+            original_count = len(table1_data) + len(table2_data)
+            data_dates = []
+            for row in table1_data + table2_data:
+                if row.get("datetime"):
+                    try:
+                        data_dates.append(pd.to_datetime(row["datetime"]))
+                    except Exception:
+                        pass
+
+            if data_dates:
+                data_tmin = min(data_dates).date().isoformat()
+                data_tmax = max(data_dates).date().isoformat()
+            else:
+                data_tmin = data_tmax = None
+
+            # Apply date range filtering if specified
+            if date_range:
+                start_date = date_range.get("start")
+                end_date = date_range.get("end")
+
+                table1_data = _filter_by_date_range(table1_data, start_date, end_date)
+                table2_data = _filter_by_date_range(table2_data, start_date, end_date)
+                filtered_count = len(table1_data) + len(table2_data)
+
+                if start_date and end_date:
+                    info_text = t_(
+                        "general.showing_filtered_range",
+                        count=filtered_count,
+                        total=original_count,
+                        start=start_date,
+                        end=end_date,
+                    )
+                elif start_date:
+                    info_text = t_(
+                        "general.showing_filtered_range",
+                        count=filtered_count,
+                        total=original_count,
+                        start=start_date,
+                        end=data_tmax or "present",
+                    )
+                elif end_date:
+                    info_text = t_(
+                        "general.showing_filtered_range",
+                        count=filtered_count,
+                        total=original_count,
+                        start=data_tmin or "earliest",
+                        end=end_date,
+                    )
+                else:
+                    info_text = t_(
+                        "general.showing_filtered_range",
+                        count=original_count,
+                        total=original_count,
+                        start=data_tmin or "",
+                        end=data_tmax or "",
+                    )
+            else:
+                if data_tmin and data_tmax:
+                    info_text = t_(
+                        "general.showing_filtered_range",
+                        count=original_count,
+                        total=original_count,
+                        start=data_tmin,
+                        end=data_tmax,
+                    )
+                else:
+                    info_text = t_(
+                        "general.showing_filtered_range",
+                        count=original_count,
+                        total=original_count,
+                        start="",
+                        end="",
+                    )
+
             original_data = {
                 "table1": table1_data,
                 "table2": table2_data,
                 "timestamp": pd.Timestamp.now().isoformat(),
             }
 
-            return table1_data, table2_data, original_data
+            return (
+                CallbackResponse()
+                .add(table1_data)
+                .add(table2_data)
+                .add(original_data)
+                .add(info_text)
+                .build()
+            )
 
         except TimeSeriesError as e:
             logger.exception("Error loading observations: %s", e)
-            return [], [], None
+            return (
+                CallbackResponse()
+                .add([])
+                .add([])
+                .add(None)
+                .add(t_("general.error_loading_data"))
+                .build()
+            )
 
     # Callback 2b: Enable/disable commit and reset buttons based on dropdown selections
     @app.callback(
@@ -416,7 +537,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         # Both commit and reset buttons enabled if well selected and data available
         buttons_disabled = not (has_well_selected and has_data)
 
-        return buttons_disabled, buttons_disabled
+        return CallbackResponse().add(buttons_disabled).add(buttons_disabled).build()
 
     # Callback 3: Track edits and manage button states
     @app.callback(
@@ -615,7 +736,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                                 }
                             )
 
-        return style_table1, style_table2
+        return CallbackResponse().add(style_table1).add(style_table2).build()
 
     # Callback 4: Commit or reset corrections (single callback handling both operations)
     @app.callback(
@@ -664,7 +785,9 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         ctx_obj = get_callback_context(**kwargs)
 
         if not ctx_obj.triggered:
-            return no_update, no_update, no_update
+            return (
+                CallbackResponse().add(no_update).add(no_update).add(no_update).build()
+            )
 
         # Determine which button was clicked
         trigger_id = ctx_obj.triggered_id
@@ -674,7 +797,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         elif trigger_id == ids.CORRECTIONS_RESET_BUTTON:
             return _handle_reset_corrections(table1_data, table2_data, original_data)
 
-        return no_update, no_update, no_update
+        return CallbackResponse().add(no_update).add(no_update).add(no_update).build()
 
     def _handle_commit_corrections(table1_data, table2_data, original_data):
         """Handle committing corrections to the database.
@@ -1023,6 +1146,61 @@ def register_correction_callbacks(app: Dash, data: DataManager):
 
         return no_update, no_update
 
+    # Callback: Update date range store from chart range slider selection
+    @app.callback(
+        Output(ids.CORRECTIONS_DATE_RANGE_STORE, "data"),
+        Input(ids.CORRECTION_SERIES_CHART, "relayoutData"),
+        prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def update_date_range_store(relayout_data, **kwargs):
+        """Update date range from chart rangeslider selection.
+
+        Handles chart range selection from rangeslider or range selector buttons.
+        """
+        if not relayout_data:
+            raise PreventUpdate
+
+        # Handle chart range selection - check both formats
+        if "xaxis.range" in relayout_data:
+            try:
+                start_str, end_str = relayout_data["xaxis.range"]
+                # Handle both ISO format and millisecond timestamps
+                if isinstance(start_str, (int, float)):
+                    start = pd.to_datetime(start_str, unit="ms").date()
+                    end = pd.to_datetime(end_str, unit="ms").date()
+                else:
+                    start = pd.to_datetime(start_str).date()
+                    end = pd.to_datetime(end_str).date()
+                range_data = {"start": start.isoformat(), "end": end.isoformat()}
+                return range_data
+            except Exception as e:
+                logger.warning("Failed to parse chart range: %s", e)
+                raise PreventUpdate from None
+        elif "xaxis.range[0]" in relayout_data and "xaxis.range[1]" in relayout_data:
+            try:
+                start_str = relayout_data["xaxis.range[0]"]
+                end_str = relayout_data["xaxis.range[1]"]
+                # Handle both ISO format and millisecond timestamps
+                if isinstance(start_str, (int, float)):
+                    start = pd.to_datetime(start_str, unit="ms").date()
+                    end = pd.to_datetime(end_str, unit="ms").date()
+                else:
+                    start = pd.to_datetime(start_str).date()
+                    end = pd.to_datetime(end_str).date()
+                range_data = {"start": start.isoformat(), "end": end.isoformat()}
+                return range_data
+            except Exception as e:
+                logger.warning("Failed to parse chart range: %s", e)
+                raise PreventUpdate from None
+
+        raise PreventUpdate
+
 
 def _prepare_observation_table_data(obs_df):
     """Prepare observation DataFrame for table display."""
@@ -1032,6 +1210,14 @@ def _prepare_observation_table_data(obs_df):
         return []
 
     table_df = obs_df.reset_index()
+
+    # Ensure observation type is always present for display
+    if ColumnNames.OBSERVATION_TYPE not in table_df:
+        table_df[ColumnNames.OBSERVATION_TYPE] = ""
+    else:
+        table_df[ColumnNames.OBSERVATION_TYPE] = (
+            table_df[ColumnNames.OBSERVATION_TYPE].fillna("").astype(str)
+        )
 
     # Display original calculated value when correction exists
     current_calculated = table_df[ColumnNames.CALCULATED_VALUE]
@@ -1060,6 +1246,7 @@ def _prepare_observation_table_data(obs_df):
     return table_df[
         [
             ColumnNames.DATETIME,
+            ColumnNames.OBSERVATION_TYPE,
             ColumnNames.FIELD_VALUE,
             ColumnNames.CALCULATED_VALUE,
             ColumnNames.CORRECTED_VALUE,
@@ -1068,3 +1255,50 @@ def _prepare_observation_table_data(obs_df):
             ColumnNames.INITIAL_CALCULATED_VALUE,
         ]
     ].to_dict("records")
+
+
+def _filter_by_date_range(table_data, start_date, end_date):
+    """Filter table data by date range.
+
+    Parameters
+    ----------
+    table_data : list[dict]
+        Table data to filter
+    start_date : str or None
+        Start date in ISO format
+    end_date : str or None
+        End date in ISO format
+
+    Returns
+    -------
+    list[dict]
+        Filtered table data
+    """
+    if not table_data or (start_date is None and end_date is None):
+        return table_data
+
+    df = pd.DataFrame(table_data)
+    if df.empty:
+        return table_data
+
+    # Parse datetime column
+    df[ColumnNames.DATETIME] = pd.to_datetime(
+        df[ColumnNames.DATETIME], format=ConfigDefaults.DATETIME_FORMAT, errors="coerce"
+    )
+
+    # Apply filters
+    if start_date is not None:
+        start_dt = pd.to_datetime(start_date)
+        df = df[df[ColumnNames.DATETIME] >= start_dt]
+    if end_date is not None:
+        end_dt = (
+            pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        )
+        df = df[df[ColumnNames.DATETIME] <= end_dt]
+
+    # Format datetime back to string
+    df[ColumnNames.DATETIME] = df[ColumnNames.DATETIME].dt.strftime(
+        ConfigDefaults.DATETIME_FORMAT
+    )
+
+    return df.to_dict("records")

@@ -86,6 +86,11 @@ nl:
   observation_mnap_label: "= m NAP"
   observation_mnap_tooltip: "Grondwaterstand in m NAP, berekend volgens BKB - meting in cm = m NAP"
   example: "b.v."
+  # date range filtering
+  select_wells_to_filter: "Selecteer peilbuizen om metingen te filteren"
+  showing_filtered_range: "%{count} van %{total} metingen van %{start} tot %{end} weergeven"
+  no_data_available: "Geen gegevens beschikbaar"
+  error_loading_data: "Fout bij laden van gegevens"
   # error messages
   error_data_load_failed: "Geen data geladen."
   error_no_wells_selected: "Selecteer een put om verder te gaan."

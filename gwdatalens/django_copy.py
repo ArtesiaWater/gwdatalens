@@ -52,7 +52,7 @@ def copy_gwdatalens_to_django_app(
     ]
     if skip_config:
         ignore_patterns.append("config.toml")
-    
+
     shutil.copytree(
         GWDATALENS_PATH / "app",
         DJANGO_APP_PATH / "gwdatalens" / "app",
