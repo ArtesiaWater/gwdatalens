@@ -105,7 +105,8 @@ class MeasurementTvp(Base):
     measurement_point_metadata_id: Mapped[int] = mapped_column(
         ForeignKey("measurement_point_metadata.measurement_point_metadata_id")
     )
-    value_to_be_corrected: Mapped[Optional[float]] = mapped_column(nullable=True)
+    # value_to_be_corrected: Mapped[Optional[float]] = mapped_column(nullable=True)
+    initial_calculated_value: Mapped[Optional[float]] = mapped_column(nullable=True)
     correction_reason: Mapped[Optional[str]] = mapped_column(nullable=True)
     correction_time: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -117,5 +118,5 @@ class MeasurementPointMetadata(Base):
     measurement_point_metadata_id: Mapped[int] = mapped_column(primary_key=True)
     status_quality_control: Mapped[str]
     censor_reason: Mapped[str]
-    censor_reason_datalens: Mapped[str]
+    status_quality_control_reason_datalens: Mapped[str]
     value_limit: Mapped[str]

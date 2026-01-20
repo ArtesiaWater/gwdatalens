@@ -78,7 +78,7 @@ en:
   corrected_value_tooltip: "Enter corrected observation(s) here (in m NAP)."
   correction_reason_tooltip: "Provide a reason for the correction (optional)."
   calculated_value_original: "Calculated value (original)"
-  calculated_value_original_tooltip: "Shows the original calculated value. When a correction was applied, this shows the previous value (from value_to_be_corrected)."
+  calculated_value_original_tooltip: "Shows the original calculated value. When a correction was applied, this shows the previous value (from initial_calculated_value)."
   bkb_label: "Tube top elevation (m NAP)"
   bkb_tooltip: "Elevation top of tube in meters relative to NAP"
   observation_cm_label: "- Observation (cm below tube top)"

@@ -410,7 +410,7 @@ def plot_well_cross_section(df, tube_width=0.15):
     fig = go.Figure()
 
     # Sort by ground level position for better visualization
-    df_sorted = df.sort_values(ColumnNames.GROUND_LEVEL_POSITION, ascending=False)
+    df_sorted = df.sort_values(ColumnNames.SCREEN_BOT, ascending=False)
 
     # Create x-positions for each well
     x_positions = list(range(len(df_sorted)))
@@ -725,12 +725,12 @@ def render_well_selection(data, selected_data):
 
 
 def render_date_range_filter():
-    """Renders date range filter info display.
+    """Renders date range filter info display with loading spinner.
 
     Returns
     -------
     html.Div
-        A Dash HTML Div component containing the date range info.
+        A Dash HTML Div component containing the date range info with loading state.
     """
     return html.Div(
         [
@@ -738,17 +738,33 @@ def render_date_range_filter():
                 [
                     dbc.Col(
                         [
-                            html.Div(
-                                id=ids.CORRECTIONS_DATE_RANGE_INFO,
+                            dcc.Loading(
+                                id="loading-corrections-date-range-info",
+                                type="dot",
+                                delay_show=500,
                                 style={
-                                    "padding": "8px 12px",
-                                    "background-color": "#f8f9fa",
-                                    "border-radius": "4px",
-                                    "font-size": "0.9rem",
-                                    "color": "#6c757d",
-                                    "text-align": "center",
+                                    "position": "relative",
+                                    "display": "inline-block",
+                                    "width": "100%",
                                 },
-                                children=t_("general.select_wells_to_filter"),
+                                children=[
+                                    html.Div(
+                                        id=ids.CORRECTIONS_DATE_RANGE_INFO,
+                                        style={
+                                            "padding": "8px 12px",
+                                            "background-color": "#f8f9fa",
+                                            "border-radius": "4px",
+                                            "font-size": "0.9rem",
+                                            "color": "#6c757d",
+                                            "text-align": "center",
+                                            "min-height": "1.5rem",
+                                            "display": "flex",
+                                            "align-items": "center",
+                                            "justify-content": "center",
+                                        },
+                                        children=t_("general.select_wells_to_filter"),
+                                    ),
+                                ],
                             ),
                         ],
                         width=12,

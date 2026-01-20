@@ -78,7 +78,7 @@ nl:
   corrected_value_tooltip: "Vul hier gecorrigeerde waarden in (in m NAP)."
   correction_reason_tooltip: "Optioneel: reden voor correctie invullen."
   calculated_value_original: "Calculated Value (oorspronkelijk)"
-  calculated_value_original_tooltip: "Toont de originele berekende waarde. Bij een correctie toont dit de vorige waarde (uit value_to_be_corrected)."
+  calculated_value_original_tooltip: "Toont de originele berekende waarde. Bij een correctie toont dit de vorige waarde (uit initial_calculated_value)."
   bkb_label: "Bovenkant buis (m NAP)"
   bkb_tooltip: "Bovenkant buis (BKB) in m NAP"
   observation_cm_label: "- Meting (cm t.o.v. BKB)"

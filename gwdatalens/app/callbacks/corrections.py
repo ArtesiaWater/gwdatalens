@@ -240,12 +240,11 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         return CallbackResponse().add(options).add(options).add(None).add(None).build()
 
     # Callback 2: Fetch and merge observations when wells are selected
-
+    # OPTIMIZED: Only re-query DB when wells change; use cached data for date filtering
     @app.callback(
         Output(ids.CORRECTIONS_OBSERVATIONS_TABLE_1, "data"),
         Output(ids.CORRECTIONS_OBSERVATIONS_TABLE_2, "data"),
         Output(ids.CORRECTIONS_ORIGINAL_DATA_STORE, "data"),
-        Output(ids.CORRECTIONS_DATE_RANGE_INFO, "children"),
         Input(ids.CORRECTIONS_WELL1_DROPDOWN, "value"),
         Input(ids.CORRECTIONS_WELL2_DROPDOWN, "value"),
         Input(ids.CORRECTIONS_RESET_TRIGGER_STORE, "data"),
@@ -253,6 +252,8 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         Input(ids.CORRECTIONS_DATE_RANGE_STORE, "data"),
         State(ids.CORRECTIONS_WELL1_DROPDOWN, "value"),
         State(ids.CORRECTIONS_WELL2_DROPDOWN, "value"),
+        State(ids.CORRECTIONS_ORIGINAL_DATA_STORE, "data"),
+        State(ids.CORRECTIONS_EDIT_HISTORY_STORE, "data"),
         prevent_initial_call=True,
     )
     @log_callback(
@@ -269,14 +270,20 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         date_range,
         state_well1_id,
         state_well2_id,
+        cached_original_data,
+        edit_history,
         **kwargs,
     ):
         """Load observations from selected well(s) into separate aligned tables.
 
+        OPTIMIZED: Detects trigger type and only queries DB when wells change.
+        When only date_range changes (e.g., slider drag), uses cached data.
+        Re-applies user edits to filtered results to prevent data loss.
+
         Loads observations from one or two wells. When two wells are selected,
         observations are aligned by datetime (outer join) so both tables show
         the same timestamp rows. Handles reset and commit triggers by reloading
-        fresh data from the database. Applies date range filtering if specified.
+        fresh data from the database.
 
         Parameters
         ----------
@@ -294,35 +301,93 @@ def register_correction_callbacks(app: Dash, data: DataManager):
             Current state of first well dropdown (for reload context).
         state_well2_id : str or None
             Current state of second well dropdown (for reload context).
+        cached_original_data : dict or None
+            Previously cached full unfiltered data.
+        edit_history : dict or None
+            Persisted edits keyed by "table{N}:{datetime}".
 
         Returns
         -------
         tuple
-            (table1_data, table2_data, original_data_store, info_text)
+            (table1_data, table2_data, original_data_store)
         """
         ctx_obj = get_callback_context(**kwargs)
         if not ctx_obj.triggered:
-            return CallbackResponse().add([]).add([]).add(None).add("").build()
+            return CallbackResponse().add([]).add([]).add(None).build()
 
         trigger_id = extract_trigger_id(ctx_obj, parse_json=False)
 
+        def _reapply_edits(table_data, table_num, edit_history):
+            """Re-apply persisted edits to table data by datetime key."""
+            if not edit_history or not table_data:
+                return table_data
+
+            result = []
+            for row in table_data:
+                datetime_val = row.get("datetime")
+                if not datetime_val:
+                    result.append(row)
+                    continue
+
+                row_key = f"table{table_num}:{datetime_val}"
+                row_edits = edit_history.get(row_key, {})
+
+                if row_edits:
+                    updated_row = dict(row)
+                    updated_row.update(row_edits)
+                    result.append(updated_row)
+                else:
+                    result.append(row)
+
+            return result
+
+        # --- OPTIMIZATION: Check if this is a date-range-only change ---
+        # If triggered by date range and we have cached data, skip DB query
+        if trigger_id == ids.CORRECTIONS_DATE_RANGE_STORE and cached_original_data:
+            # Use cached full data and apply date filtering (no DB hit)
+            table1_full = cached_original_data.get("table1_full", [])
+            table2_full = cached_original_data.get("table2_full", [])
+
+            table1_data = table1_full
+            table2_data = table2_full
+
+            if date_range:
+                start_date = date_range.get("start")
+                end_date = date_range.get("end")
+                table1_data = _filter_by_date_range(table1_full, start_date, end_date)
+                table2_data = _filter_by_date_range(table2_full, start_date, end_date)
+
+            # Re-apply persisted edits to filtered data
+            table1_data = _reapply_edits(table1_data, 1, edit_history)
+            table2_data = _reapply_edits(table2_data, 2, edit_history)
+
+            # Update store with current displayed version for edit tracking
+            updated_cache = dict(cached_original_data)
+            updated_cache["table1_displayed"] = table1_data
+            updated_cache["table2_displayed"] = table2_data
+
+            return (
+                CallbackResponse()
+                .add(table1_data)
+                .add(table2_data)
+                .add(updated_cache)
+                .build()
+            )
+
+        # --- DB QUERY: Well selection changed, reset, or commit ---
         # Handle reset or commit triggers - reload fresh data from database
         if (trigger_id == ids.CORRECTIONS_RESET_TRIGGER_STORE and reset_trigger) or (
             trigger_id == ids.CORRECTIONS_COMMIT_TRIGGER_STORE and commit_trigger
         ):
             well1_id = state_well1_id
             well2_id = state_well2_id
+            # On reset, clear the edit history (user is reloading fresh)
+            if trigger_id == ids.CORRECTIONS_RESET_TRIGGER_STORE:
+                edit_history = {}
 
         # If neither well is selected, clear tables
         if well1_id is None and well2_id is None:
-            return (
-                CallbackResponse()
-                .add([])
-                .add([])
-                .add(None)
-                .add(t_("general.select_wells_to_filter"))
-                .build()
-            )
+            return CallbackResponse().add([]).add([]).add(None).build()
 
         # If same well selected twice, treat as single well
         if well1_id == well2_id and well1_id is not None:
@@ -367,14 +432,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
 
             # If no data loaded, return empty
             if not obs_dict:
-                return (
-                    CallbackResponse()
-                    .add([])
-                    .add([])
-                    .add(None)
-                    .add(t_("general.no_data_available"))
-                    .build()
-                )
+                return CallbackResponse().add([]).add([]).add(None).build()
 
             obs1 = obs_dict.get("table1")
             obs2 = obs_dict.get("table2")
@@ -392,8 +450,20 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                 _prepare_observation_table_data(obs2) if obs2 is not None else []
             )
 
-            # Get data date range for info text
-            original_count = len(table1_data) + len(table2_data)
+            # Apply date range filtering if specified (on initial load)
+            table1_filtered = table1_data
+            table2_filtered = table2_data
+            if date_range:
+                start_date = date_range.get("start")
+                end_date = date_range.get("end")
+                table1_filtered = _filter_by_date_range(
+                    table1_data, start_date, end_date
+                )
+                table2_filtered = _filter_by_date_range(
+                    table2_data, start_date, end_date
+                )
+
+            # Precompute date range for efficient info text generation
             data_dates = []
             for row in table1_data + table2_data:
                 if row.get("datetime"):
@@ -408,92 +478,289 @@ def register_correction_callbacks(app: Dash, data: DataManager):
             else:
                 data_tmin = data_tmax = None
 
-            # Apply date range filtering if specified
-            if date_range:
-                start_date = date_range.get("start")
-                end_date = date_range.get("end")
-
-                table1_data = _filter_by_date_range(table1_data, start_date, end_date)
-                table2_data = _filter_by_date_range(table2_data, start_date, end_date)
-                filtered_count = len(table1_data) + len(table2_data)
-
-                if start_date and end_date:
-                    info_text = t_(
-                        "general.showing_filtered_range",
-                        count=filtered_count,
-                        total=original_count,
-                        start=start_date,
-                        end=end_date,
-                    )
-                elif start_date:
-                    info_text = t_(
-                        "general.showing_filtered_range",
-                        count=filtered_count,
-                        total=original_count,
-                        start=start_date,
-                        end=data_tmax or "present",
-                    )
-                elif end_date:
-                    info_text = t_(
-                        "general.showing_filtered_range",
-                        count=filtered_count,
-                        total=original_count,
-                        start=data_tmin or "earliest",
-                        end=end_date,
-                    )
-                else:
-                    info_text = t_(
-                        "general.showing_filtered_range",
-                        count=original_count,
-                        total=original_count,
-                        start=data_tmin or "",
-                        end=data_tmax or "",
-                    )
-            else:
-                if data_tmin and data_tmax:
-                    info_text = t_(
-                        "general.showing_filtered_range",
-                        count=original_count,
-                        total=original_count,
-                        start=data_tmin,
-                        end=data_tmax,
-                    )
-                else:
-                    info_text = t_(
-                        "general.showing_filtered_range",
-                        count=original_count,
-                        total=original_count,
-                        start="",
-                        end="",
-                    )
-
+            # Store both full and filtered versions:
+            # - "table1_full" / "table2_full": unfiltered for info text
+            # - "table1_displayed" / "table2_displayed": current display view for edit
+            #   tracking
+            # - "data_tmin" / "data_tmax": precomputed date range to avoid
+            #   recalculating on edits
             original_data = {
-                "table1": table1_data,
-                "table2": table2_data,
+                "table1_full": table1_data,
+                "table2_full": table2_data,
+                "table1_displayed": table1_filtered,
+                "table2_displayed": table2_filtered,
+                "data_tmin": data_tmin,
+                "data_tmax": data_tmax,
                 "timestamp": pd.Timestamp.now().isoformat(),
             }
 
+            # Re-apply persisted edits to the display version
+            table1_filtered = _reapply_edits(table1_filtered, 1, edit_history)
+            table2_filtered = _reapply_edits(table2_filtered, 2, edit_history)
+
             return (
                 CallbackResponse()
-                .add(table1_data)
-                .add(table2_data)
+                .add(table1_filtered)
+                .add(table2_filtered)
                 .add(original_data)
-                .add(info_text)
                 .build()
             )
 
         except TimeSeriesError as e:
             logger.exception("Error loading observations: %s", e)
-            return (
-                CallbackResponse()
-                .add([])
-                .add([])
-                .add(None)
-                .add(t_("general.error_loading_data"))
-                .build()
-            )
+            return CallbackResponse().add([]).add([]).add(None).build()
 
-    # Callback 2b: Enable/disable commit and reset buttons based on dropdown selections
+    # Callback 2b: Update info text on date range changes (lightweight, no DB query)
+    @app.callback(
+        Output(ids.CORRECTIONS_DATE_RANGE_INFO, "children"),
+        Input(ids.CORRECTIONS_OBSERVATIONS_TABLE_1, "data"),
+        Input(ids.CORRECTIONS_OBSERVATIONS_TABLE_2, "data"),
+        Input(ids.CORRECTIONS_DATE_RANGE_STORE, "data"),
+        State(ids.CORRECTIONS_ORIGINAL_DATA_STORE, "data"),
+        prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def update_corrections_date_range_info(
+        table1_data, table2_data, date_range, original_data, **kwargs
+    ):
+        """Update date range info text (lightweight, no DB queries).
+
+        Calculates filtering statistics from in-memory data and displays
+        info text about the current date range selection.
+
+        Parameters
+        ----------
+        table1_data : list[dict]
+            Filtered observations for table 1.
+        table2_data : list[dict]
+            Filtered observations for table 2.
+        date_range : dict or None
+            Date range filter with 'start' and 'end' keys.
+        original_data : dict or None
+            Cached data with 'table1_full'/'table2_full' (unfiltered) keys.
+
+        Returns
+        -------
+        str
+            Formatted info text for display.
+        """
+        if not original_data:
+            return t_("general.select_wells_to_filter")
+
+        # Get full unfiltered data for counts (NOT the displayed/filtered version)
+        table1_full = original_data.get("table1_full", [])
+        table2_full = original_data.get("table2_full", [])
+        original_count = len(table1_full) + len(table2_full)
+        filtered_count = len(table1_data or []) + len(table2_data or [])
+
+        # Use precomputed date range from store (avoids expensive recalculation
+        # on every table edit)
+        data_tmin = original_data.get("data_tmin")
+        data_tmax = original_data.get("data_tmax")
+
+        # Generate info text based on applied date range
+        if date_range:
+            start_date = date_range.get("start")
+            end_date = date_range.get("end")
+
+            if start_date and end_date:
+                info_text = t_(
+                    "general.showing_filtered_range",
+                    count=filtered_count,
+                    total=original_count,
+                    start=start_date,
+                    end=end_date,
+                )
+            elif start_date:
+                info_text = t_(
+                    "general.showing_filtered_range",
+                    count=filtered_count,
+                    total=original_count,
+                    start=start_date,
+                    end=data_tmax or "present",
+                )
+            elif end_date:
+                info_text = t_(
+                    "general.showing_filtered_range",
+                    count=filtered_count,
+                    total=original_count,
+                    start=data_tmin or "earliest",
+                    end=end_date,
+                )
+            else:
+                info_text = t_(
+                    "general.showing_filtered_range",
+                    count=original_count,
+                    total=original_count,
+                    start=data_tmin or "",
+                    end=data_tmax or "",
+                )
+        else:
+            # No date range filter applied
+            if data_tmin and data_tmax:
+                info_text = t_(
+                    "general.showing_filtered_range",
+                    count=original_count,
+                    total=original_count,
+                    start=data_tmin,
+                    end=data_tmax,
+                )
+            else:
+                info_text = t_("general.no_data_available")
+
+        return info_text
+
+    # Callback 2b: Capture and persist user edits to history store
+    @app.callback(
+        Output(ids.CORRECTIONS_EDIT_HISTORY_STORE, "data"),
+        Input(ids.CORRECTIONS_OBSERVATIONS_TABLE_1, "data"),
+        Input(ids.CORRECTIONS_OBSERVATIONS_TABLE_2, "data"),
+        State(ids.CORRECTIONS_ORIGINAL_DATA_STORE, "data"),
+        State(ids.CORRECTIONS_EDIT_HISTORY_STORE, "data"),
+        prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def capture_edits(table1_data, table2_data, original_data, edit_history, **kwargs):
+        """Capture and persist user edits by datetime key.
+
+        Compares current table data with displayed version to extract actual edits,
+        then stores them keyed by datetime for re-application after filtering.
+
+        Parameters
+        ----------
+        table1_data : list[dict]
+            Current data from table 1.
+        table2_data : list[dict]
+            Current data from table 2.
+        original_data : dict or None
+            Original store with displayed versions.
+        edit_history : dict or None
+            Previous edit history.
+
+        Returns
+        -------
+        dict
+            Updated edit history keyed by datetime.
+        """
+        if not original_data:
+            return edit_history or {}
+
+        if edit_history is None:
+            edit_history = {}
+
+        def _normalize_value(val, col):
+            """Normalize values for comparison (same as track_edits)."""
+            if val is None:
+                return None
+            if isinstance(val, str) and val.strip() == "":
+                return None
+            if col in {
+                ColumnNames.CALCULATED_VALUE,
+                ColumnNames.FIELD_VALUE,
+                "corrected_value",
+            }:
+                try:
+                    if isinstance(val, (int, float)):
+                        return val if not pd.isna(val) else None
+                    parsed = float(str(val))
+                    return parsed
+                except (TypeError, ValueError):
+                    return None
+            if col == "comment":
+                return val.strip() if isinstance(val, str) else val
+            return val
+
+        def _equal_values(a, b, col):
+            """Compare normalized values."""
+            na = _normalize_value(a, col)
+            nb = _normalize_value(b, col)
+            if na is None and (nb is None or pd.isna(nb)):
+                return True
+            if nb is None and (na is None or pd.isna(na)):
+                return True
+            return na == nb
+
+        # Columns to track as editable
+        editable_cols = [
+            ColumnNames.CALCULATED_VALUE,
+            ColumnNames.FIELD_VALUE,
+            "corrected_value",
+            "comment",
+        ]
+
+        # Extract edits from table 1
+        table1_displayed = original_data.get("table1_displayed", [])
+        if table1_data and table1_displayed:
+            for current_row in table1_data:
+                datetime_val = current_row.get("datetime")
+                if not datetime_val:
+                    continue
+
+                # Find matching row in displayed version by datetime
+                original_row = None
+                for orig_row in table1_displayed:
+                    if orig_row.get("datetime") == datetime_val:
+                        original_row = orig_row
+                        break
+
+                if original_row is None:
+                    continue
+
+                # Check for edits in this row
+                row_key = f"table1:{datetime_val}"
+                row_edits = {}
+                for col in editable_cols:
+                    current_val = current_row.get(col)
+                    original_val = original_row.get(col)
+                    if not _equal_values(current_val, original_val, col):
+                        row_edits[col] = current_val
+
+                if row_edits:
+                    edit_history[row_key] = row_edits
+
+        # Extract edits from table 2
+        table2_displayed = original_data.get("table2_displayed", [])
+        if table2_data and table2_displayed:
+            for current_row in table2_data:
+                datetime_val = current_row.get("datetime")
+                if not datetime_val:
+                    continue
+
+                # Find matching row in displayed version by datetime
+                original_row = None
+                for orig_row in table2_displayed:
+                    if orig_row.get("datetime") == datetime_val:
+                        original_row = orig_row
+                        break
+
+                if original_row is None:
+                    continue
+
+                # Check for edits in this row
+                row_key = f"table2:{datetime_val}"
+                row_edits = {}
+                for col in editable_cols:
+                    current_val = current_row.get(col)
+                    original_val = original_row.get(col)
+                    if not _equal_values(current_val, original_val, col):
+                        row_edits[col] = current_val
+
+                if row_edits:
+                    edit_history[row_key] = row_edits
+
+        return edit_history
+
+    # Callback 2c: Enable/disable commit and reset buttons based on dropdown selections
     @app.callback(
         Output(ids.CORRECTIONS_COMMIT_BUTTON, "disabled"),
         Output(ids.CORRECTIONS_RESET_BUTTON, "disabled"),
@@ -633,8 +900,9 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         if not original_data:
             return style_table1, style_table2
 
-        original_table1 = original_data.get("table1", [])
-        original_table2 = original_data.get("table2", [])
+        # Use the DISPLAYED version (not the full unfiltered version) for edit tracking
+        original_table1 = original_data.get("table1_displayed", [])
+        original_table2 = original_data.get("table2_displayed", [])
 
         def is_empty_row(row):
             """Check if a row is an alignment placeholder (all editable cols empty)."""
@@ -1008,7 +1276,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
             # Collect corrections to reset from table 1
             if table1_data:
                 for row in table1_data:
-                    # Only reset if value_to_be_corrected is not null
+                    # Only reset if initial_calculcated_value is not null
                     # (meaning it was corrected)
                     if row.get(
                         ColumnNames.INITIAL_CALCULATED_VALUE
@@ -1027,7 +1295,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
             # Collect corrections to reset from table 2
             if table2_data:
                 for row in table2_data:
-                    # Only reset if value_to_be_corrected is not null
+                    # Only reset if initial_calculcated_value is not null
                     # (meaning it was corrected)
                     if row.get(
                         ColumnNames.INITIAL_CALCULATED_VALUE

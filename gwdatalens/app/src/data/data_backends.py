@@ -727,7 +727,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
                     datamodel.MeasurementPointMetadata.status_quality_control: bindparam(  # noqa
                         "b_status_quality_control"
                     ),
-                    datamodel.MeasurementPointMetadata.censor_reason_datalens: bindparam(  # noqa
+                    datamodel.MeasurementPointMetadata.status_quality_control_reason_datalens: bindparam(  # noqa
                         "b_censor_reason_datalens"
                     ),
                     datamodel.MeasurementPointMetadata.censor_reason: bindparam(
@@ -760,7 +760,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
         Notes
         -----
         This method:
-        - Saves the original calculated_value to value_to_be_corrected
+        - Saves the original calculated_value to initial_calculated_value
         - Updates calculated_value with the corrected_value
         - Saves the comment to correction_reason
         - Records the current timestamp to correction_time
@@ -827,21 +827,23 @@ class PostgreSQLDataSource(DataSourceTemplate):
         Notes
         -----
         This method:
-        - Restores calculated_value from value_to_be_corrected
-        - Clears correction_reason, value_to_be_corrected, and correction_time
+        - Restores calculated_value from initial_calculated_value
+        - Clears correction_reason, initial_calculated_value, and correction_time
         """
         # Prepare the reset updates
         params = []
         for _, row in df.iterrows():
             # Convert numpy types to Python native types
             measurement_tvp_id = int(row["measurement_tvp_id"])
-            value_to_be_corrected = row.get(ColumnNames.INITIAL_CALCULATED_VALUE)
-            if value_to_be_corrected is not None and pd.notna(value_to_be_corrected):
-                value_to_be_corrected = float(value_to_be_corrected)
+            initial_calculated_value = row.get(ColumnNames.INITIAL_CALCULATED_VALUE)
+            if initial_calculated_value is not None and pd.notna(
+                initial_calculated_value
+            ):
+                initial_calculated_value = float(initial_calculated_value)
 
             param = {
                 "b_measurement_tvp_id": measurement_tvp_id,
-                ColumnNames.CALCULATED_VALUE: value_to_be_corrected,
+                ColumnNames.CALCULATED_VALUE: initial_calculated_value,
                 ColumnNames.INITIAL_CALCULATED_VALUE: None,
                 ColumnNames.CORRECTION_REASON: None,
                 ColumnNames.CORRECTION_TIME: None,

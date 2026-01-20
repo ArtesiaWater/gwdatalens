@@ -5,7 +5,7 @@ import plotly.graph_objs as go
 from dash import __version__ as DASH_VERSION
 from dash import dcc, html
 from packaging.version import parse as parse_version
-from pandas import Timedelta
+from pandas import Timedelta, Timestamp
 
 from gwdatalens.app.constants import UI, ColumnNames, ConfigDefaults, PlotConstants
 from gwdatalens.app.messages import t_
@@ -223,13 +223,19 @@ def plot_obs(
 
     # Set xaxis range to data min/max
     xaxis_range = None
+    days = None
     if all_dates:
         tmin = min(all_dates)
         tmax = max(all_dates)
-        days = (tmax - tmin) / Timedelta(days=1)
-        xaxis_range = [tmin, tmax]
+        # Convert to milliseconds since epoch for Plotly
+        # (most reliable for reset button)
+        xaxis_range = [tmin.timestamp() * 1000, tmax.timestamp() * 1000]
+        days = (tmax - tmin) / Timedelta(days=1) + 1  # add 1 day to include first day
     else:
-        days = None
+        # Provide default range to prevent Plotly from defaulting to year 2000
+        default_end = Timestamp.now()
+        default_start = default_end - Timedelta(days=3650)
+        xaxis_range = [default_start.timestamp() * 1000, default_end.timestamp() * 1000]
 
     layout = {
         "yaxis": {"title": "(m NAP)"},
@@ -237,13 +243,12 @@ def plot_obs(
             "range": xaxis_range,
             "autorangeoptions": {
                 "minallowed": xaxis_range[0],
-                "maxallowed": xaxis_range[-1],
+                "maxallowed": xaxis_range[1],
             },
             "rangeslider": {
                 "visible": True,
                 "thickness": 0.1,
                 "bgcolor": "lightgray",
-                "autorange": True,
                 "range": xaxis_range,
             },
             "type": "date",
@@ -273,13 +278,19 @@ def plot_obs(
                         "step": "year",
                         "stepmode": "backward",
                     },
-                    {
-                        "count": days,
-                        "label": "All",
-                        "step": "day",
-                        "stepmode": "backward",
-                    },
-                ],
+                ]
+                + (
+                    [
+                        {
+                            "count": int(days),
+                            "label": "All",
+                            "step": "day",
+                            "stepmode": "backward",
+                        }
+                    ]
+                    if days
+                    else []
+                ),
             },
         },
         "legend": {
