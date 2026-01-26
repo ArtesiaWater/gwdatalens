@@ -317,7 +317,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
 
         trigger_id = extract_trigger_id(ctx_obj, parse_json=False)
 
-        def _reapply_edits(table_data, table_num, edit_history):
+        def _reapply_edits(table_data, table_num, edit_history, well_key):
             """Re-apply persisted edits to table data by datetime key."""
             if not edit_history or not table_data:
                 return table_data
@@ -329,7 +329,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                     result.append(row)
                     continue
 
-                row_key = f"table{table_num}:{datetime_val}"
+                row_key = f"{well_key}:table{table_num}:{datetime_val}"
                 row_edits = edit_history.get(row_key, {})
 
                 if row_edits:
@@ -357,14 +357,19 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                 table1_data = _filter_by_date_range(table1_full, start_date, end_date)
                 table2_data = _filter_by_date_range(table2_full, start_date, end_date)
 
-            # Re-apply persisted edits to filtered data
-            table1_data = _reapply_edits(table1_data, 1, edit_history)
-            table2_data = _reapply_edits(table2_data, 2, edit_history)
+            # Get well key for edit history lookup
+            well1_id = cached_original_data.get("well1_id")
+            well2_id = cached_original_data.get("well2_id")
+            well_key = f"{well1_id}:{well2_id}"
 
-            # Update store with current displayed version for edit tracking
+            # Store UNEDITED filtered data as baseline for comparison
             updated_cache = dict(cached_original_data)
             updated_cache["table1_displayed"] = table1_data
             updated_cache["table2_displayed"] = table2_data
+
+            # Re-apply persisted edits to filtered data for display
+            table1_data = _reapply_edits(table1_data, 1, edit_history, well_key)
+            table2_data = _reapply_edits(table2_data, 2, edit_history, well_key)
 
             return (
                 CallbackResponse()
@@ -384,6 +389,9 @@ def register_correction_callbacks(app: Dash, data: DataManager):
             # On reset, clear the edit history (user is reloading fresh)
             if trigger_id == ids.CORRECTIONS_RESET_TRIGGER_STORE:
                 edit_history = {}
+        else:
+            # Well selection changed - clear edit history for new time series
+            edit_history = {}
 
         # If neither well is selected, clear tables
         if well1_id is None and well2_id is None:
@@ -480,23 +488,31 @@ def register_correction_callbacks(app: Dash, data: DataManager):
 
             # Store both full and filtered versions:
             # - "table1_full" / "table2_full": unfiltered for info text
-            # - "table1_displayed" / "table2_displayed": current display view for edit
-            #   tracking
+            # - "table1_displayed" / "table2_displayed": UNEDITED baseline for
+            #   comparison
             # - "data_tmin" / "data_tmax": precomputed date range to avoid
             #   recalculating on edits
+            # - "well1_id" / "well2_id": track which time series this data belongs to
             original_data = {
                 "table1_full": table1_data,
                 "table2_full": table2_data,
-                "table1_displayed": table1_filtered,
-                "table2_displayed": table2_filtered,
+                "table1_displayed": table1_filtered,  # UNEDITED baseline
+                "table2_displayed": table2_filtered,  # UNEDITED baseline
                 "data_tmin": data_tmin,
                 "data_tmax": data_tmax,
+                "well1_id": well1_id,
+                "well2_id": well2_id,
                 "timestamp": pd.Timestamp.now().isoformat(),
             }
 
-            # Re-apply persisted edits to the display version
-            table1_filtered = _reapply_edits(table1_filtered, 1, edit_history)
-            table2_filtered = _reapply_edits(table2_filtered, 2, edit_history)
+            # Get well key for edit history lookup
+            well_key = f"{well1_id}:{well2_id}"
+
+            # Re-apply persisted edits to create the display version (edited)
+            # The tables get the edited version, but original_data stores unedited
+            # baseline
+            table1_filtered = _reapply_edits(table1_filtered, 1, edit_history, well_key)
+            table2_filtered = _reapply_edits(table2_filtered, 2, edit_history, well_key)
 
             return (
                 CallbackResponse()
@@ -634,7 +650,8 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         """Capture and persist user edits by datetime key.
 
         Compares current table data with displayed version to extract actual edits,
-        then stores them keyed by datetime for re-application after filtering.
+        then stores them keyed by well IDs and datetime for re-application after
+        filtering. This ensures corrections are tied to specific time series.
 
         Parameters
         ----------
@@ -643,20 +660,35 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         table2_data : list[dict]
             Current data from table 2.
         original_data : dict or None
-            Original store with displayed versions.
+            Original store with displayed versions and well IDs.
         edit_history : dict or None
             Previous edit history.
 
         Returns
         -------
         dict
-            Updated edit history keyed by datetime.
+            Updated edit history keyed by well IDs and datetime.
         """
         if not original_data:
             return edit_history or {}
 
         if edit_history is None:
             edit_history = {}
+
+        # Get current well IDs to namespace the edits
+        current_well1_id = original_data.get("well1_id")
+        current_well2_id = original_data.get("well2_id")
+        well_key = f"{current_well1_id}:{current_well2_id}"
+
+        # Only persist edits for the current well selection
+        # If wells changed, previous edit_history is discarded
+        stored_well_key = edit_history.get("_well_key")
+        if stored_well_key and stored_well_key != well_key:
+            # Wells changed - clear edit history
+            edit_history = {"_well_key": well_key}
+        elif not stored_well_key:
+            # First time - set well key
+            edit_history["_well_key"] = well_key
 
         def _normalize_value(val, col):
             """Normalize values for comparison (same as track_edits)."""
@@ -717,7 +749,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                     continue
 
                 # Check for edits in this row
-                row_key = f"table1:{datetime_val}"
+                row_key = f"{well_key}:table1:{datetime_val}"
                 row_edits = {}
                 for col in editable_cols:
                     current_val = current_row.get(col)
@@ -747,7 +779,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                     continue
 
                 # Check for edits in this row
-                row_key = f"table2:{datetime_val}"
+                row_key = f"{well_key}:table2:{datetime_val}"
                 row_edits = {}
                 for col in editable_cols:
                     current_val = current_row.get(col)
@@ -1016,6 +1048,8 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         State(ids.CORRECTIONS_OBSERVATIONS_TABLE_1, "data"),
         State(ids.CORRECTIONS_OBSERVATIONS_TABLE_2, "data"),
         State(ids.CORRECTIONS_ORIGINAL_DATA_STORE, "data"),
+        State(ids.CORRECTIONS_WELL1_DROPDOWN, "value"),
+        State(ids.CORRECTIONS_WELL2_DROPDOWN, "value"),
         prevent_initial_call=True,
     )
     @log_callback(
@@ -1025,7 +1059,14 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def commit_or_reset_corrections(
-        _commit_clicks, _reset_clicks, table1_data, table2_data, original_data, **kwargs
+        _commit_clicks,
+        _reset_clicks,
+        table1_data,
+        table2_data,
+        original_data,
+        state_well1_id,
+        state_well2_id,
+        **kwargs,
     ):
         """Commit or reset corrections based on which button was clicked.
 
@@ -1044,6 +1085,10 @@ def register_correction_callbacks(app: Dash, data: DataManager):
             Current table 2 data with edits.
         original_data : dict
             Original data with table1/table2 keys.
+        state_well1_id : str or None
+            Currently selected well 1 id.
+        state_well2_id : str or None
+            Currently selected well 2 id.
 
         Returns
         -------
@@ -1061,13 +1106,17 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         trigger_id = ctx_obj.triggered_id
 
         if trigger_id == ids.CORRECTIONS_COMMIT_BUTTON:
-            return _handle_commit_corrections(table1_data, table2_data, original_data)
+            return _handle_commit_corrections(
+                table1_data, table2_data, original_data, state_well1_id, state_well2_id
+            )
         elif trigger_id == ids.CORRECTIONS_RESET_BUTTON:
-            return _handle_reset_corrections(table1_data, table2_data, original_data)
+            return _handle_reset_corrections(
+                table1_data, table2_data, original_data, state_well1_id, state_well2_id
+            )
 
         return CallbackResponse().add(no_update).add(no_update).add(no_update).build()
 
-    def _handle_commit_corrections(table1_data, table2_data, original_data):
+    def _handle_commit_corrections(table1_data, table2_data, original_data, wid1, wid2):
         """Handle committing corrections to the database.
 
         Parameters
@@ -1078,6 +1127,10 @@ def register_correction_callbacks(app: Dash, data: DataManager):
             Current table 2 data with edits.
         original_data : dict
             Original data with table1/table2 keys.
+        wid1 : str or None
+            Currently selected well 1 id.
+        wid2 : str or None
+            Currently selected well 2 id.
 
         Returns
         -------
@@ -1125,9 +1178,11 @@ def register_correction_callbacks(app: Dash, data: DataManager):
             return na == nb
 
         try:
+            wids = []  # collect well ids to clear caches
             corrections_to_save = []
-            original_table1 = original_data.get("table1", [])
-            original_table2 = original_data.get("table2", [])
+            # Use displayed (baseline) data for comparison
+            original_table1 = original_data.get("table1_displayed", [])
+            original_table2 = original_data.get("table2_displayed", [])
 
             # Collect corrections from table 1
             if table1_data and original_table1:
@@ -1167,6 +1222,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                                         "comment": current_row.get("comment", ""),
                                     }
                                 )
+                                wids.append(wid1)
 
             # Collect corrections from table 2
             if table2_data and original_table2:
@@ -1206,19 +1262,18 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                                         "comment": current_row.get("comment", ""),
                                     }
                                 )
+                                wids.append(wid2)
 
             if len(corrections_to_save) == 0:
+                # Inform user that there are no corrections to commit
+                alert = AlertBuilder.warning(t_("general.no_corrections_to_commit"))
                 return (
-                    CallbackResponse()
-                    .add(AlertBuilder.no_alert())
-                    .add(no_update)
-                    .add(no_update)
-                    .build()
+                    CallbackResponse().add(alert).add(no_update).add(no_update).build()
                 )
 
             # Save corrections to database
             corrections_df = pd.DataFrame(corrections_to_save)
-            ts_service.save_correction(corrections_df)
+            ts_service.save_correction(wids, corrections_df)
 
             # Prepare trigger store data to reload fresh data
             trigger_data = {
@@ -1244,7 +1299,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
             )
             return CallbackResponse().add(alert).add(no_update).add(no_update).build()
 
-    def _handle_reset_corrections(table1_data, table2_data, original_data):
+    def _handle_reset_corrections(table1_data, table2_data, original_data, wid1, wid2):
         """Handle resetting corrections in the database.
 
         Parameters
@@ -1255,6 +1310,10 @@ def register_correction_callbacks(app: Dash, data: DataManager):
             Current table 2 data.
         original_data : dict
             Original data from store.
+        wid1 : str or None
+            Currently selected well 1 id.
+        wid2 : str or None
+            Currently selected well 2 id.
 
         Returns
         -------
@@ -1271,6 +1330,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
             )
 
         try:
+            wids = []
             corrections_to_reset = []
 
             # Collect corrections to reset from table 1
@@ -1291,6 +1351,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                                 ],
                             }
                         )
+                        wids.append(wid1)
 
             # Collect corrections to reset from table 2
             if table2_data:
@@ -1310,19 +1371,18 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                                 ],
                             }
                         )
+                        wids.append(wid2)
 
             if len(corrections_to_reset) == 0:
+                # Inform user that there are no corrections to reset
+                alert = AlertBuilder.warning(t_("general.no_corrections_to_reset"))
                 return (
-                    CallbackResponse()
-                    .add(AlertBuilder.no_alert())
-                    .add(no_update)
-                    .add(no_update)
-                    .build()
+                    CallbackResponse().add(alert).add(no_update).add(no_update).build()
                 )
 
             # Reset corrections in database
             corrections_df = pd.DataFrame(corrections_to_reset)
-            ts_service.reset_correction(corrections_df)
+            ts_service.reset_correction(wids, corrections_df)
 
             # Prepare trigger store data to reload fresh data
             trigger_data = {
