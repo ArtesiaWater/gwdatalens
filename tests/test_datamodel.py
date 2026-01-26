@@ -1,8 +1,8 @@
 # Tests for datamodel.py SQLAlchemy models
 import pytest
+from gwdatalens.app.settings import config
 from sqlalchemy.orm import Session
 
-from gwdatalens.app.settings import config
 from gwdatalens.app.src.data import PostgreSQLDataSource
 from gwdatalens.app.src.data.datamodel import (
     GroundwaterLevelDossier,
