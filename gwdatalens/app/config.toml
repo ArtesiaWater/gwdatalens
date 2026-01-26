@@ -2,7 +2,10 @@
 DEBUG = true                 # enable debug mode, only for standalone mode
 LOCALE = "nl"                # application language, options: "nl", "en"
 DJANGO_APP = false           # set to True to run under Django application
-CACHING = false              # set to True to enable caching, does not work when DJANGO_APP is true
+FLASK_CACHING = false        # set to True to enable flask caching, does not work when DJANGO_APP is true
+USE_LRU_CACHE = true         # set to True to use LRU cache for PostgreSQLDataSource, requires cachetools package
+MAX_CACHE_SIZE = 32          # maximum size of the LRU cache, only used if USE_LRU_CACHE is true
+CACHE_TIMEOUT = 900          # cache timeout in seconds for LRU cache
 SERIES_LOAD_LIMIT = 50       # number of observations to load and plot simultaneously
 PORT = 8050                  # default port for the Dash app
 BACKGROUND_CALLBACKS = false # false is recommended at this moment
