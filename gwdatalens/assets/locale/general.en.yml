@@ -5,8 +5,8 @@ en:
   tab_overview: Overview
   tab_model: Time Series Model
   tab_qc: Error Detection
-  tab_qc_result: Manual Review
   tab_corrections: Corrections
+  tab_qc_result: Review
   monitoring_wells: "Observation wells"
   no_data: No data
   no_data_selection: No data in selected time series.
@@ -85,6 +85,7 @@ en:
   observation_cm_tooltip: "Observation in centimeters below top of tube"
   observation_mnap_label: "= m NAP"
   observation_mnap_tooltip: "Groundwater level in meters relative to NAP, calculated as tube top - observation in cm = m NAP"
+  corrections_conversion_tooltip: "Convert groundwater levels between reference level NAP and relative to top observation well."
   example: "e.g."
   # date range filtering
   select_wells_to_filter: "Select observation wells to filter measurements"
@@ -113,3 +114,5 @@ en:
   success_loaded_timeseries_pastastore: "Loaded time series model '%{name}' from PastaStore."
   success_corrections_committed: "Successfully committed %{count} correction(s)."
   success_corrections_reset: "Successfully reset %{count} correction(s)."
+  no_corrections_to_commit: "No corrections to commit. Please edit corrected values before committing."
+  no_corrections_to_reset: "No corrections to reset. All observations are showing original values."
