@@ -493,7 +493,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
     def get_timeseries(
         self,
         wid: Optional[int] = None,
-        query: Optional[dict[str:Any]] = None,
+        query: Optional[dict[str, Any]] = None,
         observation_type: Optional[Union[str, Sequence[str]]] = "reguliereMeting",
         column: Optional[Union[List[str], str]] = None,
     ) -> pd.Series | pd.DataFrame:
