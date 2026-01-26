@@ -5,8 +5,8 @@ nl:
   tab_overview: Overzicht
   tab_model: Tijdreeksmodel
   tab_qc: Foutdetectie
-  tab_qc_result: Handmatige Beoordeling
-  tab_corrections: Correcties
+  tab_corrections: Corrigeren
+  tab_qc_result: Beoordelen
   monitoring_wells: "Peilbuizen"
   no_data: Geen data
   no_data_selection: Geen data in geselecteerde tijdreeks.
@@ -85,6 +85,7 @@ nl:
   observation_cm_tooltip: "Meting in centimeter vanaf bovenkant buis"
   observation_mnap_label: "= m NAP"
   observation_mnap_tooltip: "Grondwaterstand in m NAP, berekend volgens BKB - meting in cm = m NAP"
+  corrections_conversion_tooltip: "Zet grondwaterstanden om tussen referentieniveau NAP en ten opzichte van bovenkant peilbuis."
   example: "b.v."
   # date range filtering
   select_wells_to_filter: "Selecteer peilbuizen om metingen te filteren"
@@ -113,3 +114,5 @@ nl:
   success_loaded_timeseries_pastastore: "Tijdreeksmodel '%{name}' opgehaald uit PastaStore."
   success_corrections_committed: "%{count} correctie(s) opgeslagen."
   success_corrections_reset: "%{count} correctie(s) teruggezet."
+  no_corrections_to_commit: "Geen correcties om op te slaan. Bewerk eerst de gecorrigeerde waarden voordat u opslaat."
+  no_corrections_to_reset: "Geen correcties om terug te zetten. Alle waarnemingen tonen de originele waarden."

@@ -71,13 +71,13 @@ def render(data: DataManager, selected_data: Optional[List[int]] = None) -> html
                     },
                     {
                         "id": ColumnNames.SCREEN_TOP,
-                        "name": "Bovenzijde filter\n[m NAP]",
+                        "name": "Bovenkant filter\n[m NAP]",
                         "type": "numeric",
                         "format": {"specifier": ".2f"},
                     },
                     {
                         "id": ColumnNames.SCREEN_BOT,
-                        "name": "Onderzijde filter\n[m NAP]",
+                        "name": "Onderkant filter\n[m NAP]",
                         "type": "numeric",
                         "format": {"specifier": ".2f"},
                     },

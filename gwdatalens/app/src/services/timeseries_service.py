@@ -14,6 +14,11 @@ import pandas as pd
 from gwdatalens.app.constants import ColumnNames
 from gwdatalens.app.exceptions import TimeSeriesError
 
+try:
+    from cachetools.keys import hashkey
+except (ModuleNotFoundError, ImportError):
+    hashkey = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -190,7 +195,7 @@ class TimeSeriesService:
         ts = self.db.get_timeseries(wid)
         return ts.loc[:, self.db.value_column].dropna()
 
-    def save_correction(self, corrections_df: pd.DataFrame) -> None:
+    def save_correction(self, wids: List[int], corrections_df: pd.DataFrame) -> None:
         """Save manual corrections to database.
 
         Parameters
@@ -199,9 +204,16 @@ class TimeSeriesService:
             Corrections data to save
         """
         self.db.save_correction(corrections_df)
+        # clear cache after saving corrections
+        if hasattr(self.db, "use_cache") and self.db.use_cache:
+            for wid in wids:
+                self.db._cache.pop((wid,))
+                self.db._cache.pop(
+                    hashkey(wid, observation_type="controlemeting"), None
+                )
         logger.info("Saved %d corrections", len(corrections_df))
 
-    def reset_correction(self, corrections_df: pd.DataFrame) -> None:
+    def reset_correction(self, wids, corrections_df: pd.DataFrame) -> None:
         """Reset manual corrections in database.
 
         Parameters
@@ -210,9 +222,15 @@ class TimeSeriesService:
             Corrections to reset
         """
         self.db.reset_correction(corrections_df)
+        if hasattr(self.db, "use_cache") and self.db.use_cache:
+            for wid in wids:
+                self.db._cache.pop((wid,))
+                self.db._cache.pop(
+                    hashkey(wid, observation_type="controlemeting"), None
+                )
         logger.info("Reset %d corrections", len(corrections_df))
 
-    def save_qualifier(self, qualifiers_df: pd.DataFrame) -> None:
+    def save_qualifier(self, wid: int, qualifiers_df: pd.DataFrame) -> None:
         """Save qualifiers to database.
 
         Parameters
@@ -220,5 +238,8 @@ class TimeSeriesService:
         qualifiers_df : pd.DataFrame
             Qualifier data to save
         """
+        # delete cached copy after saving new qualifiers
         self.db.save_qualifier(qualifiers_df)
+        if hasattr(self.db, "use_cache") and self.db.use_cache:
+            self.db._cache.pop((wid,))
         logger.info("Saved %d qualifiers", len(qualifiers_df))

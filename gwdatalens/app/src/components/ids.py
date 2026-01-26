@@ -148,6 +148,7 @@ LOADING_CORRECTIONS_TABLE_2 = "loading-corrections-table-2"
 CORRECTIONS_BKB_INPUT = "corrections-bkb-input"
 CORRECTIONS_OBSERVATION_CM_INPUT = "corrections-observation-cm-input"
 CORRECTIONS_OBSERVATION_MNAP_INPUT = "corrections-observation-mnap-input"
+CORRECTIONS_CONVERSION_TOOLTIP_ICON = "corrections-conversion-tooltip-icon"
 # Intermediate stores to avoid duplicate outputs
 CORRECTIONS_COMMIT_TRIGGER_STORE = "corrections-commit-trigger-store"
 CORRECTIONS_RESET_TRIGGER_STORE = "corrections-reset-trigger-store"

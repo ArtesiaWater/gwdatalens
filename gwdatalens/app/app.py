@@ -50,7 +50,12 @@ i18n.load_path.append(LOCALE_PATH)
 # %% Connect to database
 
 # postgreql database
-db = PostgreSQLDataSource(config=config.get_database_config())
+db = PostgreSQLDataSource(
+    config=config.get_database_config(),
+    use_cache=config.get("USE_LRU_CACHE"),
+    max_cache_size=config.get("MAX_CACHE_SIZE"),
+    cache_timeout=config.get("CACHE_TIMEOUT"),
+)
 
 # hydropandas 'database'
 # db = HydropandasDataSource(extent=[116500, 120000, 439000, 442000], source="bro")

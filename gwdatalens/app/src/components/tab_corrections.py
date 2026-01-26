@@ -61,9 +61,9 @@ def render_content(data: DataManager, selected_data: List):
                     dbc.Col([render_tube_table(data, selected_data)], width=3),
                     dbc.Col([render_chart(data, selected_data)], width=7),
                 ],
-                style={"height": "35cqh"},
+                style={"height": "30cqh"},
             ),
-            html.Hr(style={"margin": "20px 0"}),
+            html.Hr(style={"margin": "10px 0"}),
             dbc.Row(
                 [
                     dbc.Col([render_well_selection(data, selected_data)], width=12),
@@ -165,7 +165,7 @@ def render_tube_table(data, selected_data):
                 fixed_rows={"headers": True},
                 page_action="none",
                 sort_action="native",
-                style_table={"margin-top": 30},
+                style_table={"margin-top": 50},
                 style_cell={"whiteSpace": "pre-line", "fontSize": 12},
                 style_cell_conditional=[
                     {
@@ -665,13 +665,6 @@ def render_well_selection(data, selected_data):
                 [
                     dbc.Col(
                         [
-                            html.Label(
-                                t_("general.select_well_1"),
-                                style={
-                                    "font-weight": "bold",
-                                    "margin-bottom": UI.MARGIN_BOTTOM_COMPACT,
-                                },
-                            ),
                             dcc.Dropdown(
                                 id=ids.CORRECTIONS_WELL1_DROPDOWN,
                                 options=options,
@@ -684,13 +677,6 @@ def render_well_selection(data, selected_data):
                     ),
                     dbc.Col(
                         [
-                            html.Label(
-                                t_("general.select_well_2"),
-                                style={
-                                    "font-weight": "bold",
-                                    "margin-bottom": UI.MARGIN_BOTTOM_COMPACT,
-                                },
-                            ),
                             dcc.Dropdown(
                                 id=ids.CORRECTIONS_WELL2_DROPDOWN,
                                 options=options,
@@ -703,14 +689,17 @@ def render_well_selection(data, selected_data):
                     ),
                     dbc.Col(
                         [
-                            html.Label(
-                                "\u00a0",  # Non-breaking space for alignment
-                                style={"margin-bottom": UI.MARGIN_BOTTOM_COMPACT},
-                            ),
                             dbc.Button(
-                                t_("general.clear_selection_button"),
+                                html.Span(
+                                    [
+                                        html.I(className="fa-solid fa-xmark"),
+                                        " " + t_("general.clear_selection_button"),
+                                    ],
+                                    id="span-clear-selection",
+                                    n_clicks=0,
+                                ),
                                 id=ids.CORRECTIONS_CLEAR_SELECTION_BUTTON,
-                                color="secondary",
+                                color="primary",
                                 size="sm",
                                 style={"width": "100%"},
                             ),
@@ -861,7 +850,7 @@ def render_observations_table(_data, _selected_data):
                                         virtualization=True,
                                         fixed_rows={"headers": True},
                                         style_table={
-                                            "height": "27.5cqh",
+                                            "height": "28cqh",
                                             "overflowY": "auto",
                                             "margin-top": UI.MARGIN_TOP_COMPACT,
                                         },
@@ -1002,7 +991,7 @@ def render_observations_table(_data, _selected_data):
                                         virtualization=True,
                                         fixed_rows={"headers": True},
                                         style_table={
-                                            "height": "27.5cqh",
+                                            "height": "28cqh",
                                             "overflowY": "auto",
                                             "margin-top": UI.MARGIN_TOP_COMPACT,
                                         },
@@ -1095,7 +1084,7 @@ def render_observations_table(_data, _selected_data):
                         style={
                             "position": "relative",
                             "justify-content": "center",
-                            "margin-bottom": UI.MARGIN_BOTTOM_LARGE,
+                            "margin-bottom": UI.MARGIN_BOTTOM_COMPACT,
                         },
                     )
                 ],
@@ -1120,14 +1109,30 @@ def render_correction_controls():
                     dbc.Col(
                         [
                             dbc.Button(
-                                t_("general.commit_corrections"),
+                                html.Span(
+                                    [
+                                        html.I(className="fa-solid fa-database"),
+                                        " " + t_("general.commit_corrections"),
+                                    ],
+                                    id="span-commit-corrections",
+                                    n_clicks=0,
+                                ),
                                 id=ids.CORRECTIONS_COMMIT_BUTTON,
                                 color="primary",
                                 disabled=True,
                                 style={"margin-right": "10px"},
                             ),
                             dbc.Button(
-                                t_("general.reset_changes"),
+                                html.Span(
+                                    [
+                                        html.I(
+                                            className="fa-solid fa-arrow-rotate-left"
+                                        ),
+                                        " " + t_("general.reset_changes"),
+                                    ],
+                                    id="span-reset-corrections",
+                                    n_clicks=0,
+                                ),
                                 id=ids.CORRECTIONS_RESET_BUTTON,
                                 color="primary",
                                 disabled=True,
@@ -1137,6 +1142,28 @@ def render_correction_controls():
                     ),
                     dbc.Col(
                         [
+                            html.Span(
+                                [
+                                    html.I(
+                                        className="fa-solid fa-calculator",
+                                        id=ids.CORRECTIONS_CONVERSION_TOOLTIP_ICON,
+                                        style={
+                                            "margin-right": "10px",
+                                            "color": "#6c757d",
+                                            "cursor": "pointer",
+                                        },
+                                    ),
+                                    dbc.Tooltip(
+                                        t_("general.corrections_conversion_tooltip"),
+                                        target=ids.CORRECTIONS_CONVERSION_TOOLTIP_ICON,
+                                        placement="top",
+                                    ),
+                                ],
+                                style={
+                                    "display": "inline-block",
+                                    "vertical-align": "middle",
+                                },
+                            ),
                             html.Div(
                                 [
                                     dbc.Label(

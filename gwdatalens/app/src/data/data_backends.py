@@ -33,8 +33,15 @@ from gwdatalens.app.src.data.metadata_builder import (
     GMWMetadataBuilder,
 )
 from gwdatalens.app.src.data.spatial_transformer import SpatialTransformer
-from gwdatalens.app.src.data.util import EPSG_28992, WGS84
+from gwdatalens.app.src.data.util import EPSG_28992, WGS84, conditional_cachedmethod
 from gwdatalens.app.validators import validate_not_empty, validate_single_result
+
+try:
+    from cachetools import TTLCache
+
+    CACHETOOLS_AVAILABLE = True
+except (ModuleNotFoundError, ImportError):
+    CACHETOOLS_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +185,13 @@ class PostgreSQLDataSource(DataSourceTemplate):
 
     backend = "postgresql"
 
-    def __init__(self, config: dict):
+    def __init__(
+        self,
+        config: dict,
+        use_cache: bool = False,
+        max_cache_size: Optional[int] = None,
+        cache_timeout: Optional[int] = None,
+    ):
         """Initialize PostgreSQL data source.
 
         Parameters
@@ -196,12 +209,20 @@ class PostgreSQLDataSource(DataSourceTemplate):
         self.qualifier_column = DatabaseFields.FIELD_STATUS_QUALITY_CONTROL
         self.source = "zeeland"
 
+        # expiring LRU cache
+        if CACHETOOLS_AVAILABLE and use_cache:
+            self.use_cache = use_cache
+            self._cache = TTLCache(maxsize=max_cache_size, ttl=cache_timeout)
+        else:
+            self.use_cache = False
+            self._cache = None
+
     @property
     def engine(self):
         """Get database engine from connector."""
         return self.connector.engine
 
-    @cached_property
+    @property
     def gmw_gdf(self) -> gpd.GeoDataFrame:
         """Get metadata as GeoDataFrame.
 
@@ -212,6 +233,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
         """
         return self._gmw_gdf()
 
+    @conditional_cachedmethod(lambda self: self._cache)
     def _gmw_gdf(self) -> gpd.GeoDataFrame:
         """Build and enrich groundwater monitoring well GeoDataFrame.
 
@@ -467,6 +489,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
     def get_internal_id(self, **kwargs):
         return self.get_corresponding_value(to=ColumnNames.ID, **kwargs)
 
+    @conditional_cachedmethod(lambda self: self._cache)
     def get_timeseries(
         self,
         wid: Optional[int] = None,
@@ -517,8 +540,9 @@ class PostgreSQLDataSource(DataSourceTemplate):
             raise ValueError("Either 'wid' or 'query' must be provided.")
 
         logger.info(
-            "Loading time series for %s (gmw_id: %s, tube_id: %s, obstype: %s) ...",
+            "Loading time series for %s (%sgmw_id: %s, tube_id: %s, obstype: %s) ...",
             display_name,
+            f"id: {wid}, " if wid else "",
             well_static_id,
             tube_static_id,
             observation_type,
@@ -559,7 +583,19 @@ class PostgreSQLDataSource(DataSourceTemplate):
         df.index.name = display_name
 
         # drop dupes
-        # df = df.loc[~df.index.duplicated(keep="first")]
+        if df.index.has_duplicates:
+            logger.warning(
+                "Duplicate timestamps found in timeseries %s, "
+                "keeping highest measurement_tvp_id!",
+                display_name,
+            )
+            # groupby to ensure choosing value with highest measurement_tvp_id in
+            # case of duplicates
+            df = (
+                df.sort_values("measurement_tvp_id")
+                .groupby(level=0, sort=False)
+                .tail(1)
+            )
 
         if column is not None:
             return df.loc[:, column]
@@ -696,6 +732,9 @@ class PostgreSQLDataSource(DataSourceTemplate):
             - DatabaseFields.FIELD_CENSOR_REASON
             - DatabaseFields.VALUE_LIMIT
         """
+        if df is None or df.empty:
+            logger.info("No qualifier changes to save.")
+            return
         df = self.set_qc_fields_for_database(df)
 
         param_map = {

@@ -1,9 +1,17 @@
 import logging
+from functools import wraps
 from typing import Any, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 import traval
+
+try:
+    from cachetools import cachedmethod
+
+    CACHETOOLS_AVAILABLE = True
+except (ModuleNotFoundError, ImportError):
+    CACHETOOLS_AVAILABLE = False
 
 logger = logging.getLogger("__name__")
 
@@ -118,3 +126,36 @@ def get_model_sim_pi(
 
         pi = pd.DataFrame(index=raw.index, columns=["lower", "upper"], data=np.nan)
     return sim_i, pi.astype(float)
+
+
+def conditional_cachedmethod(cache_getter):
+    """Decorator to conditionally cache a method using cachetools.cachedmethod.
+
+    This decorator checks the class USE_CACHE flag and only applies caching when
+    both cachetools is available and caching is enabled.
+
+    Parameters
+    ----------
+    cache_getter : callable
+        Function that returns the cache object from self
+        (e.g., lambda self: self._cache)
+    """
+
+    def decorator(func):
+        if not CACHETOOLS_AVAILABLE:
+            # No cachetools available - just return the original function
+            return func
+
+        # Create the cached version once at decoration time
+        cached_func = cachedmethod(cache_getter)(func)
+
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            if self.use_cache:
+                return cached_func(self, *args, **kwargs)
+            else:
+                return func(self, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
