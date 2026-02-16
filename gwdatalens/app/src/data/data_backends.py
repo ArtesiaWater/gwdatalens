@@ -15,11 +15,13 @@ import pickle
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from functools import cached_property
+from pathlib import Path
 from typing import Any, List, Optional, Sequence, Union
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+from pastastore import PastaStore
 from pyproj import Transformer
 from sqlalchemy import bindparam, func, select, update
 from sqlalchemy.orm import Session
@@ -102,7 +104,9 @@ class DataSourceTemplate(ABC):
         """
 
     @abstractmethod
-    def list_observation_wells_with_data_sorted_by_distance(self, wid) -> List[str]:
+    def list_observation_wells_with_data_sorted_by_distance(
+        self, wid: int
+    ) -> gpd.GeoDataFrame:
         """List of measurement location names, sorted by distance.
 
         Parameters
@@ -112,8 +116,8 @@ class DataSourceTemplate(ABC):
 
         Returns
         -------
-        List[str]
-            List of measurement location names, sorted by distance from `wid`.
+        gpd.GeoDataFrame
+             GeoDataFrame of measurement location names, sorted by distance from `wid`.
         """
 
     @abstractmethod
@@ -127,8 +131,8 @@ class DataSourceTemplate(ABC):
 
         Parameters
         ----------
-        wid_id : str
-            id of the observation well
+        wid : int
+            internal id of the observation well
         tube_id : int
             tube number of the observation well
         observation_type : str, optional
@@ -152,7 +156,7 @@ class DataSourceTemplate(ABC):
 
     @property
     @abstractmethod
-    def backend(self):
+    def backend(self) -> str:
         """Backend of the data source."""
 
 
@@ -182,8 +186,6 @@ class PostgreSQLDataSource(DataSourceTemplate):
     source : str
         Source identifier, default is "zeeland".
     """
-
-    backend = "postgresql"
 
     def __init__(
         self,
@@ -347,7 +349,9 @@ class PostgreSQLDataSource(DataSourceTemplate):
 
         return self.gmw_gdf.loc[mask, GMW_METADATA_COLUMNS]
 
-    def list_observation_wells_with_data_sorted_by_distance(self, wid) -> List[str]:
+    def list_observation_wells_with_data_sorted_by_distance(
+        self, wid: int
+    ) -> gpd.GeoDataFrame:
         """List locations sorted by their distance from a given location.
 
         Parameters
@@ -357,7 +361,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
 
         Returns
         -------
-        pd.DataFrame
+        gpd.GeoDataFrame
             A DataFrame containing the locations sorted by distance.
         """
         # only locations with data:
@@ -946,6 +950,123 @@ class PostgreSQLDataSource(DataSourceTemplate):
 
         return df
 
+    @property
+    def backend(self) -> str:
+        """Backend of the data source."""
+        return "postgresql"
+
+
+class PstoreDataSource(DataSourceTemplate):
+    """DataSource using pstore (in-memory, read-only).
+
+    This source loads groundwater monitoring well data from a pstore file, which
+    can be created from BRO or other sources. Data is stored in-memory as
+    DataFrames, not in a database.
+
+    Parameters
+    ----------
+    fname : str
+        Path to the pstore file containing the data.
+    """
+
+    def __init__(self, path: Path | str):
+        path = Path(path)
+        if path.suffix == ".zip":
+            pstore = PastaStore.from_zip(path)
+        else:
+            pstore = PastaStore.from_config_file(path)
+        self.pstore = pstore
+
+    @property
+    def gmw_gdf(self) -> gpd.GeoDataFrame:
+        oseries_df = self.pstore.oseries.sort_index()
+        gdf = gpd.GeoDataFrame(
+            oseries_df,
+            geometry=gpd.points_from_xy(oseries_df.x, oseries_df.y),
+        )
+        return gdf
+
+    @property
+    def list_observation_wells_with_data(self) -> List[str]:
+        """Return a list of observation wells with data.
+
+        Returns
+        -------
+        List[str]
+            List of measurement location names.
+        """
+        return self.pstore.oseries_names
+
+    def list_observation_wells_with_data_sorted_by_distance(
+        self, wid: int
+    ) -> gpd.GeoDataFrame:
+        """List locations sorted by their distance from a given location.
+
+        Parameters
+        ----------
+        name : str
+            the name of the location to compute distances from.
+
+        Returns
+        -------
+        gpd.GeoDataFrame
+            A DataFrame containing the locations sorted by distance.
+        """
+        gdf = self.gmw_gdf.copy()
+        idx = gdf.index[wid]
+        p = gdf.loc[idx, "geometry"]
+        gdf["distance"] = gdf.geometry.distance(p)
+        gdf_sorted = gdf.sort_values("distance", ascending=True)
+        return gdf_sorted
+
+    def get_timeseries(
+        self,
+        wid: int,
+        tube_id: int,
+        observation_type: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """Return a Pandas Series for the measurements for given location name.
+
+        Values returned in m. Return None when there are no measurements.
+
+        Parameters
+        ----------
+        wid : int
+            index of the observation well
+
+        Returns
+        -------
+        pd.DataFrame
+            time series of head observations.
+        """
+        try:
+            idx = self.gmw_gdf.index[wid]
+            ts = self.pstore.conn.get_oseries(idx, return_metadata=False)
+            return ts
+        except KeyError as e:
+            raise ValueError(
+                f"Location index '{wid}' is not in data or has no data."
+            ) from e
+
+    def save_qualifier(self, df: pd.DataFrame) -> None:
+        """Save error detection (traval) result after manual review.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            dataframe containig error detection results after manual review.
+        """
+        _ = df  # to avoid unused variable warning
+        logger.warning(
+            "PstoreDatasource is read-only. Qualifier changes not saved. "
+            "Export to CSV if modifications needed."
+        )
+
+    @property
+    def backend(self) -> str:
+        """Backend of the data source."""
+        return "pastastore"
+
 
 class HydropandasDataSource(DataSourceTemplate):
     """DataSource using Hydropandas ObservationCollection (in-memory, read-only).
@@ -967,8 +1088,6 @@ class HydropandasDataSource(DataSourceTemplate):
     **kwargs
         Additional arguments passed to hydropandas.read_bro
     """
-
-    backend = "hydropandas"
 
     def __init__(self, extent=None, oc=None, fname=None, source="bro", **kwargs):
         if oc is None:
@@ -1302,3 +1421,8 @@ class HydropandasDataSource(DataSourceTemplate):
             "HydropandasDataSource is read-only. Qualifier changes not saved. "
             "Export to CSV if modifications needed."
         )
+
+    @property
+    def backend(self) -> str:
+        """Backend of the data source."""
+        return "hydropandas"
