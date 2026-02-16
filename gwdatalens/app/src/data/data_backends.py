@@ -94,12 +94,23 @@ class DataSourceTemplate(ABC):
 
     @property
     @abstractmethod
-    def list_observation_wells_with_data(self) -> List[str]:
+    def list_locations(self) -> pd.DataFrame:
         """List of measurement location names.
 
         Returns
         -------
-        List[str]
+        pd.DataFrame
+            List of measurement location names.
+        """
+
+    @property
+    @abstractmethod
+    def list_observation_wells_with_data(self) -> pd.DataFrame:
+        """List of measurement location names.
+
+        Returns
+        -------
+        pd.DataFrame
             List of measurement location names.
         """
 
@@ -974,28 +985,125 @@ class PstoreDataSource(DataSourceTemplate):
         if path.suffix == ".zip":
             pstore = PastaStore.from_zip(path)
         else:
-            pstore = PastaStore.from_config_file(path)
-        self.pstore = pstore
+            pstore = PastaStore.from_pastastore_config_file(path)
+        self.pstore: PastaStore = pstore
+        self.value_column = "values"
+        self.qualifier_column = "qualifier"
 
-    @property
+    @cached_property
     def gmw_gdf(self) -> gpd.GeoDataFrame:
         oseries_df = self.pstore.oseries.sort_index()
+        transformer = Transformer.from_proj(EPSG_28992, WGS84, always_xy=False)
+        oseries_df.loc[:, ["lon", "lat"]] = np.vstack(
+            transformer.transform(oseries_df["x"].values, oseries_df["y"].values)
+        ).T
+        oseries_df.loc[:, [ColumnNames.LONGITUDE, ColumnNames.LATITUDE]] = (
+            oseries_df.loc[:, ["lon", "lat"]].values
+        )
+
         gdf = gpd.GeoDataFrame(
             oseries_df,
             geometry=gpd.points_from_xy(oseries_df.x, oseries_df.y),
         )
+        gdf = gdf.set_index("id", drop=False)
+        # gdf.index = range(len(gdf))
         return gdf
 
-    @property
-    def list_observation_wells_with_data(self) -> List[str]:
-        """Return a list of observation wells with data.
+    def get_tube_numbers(self, wid=None, query=None, return_ids=False):
+        """Get tube numbers for a given well.
+
+        Parameters
+        ----------
+        wid : int, optional
+            Well ID from gmw_gdf
+        query : dict, optional
+            Query parameters to find the well
+        return_ids : bool, optional
+            If True, return internal IDs instead of names
 
         Returns
         -------
-        List[str]
-            List of measurement location names.
+        list or pd.Index
+            Tube names or IDs
         """
-        return self.pstore.oseries_names
+        if wid is not None:
+            sel = self.gmw_gdf.loc[wid, ColumnNames.WELL_STATIC_ID]
+        elif query is not None:
+            sel = self.query_gdf(**query).loc[:, ColumnNames.WELL_STATIC_ID]
+
+        if return_ids:
+            return sel.index
+        else:
+            return sel
+
+    @property
+    def list_locations(self) -> pd.DataFrame:
+        """Return a DataFrame of unique measurement locations."""
+        gr = self.gmw_gdf.groupby(ColumnNames.WELL_STATIC_ID)
+        cols = [
+            ColumnNames.WELL_STATIC_ID,
+            ColumnNames.BRO_ID,
+            ColumnNames.WELL_CODE,
+            ColumnNames.WELL_NITG_CODE,
+            "location_name",
+            ColumnNames.ID,
+        ]
+        locs = gr.first().reset_index().loc[:, cols]
+        locs["ntubes"] = gr[ColumnNames.TUBE_STATIC_ID].count().values
+        locs["hasdata"] = gr["metingen"].sum().values > 0
+
+        return locs
+
+    def query_gdf(
+        self,
+        query: str | None = None,
+        operator: str = "==",
+        columns: Optional[List[str] | str] = None,
+        **kwargs,
+    ) -> gpd.GeoDataFrame:
+        """Query the gmw_gdf with a pandas query string.
+
+        Parameters
+        ----------
+        query : str
+            pandas query string to filter the gmw_gdf.
+        columns : list of str or str, optional
+            columns to return, by default None (all columns)
+        **kwargs : dict
+            key-value pairs to build a query string.
+
+        Returns
+        -------
+        gpd.GeoDataFrame
+            Filtered GeoDataFrame.
+        """
+        if query is not None:
+            qgdf = self.gmw_gdf.query(query)
+        else:
+            template = "({} {} @{})"
+            query = " and ".join(
+                [template.format(k, operator, k) for k in kwargs.keys()]
+            )
+            qgdf = self.gmw_gdf.query(query, local_dict=kwargs)
+        if columns is not None:
+            qgdf = qgdf.loc[:, columns]
+        return qgdf
+
+    @property
+    def list_observation_wells_with_data(self) -> pd.DataFrame:
+        """Return a list of locations that contain groundwater level dossiers.
+
+        Each location is defines by a tuple of length 2: bro_id/well_code and tube_id.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame of measurement location names.
+        """
+        # get all groundwater level dossiers
+        mask = self.gmw_gdf["metingen"] > 0
+
+        return self.gmw_gdf.loc[mask, GMW_METADATA_COLUMNS]
 
     def list_observation_wells_with_data_sorted_by_distance(
         self, wid: int
@@ -1013,8 +1121,8 @@ class PstoreDataSource(DataSourceTemplate):
             A DataFrame containing the locations sorted by distance.
         """
         gdf = self.gmw_gdf.copy()
-        idx = gdf.index[wid]
-        p = gdf.loc[idx, "geometry"]
+        # idx = gdf.index[wid]
+        p = gdf.loc[wid, "geometry"]
         gdf["distance"] = gdf.geometry.distance(p)
         gdf_sorted = gdf.sort_values("distance", ascending=True)
         return gdf_sorted
@@ -1022,8 +1130,11 @@ class PstoreDataSource(DataSourceTemplate):
     def get_timeseries(
         self,
         wid: int,
-        tube_id: int,
-        observation_type: Optional[str] = None,
+        query: Optional[dict] = None,
+        observation_type: Optional[Union[str, Sequence[str]]] = "reguliereMeting",
+        column: Optional[Union[List[str], str]] = None,
+        # tube_id: int,
+        # observation_type: Optional[str] = None,
     ) -> pd.DataFrame:
         """Return a Pandas Series for the measurements for given location name.
 
@@ -1039,9 +1150,25 @@ class PstoreDataSource(DataSourceTemplate):
         pd.DataFrame
             time series of head observations.
         """
+        if observation_type is not None:
+            if isinstance(observation_type, str):
+                if observation_type != "reguliereMeting":
+                    return pd.Series()
+            else:
+                if "reguliereMeting" not in observation_type:
+                    return pd.Series()
         try:
-            idx = self.gmw_gdf.index[wid]
-            ts = self.pstore.conn.get_oseries(idx, return_metadata=False)
+            gdf = self.gmw_gdf
+            if query is not None:
+                sel = self.query_gdf(**query, columns=column)
+                _ = validate_single_result(sel, context="timeseries lookup")
+                gdf = sel
+            idx = gdf.at[wid, "well_code"]
+            ts = self.pstore.conn.get_oseries(idx, return_metadata=False).to_frame(idx)
+            ts = ts.rename(columns={ts.columns[0]: self.value_column})
+            ts[self.qualifier_column] = ""
+            if column is not None:
+                ts = ts.loc[:, column]
             return ts
         except KeyError as e:
             raise ValueError(
