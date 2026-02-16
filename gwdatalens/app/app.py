@@ -15,12 +15,10 @@ from gwdatalens.app.messages import t_
 from gwdatalens.app.paths import CUSTOM_CSS_PATH, LOCALE_PATH
 from gwdatalens.app.src.cache import cache
 from gwdatalens.app.src.components.layout import create_layout
-from gwdatalens.app.src.data import (
-    DataManager,
-    # HydropandasDataSource,
-    PostgreSQLDataSource,
-    QCCoordinator,
-)
+from gwdatalens.app.src.data import DataManager, QCCoordinator
+from gwdatalens.app.src.data import HydropandasDataSource as HydropandasDataSource
+from gwdatalens.app.src.data import PostgreSQLDataSource as PostgreSQLDataSource
+from gwdatalens.app.src.data import PstoreDataSource as PstoreDataSource
 
 logger = logging.getLogger("gwdatalens")
 logger.setLevel(config.get("LOG_LEVEL"))
@@ -50,12 +48,12 @@ i18n.load_path.append(LOCALE_PATH)
 # %% Connect to database
 
 # postgreql database
-db = PostgreSQLDataSource(
-    config=config.get_database_config(),
-    use_cache=config.get("USE_LRU_CACHE"),
-    max_cache_size=config.get("MAX_CACHE_SIZE"),
-    cache_timeout=config.get("CACHE_TIMEOUT"),
-)
+# db = PostgreSQLDataSource(
+#     config=config.get_database_config(),
+#     use_cache=config.get("USE_LRU_CACHE"),
+#     max_cache_size=config.get("MAX_CACHE_SIZE"),
+#     cache_timeout=config.get("CACHE_TIMEOUT"),
+# )
 
 # hydropandas 'database'
 # db = HydropandasDataSource(extent=[116500, 120000, 439000, 442000], source="bro")
@@ -64,6 +62,10 @@ db = PostgreSQLDataSource(
 #     source="bro",
 # )
 
+db = PstoreDataSource(
+    path=Path(__file__).parent.parent.parent.parent
+    / "krw_trendanalyse_2026/scripts/pstore/oseries/oseries.zip"
+)
 # %% load pastastore
 pastastore_config = config.get("pastastore")
 name = pastastore_config["name"]
