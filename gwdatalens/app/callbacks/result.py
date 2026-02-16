@@ -139,9 +139,9 @@ def register_result_callbacks(app, data):
             logger.debug("QC export CSV: wid is None, preventing update")
             raise PreventUpdate
 
-        timestr = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+        _ = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
         name = well_service.get_well_name(wid).squeeze()
-        filename = f"{timestr}_qc_result_{name}.csv"
+        filename = f"qc_result_{name}.csv"
         if data.qc.traval_result is not None:
             return dcc.send_string(data.qc.traval_result.to_csv, filename=filename)
 
@@ -731,7 +731,7 @@ def register_result_callbacks(app, data):
                 //console.log(dash_clientside.callback_context);
                 const triggered_id = dash_clientside.callback_context.triggered_id;
                 //use this to set the focus on last active component
-                document.lastActiveElement.focus(); 
+                document.lastActiveElement.focus();
                 return;
             }
             """,
