@@ -10,7 +10,9 @@ description = "Dashboard for groundwater time series validation."
 license = { file = "LICENSE" }
 readme = "README.md"
 authors = [{ name = "D.A. Brakenhoff" }, { name = "R.C. Caljé" }]
-maintainers = [{ name = "D.A. Brakenhoff", email = "d.brakenhoff@artesia-water.nl" }]
+maintainers = [
+    { name = "D.A. Brakenhoff", email = "d.brakenhoff@artesia-water.nl" },
+]
 requires-python = ">= 3.10"
 dependencies = [
     "numpy",
@@ -88,6 +90,7 @@ version = { attr = "gwdatalens.version.__version__" }
 [tool.ruff]
 line-length = 88
 extend-include = ["*.ipynb"]
+fix = true
 
 [tool.ruff.lint]
 # See: https://docs.astral.sh/ruff/rules/
@@ -106,7 +109,7 @@ ignore = [
     "D101", # Missing docstring in public class
     "D102", # Missing docstring in public method
     "D103", # Missing docstring in public function
-    "D104", # Missing docstring in public package    
+    "D104", # Missing docstring in public package
     "D105", # Missing docstring in magic method
     "D401", # First line should be in imperative mood
     "B006", # Do not use mutable data structures as default arguments
