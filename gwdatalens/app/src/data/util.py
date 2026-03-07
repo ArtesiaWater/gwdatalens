@@ -132,7 +132,9 @@ def conditional_cachedmethod(cache_getter):
     """Decorator to conditionally cache a method using cachetools.cachedmethod.
 
     This decorator checks the class USE_CACHE flag and only applies caching when
-    both cachetools is available and caching is enabled.
+    both cachetools is available and caching is enabled. It also bypasses caching
+    when ``query`` is provided in ``kwargs`` because ``query`` can be a
+    non-hashable dictionary.
 
     Parameters
     ----------
@@ -151,7 +153,7 @@ def conditional_cachedmethod(cache_getter):
 
         @wraps(func)
         def wrapper(self, *args, **kwargs):
-            if self.use_cache:
+            if self.use_cache and "query" not in kwargs:
                 return cached_func(self, *args, **kwargs)
             else:
                 return func(self, *args, **kwargs)

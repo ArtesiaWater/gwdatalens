@@ -17,6 +17,7 @@ nl:
   generate: Maak model
   save: Opslaan model
   powered_by: Berekend met
+  model_saved_only_disclaimer: "Alleen opgeslagen modellen worden gebruikt in de Foutdetectie stap."
   # tab-qc
   show_parameters: Toon parameters
   hide_parameters: Verberg parameters
@@ -90,8 +91,24 @@ nl:
   # date range filtering
   select_wells_to_filter: "Selecteer peilbuizen om metingen te filteren"
   showing_filtered_range: "%{count} van %{total} metingen van %{start} tot %{end} weergeven"
+  corrections_show_qc_only: "Toon alleen QC-gedetecteerde metingen"
+  corrections_show_qc_only_tooltip: "Filter op rijen met niet-lege QC-opmerkingen uit het huidige QC-resultaat."
+  unsaved_corrections: "Niet-opgeslagen correcties: %{count}"
   no_data_available: "Geen gegevens beschikbaar"
   error_loading_data: "Fout bij laden van gegevens"
+  # global time-range filter
+  time_range_filter_label: "Selectie periode"
+  time_range_last_month: "Afgelopen maand"
+  time_range_last_3_months: "Afgelopen 3 maanden"
+  time_range_last_year: "Afgelopen jaar"
+  time_range_last_2_years: "Afgelopen 2 jaar"
+  time_range_last_5_years: "Afgelopen 5 jaar"
+  time_range_custom: "Handmatig invoeren"
+  time_range_all: "Alle data"
+  time_range_from: "Van"
+  time_range_to: "Tot"
+  time_range_apply: "Toepassen"
+  time_range_active: "Data van %{tmin} tot %{tmax}"
   # error messages
   error_data_load_failed: "Geen data geladen."
   error_no_wells_selected: "Selecteer een put om verder te gaan."

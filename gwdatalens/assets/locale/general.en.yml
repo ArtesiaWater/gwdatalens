@@ -17,6 +17,7 @@ en:
   generate: Generate model
   save: Save model
   powered_by: Powered by
+  model_saved_only_disclaimer: "Only saved models are used in the Error Detection step."
   # tab-qc
   show_parameters: Show parameters
   hide_parameters: Hide parameters
@@ -90,8 +91,24 @@ en:
   # date range filtering
   select_wells_to_filter: "Select observation wells to filter measurements"
   showing_filtered_range: "Showing %{count} of %{total} observations from %{start} to %{end}"
+  corrections_show_qc_only: "Show only QC-detected observations"
+  corrections_show_qc_only_tooltip: "Filter to rows with non-empty QC detection comments from the current QC result."
+  unsaved_corrections: "Unsaved corrections: %{count}"
   no_data_available: "No data available"
   error_loading_data: "Error loading data"
+  # global time-range filter
+  time_range_filter_label: "Time window"
+  time_range_last_month: "Last month"
+  time_range_last_3_months: "Last 3 months"
+  time_range_last_year: "Last year"
+  time_range_last_2_years: "Last 2 years"
+  time_range_last_5_years: "Last 5 years"
+  time_range_custom: "Custom range"
+  time_range_all: "All data"
+  time_range_from: "From"
+  time_range_to: "To"
+  time_range_apply: "Apply"
+  time_range_active: "Showing data from %{tmin} to %{tmax}"
   # error messages
   error_data_load_failed: "Unable to load data."
   error_no_wells_selected: "Please select a well to continue."
