@@ -41,11 +41,13 @@ class TimeSeriesService:
         """Initialize with data source."""
         self.db = data_source
 
-    def get_series_for_observation_well(
+    def get_timeseries_for_observation_well(
         self,
         wid: int,
         observation_type: Optional[Union[str, Sequence[str]]] = "reguliereMeting",
         columns: Optional[List[str]] = None,
+        tmin: Optional[str] = None,
+        tmax: Optional[str] = None,
     ) -> pd.DataFrame:
         """Get time series for a well.
 
@@ -57,6 +59,12 @@ class TimeSeriesService:
             Observation type(s) to fetch. Provide None to load all types.
         columns : list of str, optional
             Specific columns to return
+        tmin : str or None, optional
+            ISO-8601 date string; only measurements at or after this timestamp
+            are returned.
+        tmax : str or None, optional
+            ISO-8601 date string; only measurements at or before this timestamp
+            are returned.
 
         Returns
         -------
@@ -65,7 +73,11 @@ class TimeSeriesService:
         """
         try:
             ts = self.db.get_timeseries(
-                wid=wid, observation_type=observation_type, column=columns
+                wid=wid,
+                observation_type=observation_type,
+                columns=columns,
+                tmin=tmin,
+                tmax=tmax,
             )
             return ts
         except Exception as e:
@@ -77,6 +89,8 @@ class TimeSeriesService:
         self,
         wids: List[int],
         observation_type: Optional[Union[str, Sequence[str]]] = "reguliereMeting",
+        tmin: Optional[str] = None,
+        tmax: Optional[str] = None,
     ) -> Dict[int, pd.DataFrame]:
         """Get time series for multiple wells.
 
@@ -86,6 +100,10 @@ class TimeSeriesService:
             List of well internal IDs
         observation_type : str
             Type of observation to fetch
+        tmin : str or None, optional
+            ISO-8601 date string lower bound.
+        tmax : str or None, optional
+            ISO-8601 date string upper bound.
 
         Returns
         -------
@@ -95,7 +113,9 @@ class TimeSeriesService:
         series_dict = {}
         for wid in wids:
             try:
-                ts = self.get_series_for_observation_well(wid, observation_type)
+                ts = self.get_timeseries_for_observation_well(
+                    wid, observation_type, tmin=tmin, tmax=tmax
+                )
                 if ts is not None and not ts.empty:
                     series_dict[wid] = ts
             # allow failed results, so single well failure does not crash app
@@ -192,8 +212,8 @@ class TimeSeriesService:
         pd.Series
             Time series values
         """
-        ts = self.db.get_timeseries(wid)
-        return ts.loc[:, self.db.value_column].dropna()
+        ts = self.db.get_timeseries(wid, columns=[self.db.value_column])
+        return ts.dropna()
 
     def save_correction(self, wids: List[int], corrections_df: pd.DataFrame) -> None:
         """Save manual corrections to database.

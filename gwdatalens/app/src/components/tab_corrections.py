@@ -369,7 +369,7 @@ def render_well_configuration(data, selected_data):
                         figure=plot_well_cross_section(df),
                         id=ids.WELL_CONFIGURATION_PLOT,
                         config={
-                            "displayModeBar": True,
+                            "displayModeBar": False,
                             "scrollZoom": True,
                         },
                         style={
@@ -685,7 +685,6 @@ def render_well_selection(data, selected_data):
                                 searchable=True,
                             ),
                         ],
-                        width=5,
                     ),
                     dbc.Col(
                         [
@@ -701,10 +700,10 @@ def render_well_selection(data, selected_data):
                                 id=ids.CORRECTIONS_CLEAR_SELECTION_BUTTON,
                                 color="primary",
                                 size="sm",
-                                style={"width": "100%"},
+                                style={"width": "100%", "whiteSpace": "nowrap"},
                             ),
                         ],
-                        width=1,
+                        width="auto",
                     ),
                 ],
                 style={"margin-bottom": UI.MARGIN_BOTTOM_LARGE},
@@ -756,7 +755,29 @@ def render_date_range_filter():
                                 ],
                             ),
                         ],
-                        width=12,
+                        width=9,
+                    ),
+                    dbc.Col(
+                        [
+                            dbc.Switch(
+                                id=ids.CORRECTIONS_SHOW_QC_ONLY_SWITCH,
+                                label=t_("general.corrections_show_qc_only"),
+                                value=False,
+                                style={"margin-top": "6px", "margin-left": "10px"},
+                            ),
+                            dbc.Tooltip(
+                                html.P(
+                                    t_("general.corrections_show_qc_only_tooltip"),
+                                    style={
+                                        "margin-top": UI.MARGIN_ZERO,
+                                        "margin-bottom": UI.MARGIN_ZERO,
+                                    },
+                                ),
+                                target=ids.CORRECTIONS_SHOW_QC_ONLY_SWITCH,
+                                placement="top",
+                            ),
+                        ],
+                        width=3,
                     ),
                 ],
                 style={"margin-bottom": UI.MARGIN_BOTTOM_COMPACT},
@@ -1112,7 +1133,10 @@ def render_correction_controls():
                                 html.Span(
                                     [
                                         html.I(className="fa-solid fa-database"),
-                                        " " + t_("general.commit_corrections"),
+                                        html.Span(
+                                            " " + t_("general.commit_corrections"),
+                                            id=ids.CORRECTIONS_COMMIT_BUTTON_LABEL,
+                                        ),
                                     ],
                                     id="span-commit-corrections",
                                     n_clicks=0,

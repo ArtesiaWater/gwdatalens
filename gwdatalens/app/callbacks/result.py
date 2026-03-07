@@ -229,9 +229,10 @@ def register_result_callbacks(app, data):
 
         # Calculate changed mask based on export mode
         if non_flagged_reliable == "suspect":
-            # In suspect mode, only export observations that were explicitly changed
-            # Do NOT export observations where we kept the incoming suspect status
-            changed_mask = (status != incoming_status) & ~mask_blank
+            # In suspect mode, export only observations marked as suspect
+            # (afgekeurd/onbeslist) and only when status actually changes.
+            suspect_mask = status.isin([QCFlags.AFGEKEURD, QCFlags.ONBESLIST])
+            changed_mask = suspect_mask & (status != incoming_status)
         else:
             # In other modes, export all observations where status differs from incoming
             changed_mask = status != incoming_status

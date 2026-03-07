@@ -2,7 +2,7 @@ import logging
 from typing import Any
 
 import dash_bootstrap_components as dbc
-from dash import Input, Output, State, html
+from dash import Input, Output, State, html, no_update
 from dash.exceptions import PreventUpdate
 
 from gwdatalens.app.constants import ConfigDefaults
@@ -15,9 +15,11 @@ from gwdatalens.app.src.components import (
     tab_qc,
     tab_qc_result,
 )
+from gwdatalens.app.src.components.time_range_filter import build_time_range_store_value
 from gwdatalens.app.src.utils import log_callback
 from gwdatalens.app.src.utils.callback_helpers import (
     AlertBuilder,
+    TimestampStore,
     get_callback_context,
 )
 from gwdatalens.app.validators import validate_selection_limit
@@ -187,3 +189,115 @@ def register_general_callbacks(app, data):
                 is_open=is_open,
             ),
         ]
+
+    # ------------------------------------------------------------------
+    # Time-range filter callbacks
+    # ------------------------------------------------------------------
+
+    @app.callback(
+        Output("time-range-tmin-col", "style"),
+        Output("time-range-tmax-col", "style"),
+        Output(ids.TIME_RANGE_APPLY_BUTTON, "style"),
+        Input(ids.TIME_RANGE_PRESET_DROPDOWN, "value"),
+        prevent_initial_call=True,
+    )
+    def toggle_custom_datepickers(preset: str | None):
+        """Show custom date pickers and Apply button only for custom preset."""
+        if preset == "custom":
+            visible = {"display": "block"}
+            return visible, visible, visible
+        hidden = {"display": "none"}
+        return hidden, hidden, hidden
+
+    @app.callback(
+        Output(ids.TIME_RANGE_STORE, "data"),
+        Input(ids.TIME_RANGE_APPLY_BUTTON, "n_clicks"),
+        Input(ids.TIME_RANGE_PRESET_DROPDOWN, "value"),
+        State(ids.TIME_RANGE_TMIN_DATEPICKER, "date"),
+        State(ids.TIME_RANGE_TMAX_DATEPICKER, "date"),
+        State(ids.TIME_RANGE_STORE, "data"),
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def update_time_range_store(
+        n_clicks: int | None,
+        preset: str | None,
+        custom_tmin: str | None,
+        custom_tmax: str | None,
+        current_store: dict | None,
+        **kwargs,
+    ) -> dict:
+        """Update the global time-range store.
+
+        Triggers on either:
+        - Initial page load (sync store from dropdown/session-restored value).
+        - A change in the preset dropdown (immediately applies non-custom presets).
+        - Click of the Apply button (applies custom date range when preset=='custom').
+
+        Parameters
+        ----------
+        n_clicks : int or None
+            Apply button click counter.
+        preset : str or None
+            Selected preset key.
+        custom_tmin : str or None
+            Custom start date from the tmin date picker.
+        custom_tmax : str or None
+            Custom end date from the tmax date picker.
+        current_store : dict or None
+            Current store value (used as fallback).
+
+        Returns
+        -------
+        dict
+            Updated ``TIME_RANGE_STORE`` value.
+        """
+        ctx_obj = get_callback_context(**kwargs)
+        triggered_id = ctx_obj.triggered_id
+
+        if preset is None:
+            return no_update
+
+        # Initial load: align store with the dropdown value that may have been
+        # restored by browser/session state.
+        if not ctx_obj.triggered:
+            return build_time_range_store_value(preset, custom_tmin, custom_tmax)
+
+        # For non-custom presets, update immediately when dropdown changes.
+        # For 'custom', only update when the Apply button is clicked.
+        if preset != "custom" or triggered_id == ids.TIME_RANGE_APPLY_BUTTON:
+            store_value = build_time_range_store_value(preset, custom_tmin, custom_tmax)
+            logger.info(
+                "Time range updated: preset=%s tmin=%s tmax=%s",
+                store_value["preset"],
+                store_value["tmin"],
+                store_value["tmax"],
+            )
+            return store_value
+
+        return no_update
+
+    @app.callback(
+        Output(ids.OVERVIEW_TIME_RANGE_REFRESH_STORE, "data"),
+        Input(ids.TIME_RANGE_STORE, "data"),
+        Input(ids.ALERT_TAB_RENDER, "data"),
+        State(ids.TAB_CONTAINER, "value"),
+        prevent_initial_call=True,
+    )
+    def refresh_overview_chart_on_time_range(
+        time_range_store: dict | None,
+        _tab_render_alert: tuple | None,
+        active_tab: str | None,
+    ) -> tuple | Any:
+        """Emit a refresh signal for overview chart only when overview is active."""
+        if active_tab != ids.TAB_OVERVIEW:
+            return no_update
+
+        if time_range_store is None:
+            return no_update
+
+        return TimestampStore.create(success=True)
