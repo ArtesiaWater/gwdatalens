@@ -1455,6 +1455,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                                         ),
                                         "corrected_value": corrected_val,
                                         "comment": current_row.get("comment", ""),
+                                        "display_name": wid1,
                                     }
                                 )
                                 wids.append(wid1)
@@ -1510,6 +1511,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                                         ),
                                         "corrected_value": corrected_val,
                                         "comment": current_row.get("comment", ""),
+                                        "display_name": wid2,
                                     }
                                 )
                                 wids.append(wid2)

@@ -1,8 +1,8 @@
 """Data source abstraction layer for groundwater monitoring data.
 
 Provides abstract interface (DataSourceTemplate) for pluggable backends:
-- PostgreSQLDataSource: Production PostgreSQL database
-- HydropandasDataSource: In-memory hydropandas collections
+- PostgreSQLDataSource: PostgreSQL modeled on the BRO as database
+- PastaStoreDataSource: PastaStore as database
 
 This module orchestrates database connections, metadata building,
 and time series retrieval while delegating specific responsibilities
@@ -1727,51 +1727,53 @@ class PastaStoreDataSource(DataSourceTemplate):
 
     def save_correction(self, df: pd.DataFrame) -> None:
         """Save manual corrections to PastaStore using timestamp-indexed values."""
-        oseries_name = df.index.name
+        for oseries_name in df[ColumnNames.DISPLAY_NAME].unique():
+            mask = df[ColumnNames.DISPLAY_NAME] == oseries_name
+            df_subset = df.loc[mask]
 
-        if ColumnNames.TIMESTAMP in df.columns:
-            correction_index = pd.to_datetime(
-                df.loc[:, ColumnNames.TIMESTAMP], errors="coerce"
+            if ColumnNames.TIMESTAMP in df_subset.columns:
+                correction_index = pd.to_datetime(
+                    df_subset.loc[:, ColumnNames.TIMESTAMP], errors="coerce"
+                )
+            else:
+                correction_index = pd.to_datetime(df_subset.index, errors="coerce")
+
+            valid_mask = correction_index.notna()
+            if not valid_mask.any():
+                logger.warning(
+                    (
+                        "No valid timestamped corrected values found for oseries '%s'; "
+                        "skipping update."
+                    ),
+                    oseries_name,
+                )
+                return
+
+            corrected_values = pd.to_numeric(
+                df_subset.loc[valid_mask, ColumnNames.CORRECTED_VALUE], errors="coerce"
             )
-        else:
-            correction_index = pd.to_datetime(df.index, errors="coerce")
+            corrected_series = pd.Series(
+                corrected_values.values,
+                index=correction_index[valid_mask],
+                name=ColumnNames.CORRECTED_VALUE,
+            )
+            corrected_series.index.name = ColumnNames.TIMESTAMP
 
-        valid_mask = correction_index.notna()
-        if not valid_mask.any():
-            logger.warning(
+            self.pstore.update_oseries(corrected_series, oseries_name, force=True)
+            logger.info(
                 (
-                    "No valid timestamped corrected values found for oseries '%s'; "
-                    "skipping update."
+                    "Saved corrections to PastaStore for oseries '%s' "
+                    "with %d corrected points."
                 ),
                 oseries_name,
+                len(corrected_series),
             )
-            return
-
-        corrected_values = pd.to_numeric(
-            df.loc[valid_mask, ColumnNames.CORRECTED_VALUE], errors="coerce"
-        )
-        corrected_series = pd.Series(
-            corrected_values.values,
-            index=correction_index[valid_mask],
-            name=ColumnNames.CORRECTED_VALUE,
-        )
-        corrected_series.index.name = ColumnNames.TIMESTAMP
-
-        self.pstore.update_oseries(corrected_series, oseries_name, force=True)
-        logger.info(
-            (
-                "Saved corrections to PastaStore for oseries '%s' "
-                "with %d corrected points."
-            ),
-            oseries_name,
-            len(corrected_series),
-        )
 
     def reset_correction(self, df: pd.DataFrame) -> None:
         """PastaStore data source is read-only for correction resets."""
         _ = df
         raise NotImplementedError(
-            "PastaStoreDataSource is does not support reset_correction."
+            "PastaStoreDataSource does not support reset_correction."
         )
 
     @property

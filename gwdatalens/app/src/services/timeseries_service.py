@@ -240,8 +240,6 @@ class TimeSeriesService:
         corrections_df : pd.DataFrame
             Corrections data to save
         """
-        name = self.db.gmw_gdf.loc[wids, ColumnNames.DISPLAY_NAME]
-        corrections_df.index.name = name.item()
         self.db.save_correction(corrections_df)
         for wid in wids:
             self._invalidate_cache_for_wid(wid)

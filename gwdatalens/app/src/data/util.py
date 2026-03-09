@@ -8,12 +8,10 @@ import traval
 
 try:
     from cachetools import cachedmethod
-    from cachetools.keys import _HashedTuple
 
     CACHETOOLS_AVAILABLE = True
 except (ModuleNotFoundError, ImportError):
     CACHETOOLS_AVAILABLE = False
-    _HashedTuple = tuple
 
 logger = logging.getLogger("__name__")
 
@@ -149,15 +147,15 @@ def _hashable_key(self, *args, **kwargs):
     Mirrors ``cachetools.keys.methodkey``: ``self`` is accepted but excluded
     from the key so that ``k[0]`` is always the first real argument (``wid``).
     Lists and dicts in arguments are converted to hashable equivalents before
-    building the key tuple.
+    building the key tuple.  Sorted kwargs are appended as flat (name, value)
+    pairs after the positional arguments.
     """
-    hashable_args = tuple(_make_hashable(a) for a in args)
+    key = tuple(_make_hashable(a) for a in args)
     if kwargs:
-        hashable_kwargs = (_HashedTuple,) + tuple(
-            (k, _make_hashable(v)) for k, v in sorted(kwargs.items())
+        key += tuple(
+            item for k, v in sorted(kwargs.items()) for item in (k, _make_hashable(v))
         )
-        return _HashedTuple(hashable_args + hashable_kwargs)
-    return _HashedTuple(hashable_args)
+    return key
 
 
 def conditional_cachedmethod(cache_getter):
