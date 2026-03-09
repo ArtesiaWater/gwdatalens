@@ -135,6 +135,7 @@ def render_time_range_filter() -> html.Div:
                 options=preset_options,
                 value=default_preset,
                 clearable=False,
+                maxHeight=320,
                 style={"min-width": "160px", "font-size": "0.85rem"},
             ),
             # Custom date pickers — hidden by default, shown when preset=="custom"
