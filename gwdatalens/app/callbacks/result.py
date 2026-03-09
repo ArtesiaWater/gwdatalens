@@ -151,7 +151,11 @@ def register_result_callbacks(app, data):
         State(ids.SELECTED_OSERIES_STORE, "data"),
         State(ids.QC_RESULT_EXPORT_QC_STATUS_FLAG, "value"),
         running=[
-            (Output(ids.QC_RESULT_EXPORT_DB, "disabled"), True, False),
+            (
+                Output(ids.QC_RESULT_EXPORT_DB, "disabled"),
+                True,
+                data.db.backend == "pastastore",
+            ),
             (
                 Output("span-export-db", "children"),
                 [
@@ -177,6 +181,11 @@ def register_result_callbacks(app, data):
 
         Applies quality control status flags and saves to database.
         """
+        if data.db.backend == "pastastore":
+            return AlertBuilder.warning(
+                t_(ErrorMessages.EXPORT_FAILED, well="current backend")
+            )
+
         if not n_clicks:
             logger.debug("QC export DB: no click, preventing update")
             raise PreventUpdate
