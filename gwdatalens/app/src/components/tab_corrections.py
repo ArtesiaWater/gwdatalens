@@ -807,6 +807,135 @@ def render_observations_table(_data, _selected_data):
         else {}
     )
 
+    base_columns = [
+        {
+            "id": ColumnNames.DATETIME,
+            "name": "Date/Time",
+            "type": "datetime",
+            "editable": False,
+        },
+        {
+            "id": ColumnNames.OBSERVATION_TYPE,
+            "name": "Type",
+            "type": "text",
+            "editable": False,
+        },
+        {
+            "id": ColumnNames.FIELD_VALUE,
+            "name": "Field value",
+            "type": "numeric",
+            "editable": False,
+            "format": {"specifier": ".3f"},
+        },
+        {
+            "id": ColumnNames.CALCULATED_VALUE,
+            "name": t_("general.calculated_value_original"),
+            "type": "numeric",
+            "editable": False,
+            "format": {"specifier": ".3f"},
+        },
+        {
+            "id": ColumnNames.CORRECTED_VALUE,
+            "name": "Corrected value",
+            "type": "numeric",
+            "editable": True,
+            "format": {"specifier": ".3f"},
+        },
+        {
+            "id": ColumnNames.SET_MISSING,
+            "name": "NaN",
+            "type": "text",
+            "presentation": "dropdown",
+            "editable": True,
+        },
+        {
+            "id": ColumnNames.COMMENT,
+            "name": "Comment",
+            "type": "text",
+            "editable": True,
+        },
+    ]
+
+    base_dropdown = {
+        ColumnNames.SET_MISSING: {
+            "options": [
+                {"label": "-", "value": False},
+                {"label": "NaN", "value": True},
+            ],
+            "clearable": False,
+        }
+    }
+
+    base_style_cell_conditional = [
+        {"if": {"column_id": ColumnNames.DATETIME}, "width": "18%"},
+        {"if": {"column_id": ColumnNames.OBSERVATION_TYPE}, "width": "12%"},
+        {"if": {"column_id": ColumnNames.FIELD_VALUE}, "width": "15%"},
+        {"if": {"column_id": ColumnNames.CALCULATED_VALUE}, "width": "15%"},
+        {"if": {"column_id": ColumnNames.CORRECTED_VALUE}, "width": "14%"},
+        {"if": {"column_id": ColumnNames.SET_MISSING}, "width": "10%"},
+        {"if": {"column_id": ColumnNames.COMMENT}, "width": "16%"},
+    ]
+
+    base_tooltip_header = {
+        ColumnNames.CALCULATED_VALUE: {
+            "type": "markdown",
+            "value": t_("general.calculated_value_original_tooltip"),
+        },
+        ColumnNames.CORRECTED_VALUE: {
+            "type": "markdown",
+            "value": t_("general.corrected_value_tooltip"),
+        },
+        ColumnNames.SET_MISSING: {
+            "type": "markdown",
+            "value": "Set to **Set NaN** when the measurement should be missing.",
+        },
+        ColumnNames.COMMENT: {
+            "type": "markdown",
+            "value": t_("general.correction_reason_tooltip"),
+        },
+    }
+
+    def _render_table(table_id: str):
+        return dash_table.DataTable(
+            id=table_id,
+            columns=base_columns,
+            data=[],
+            editable=True,
+            dropdown=base_dropdown,
+            row_deletable=False,
+            page_action="none",
+            virtualization=True,
+            fixed_rows={"headers": True},
+            style_table={
+                "height": "28cqh",
+                "overflowY": "auto",
+                "margin-top": UI.MARGIN_TOP_COMPACT,
+            },
+            style_cell={
+                "textAlign": "left",
+                "padding": "4px 8px",
+                "fontSize": 11,
+                "whiteSpace": "pre-line",
+            },
+            style_cell_conditional=base_style_cell_conditional,
+            style_data_conditional=[
+                {
+                    "if": {"state": "selected"},
+                    "border": "1px solid #006f92",
+                },
+            ],
+            style_header={
+                "backgroundColor": DATA_TABLE_HEADER_BGCOLOR,
+                "fontWeight": "bold",
+                "padding": "4px 8px",
+                "fontSize": 11,
+                "position": "sticky",
+                "top": 0,
+                "zIndex": 1,
+            },
+            tooltip_header=base_tooltip_header,
+        )
+
     return html.Div(
         [
             dcc.Loading(
@@ -818,287 +947,11 @@ def render_observations_table(_data, _selected_data):
                     dbc.Row(
                         [
                             dbc.Col(
-                                [
-                                    dash_table.DataTable(
-                                        id=ids.CORRECTIONS_OBSERVATIONS_TABLE_1,
-                                        columns=[
-                                            {
-                                                "id": ColumnNames.DATETIME,
-                                                "name": "Date/Time",
-                                                "type": "datetime",
-                                                "editable": False,
-                                            },
-                                            {
-                                                "id": ColumnNames.OBSERVATION_TYPE,
-                                                "name": "Type",
-                                                "type": "text",
-                                                "editable": False,
-                                            },
-                                            {
-                                                "id": ColumnNames.FIELD_VALUE,
-                                                "name": "Field value",
-                                                "type": "numeric",
-                                                "editable": False,
-                                                "format": {"specifier": ".3f"},
-                                            },
-                                            {
-                                                "id": ColumnNames.CALCULATED_VALUE,
-                                                "name": t_(
-                                                    "general.calculated_value_original"
-                                                ),
-                                                "type": "numeric",
-                                                "editable": False,
-                                                "format": {"specifier": ".3f"},
-                                            },
-                                            {
-                                                "id": ColumnNames.CORRECTED_VALUE,
-                                                "name": "Corrected value",
-                                                "type": "numeric",
-                                                "editable": True,
-                                                "format": {"specifier": ".3f"},
-                                            },
-                                            {
-                                                "id": ColumnNames.COMMENT,
-                                                "name": "Comment",
-                                                "type": "text",
-                                                "editable": True,
-                                            },
-                                        ],
-                                        data=[],
-                                        editable=True,
-                                        row_deletable=False,
-                                        page_action="none",
-                                        virtualization=True,
-                                        fixed_rows={"headers": True},
-                                        style_table={
-                                            "height": "28cqh",
-                                            "overflowY": "auto",
-                                            "margin-top": UI.MARGIN_TOP_COMPACT,
-                                        },
-                                        style_cell={
-                                            "textAlign": "left",
-                                            "padding": "4px 8px",
-                                            "fontSize": 11,
-                                            "whiteSpace": "pre-line",
-                                        },
-                                        style_cell_conditional=[
-                                            {
-                                                "if": {"column_id": "datetime"},
-                                                "width": "18%",
-                                            },
-                                            {
-                                                "if": {
-                                                    "column_id": ColumnNames.OBSERVATION_TYPE  # noqa
-                                                },
-                                                "width": "12%",
-                                            },
-                                            {
-                                                "if": {
-                                                    "column_id": ColumnNames.FIELD_VALUE
-                                                },
-                                                "width": "17%",
-                                            },
-                                            {
-                                                "if": {
-                                                    "column_id": (
-                                                        ColumnNames.CALCULATED_VALUE
-                                                    )
-                                                },
-                                                "width": "17%",
-                                            },
-                                            {
-                                                "if": {"column_id": "corrected_value"},
-                                                "width": "18%",
-                                            },
-                                            {
-                                                "if": {"column_id": "comment"},
-                                                "width": "18%",
-                                            },
-                                        ],
-                                        style_data_conditional=[
-                                            {
-                                                "if": {"state": "selected"},
-                                                "border": "1px solid #006f92",
-                                            },
-                                        ],
-                                        style_header={
-                                            "backgroundColor": (
-                                                DATA_TABLE_HEADER_BGCOLOR
-                                            ),
-                                            "fontWeight": "bold",
-                                            "padding": "4px 8px",
-                                            "fontSize": 11,
-                                            "position": "sticky",
-                                            "top": 0,
-                                            "zIndex": 1,
-                                        },
-                                        tooltip_header={
-                                            ColumnNames.CALCULATED_VALUE: {
-                                                "type": "markdown",
-                                                "value": t_(
-                                                    "general.calculated_value_original_tooltip"
-                                                ),
-                                            },
-                                            "corrected_value": {
-                                                # "use_with": "both",
-                                                "type": "markdown",
-                                                "value": t_(
-                                                    "general.corrected_value_tooltip"
-                                                ),
-                                            },
-                                            "comment": {
-                                                # "use_with": "both",
-                                                "type": "markdown",
-                                                "value": t_(
-                                                    "general.correction_reason_tooltip"
-                                                ),
-                                            },
-                                        },
-                                    ),
-                                ],
+                                [_render_table(ids.CORRECTIONS_OBSERVATIONS_TABLE_1)],
                                 width=6,
                             ),
                             dbc.Col(
-                                [
-                                    dash_table.DataTable(
-                                        id=ids.CORRECTIONS_OBSERVATIONS_TABLE_2,
-                                        columns=[
-                                            {
-                                                "id": ColumnNames.DATETIME,
-                                                "name": "Date/Time",
-                                                "type": "datetime",
-                                                "editable": False,
-                                            },
-                                            {
-                                                "id": ColumnNames.OBSERVATION_TYPE,
-                                                "name": "Type",
-                                                "type": "text",
-                                                "editable": False,
-                                            },
-                                            {
-                                                "id": ColumnNames.FIELD_VALUE,
-                                                "name": "Field value",
-                                                "type": "numeric",
-                                                "editable": False,
-                                                "format": {"specifier": ".3f"},
-                                            },
-                                            {
-                                                "id": ColumnNames.CALCULATED_VALUE,
-                                                "name": t_(
-                                                    "general.calculated_value_original"
-                                                ),
-                                                "type": "numeric",
-                                                "editable": False,
-                                                "format": {"specifier": ".3f"},
-                                            },
-                                            {
-                                                "id": ColumnNames.CORRECTED_VALUE,
-                                                "name": "Corrected value",
-                                                "type": "numeric",
-                                                "editable": True,
-                                                "format": {"specifier": ".3f"},
-                                            },
-                                            {
-                                                "id": ColumnNames.COMMENT,
-                                                "name": "Comment",
-                                                "type": "text",
-                                                "editable": True,
-                                            },
-                                        ],
-                                        data=[],
-                                        editable=True,
-                                        row_deletable=False,
-                                        page_action="none",
-                                        virtualization=True,
-                                        fixed_rows={"headers": True},
-                                        style_table={
-                                            "height": "28cqh",
-                                            "overflowY": "auto",
-                                            "margin-top": UI.MARGIN_TOP_COMPACT,
-                                        },
-                                        style_cell={
-                                            "textAlign": "left",
-                                            "padding": "4px 8px",
-                                            "fontSize": 11,
-                                            "whiteSpace": "pre-line",
-                                        },
-                                        style_cell_conditional=[
-                                            {
-                                                "if": {"column_id": "datetime"},
-                                                "width": "18%",
-                                            },
-                                            {
-                                                "if": {
-                                                    "column_id": ColumnNames.OBSERVATION_TYPE  # noqa
-                                                },
-                                                "width": "12%",
-                                            },
-                                            {
-                                                "if": {
-                                                    "column_id": ColumnNames.FIELD_VALUE
-                                                },
-                                                "width": "17%",
-                                            },
-                                            {
-                                                "if": {
-                                                    "column_id": ColumnNames.CALCULATED_VALUE  # noqa
-                                                },
-                                                "width": "17%",
-                                            },
-                                            {
-                                                "if": {
-                                                    "column_id": ColumnNames.CORRECTED_VALUE  # noqa
-                                                },
-                                                "width": "18%",
-                                            },
-                                            {
-                                                "if": {
-                                                    "column_id": ColumnNames.COMMENT
-                                                },
-                                                "width": "18%",
-                                            },
-                                        ],
-                                        style_data_conditional=[
-                                            {
-                                                "if": {"state": "selected"},
-                                                "border": "1px solid #006f92",
-                                            },
-                                        ],
-                                        style_header={
-                                            "backgroundColor": (
-                                                DATA_TABLE_HEADER_BGCOLOR
-                                            ),
-                                            "fontWeight": "bold",
-                                            "padding": "4px 8px",
-                                            "fontSize": 11,
-                                            "position": "sticky",
-                                            "top": 0,
-                                            "zIndex": 1,
-                                        },
-                                        tooltip_header={
-                                            ColumnNames.CALCULATED_VALUE: {
-                                                "type": "markdown",
-                                                "value": t_(
-                                                    "general.calculated_value_original_tooltip"
-                                                ),
-                                            },
-                                            "corrected_value": {
-                                                # "use_with": "both",
-                                                "type": "markdown",
-                                                "value": t_(
-                                                    "general.corrected_value_tooltip"
-                                                ),
-                                            },
-                                            "comment": {
-                                                # "use_with": "both",
-                                                "type": "markdown",
-                                                "value": t_(
-                                                    "general.correction_reason_tooltip"
-                                                ),
-                                            },
-                                        },
-                                    ),
-                                ],
+                                [_render_table(ids.CORRECTIONS_OBSERVATIONS_TABLE_2)],
                                 width=6,
                             ),
                         ],
