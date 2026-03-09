@@ -15,16 +15,26 @@ from datetime import datetime, timezone
 from functools import cached_property
 from pathlib import Path
 from time import perf_counter
-
 from typing import Any, List, Optional, Sequence, Union
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import pastastore as pst
 from pastastore import PastaStore
 from pyproj import Transformer
-from sqlalchemy import bindparam, func, select, update
-from sqlalchemy import bindparam, column, func, or_, select, text, update, values
+from sqlalchemy import (
+    bindparam,
+    func,
+    or_,
+    select,
+    text,
+    update,
+    values,
+)
+from sqlalchemy import (
+    column as sa_column,
+)
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
@@ -43,7 +53,7 @@ from gwdatalens.app.src.data.metadata_builder import (
     GMWMetadataBuilder,
 )
 from gwdatalens.app.src.data.spatial_transformer import SpatialTransformer
-from gwdatalens.app.src.data.util import conditional_cachedmethod
+from gwdatalens.app.src.data.util import EPSG_28992, WGS84, conditional_cachedmethod
 from gwdatalens.app.validators import validate_not_empty, validate_single_result
 
 try:
@@ -123,6 +133,29 @@ class DataSourceTemplate(ABC):
         """
 
     @abstractmethod
+    def get_tube_numbers(
+        self,
+        wid: Optional[int] = None,
+        query: Optional[dict[str, Any]] = None,
+        return_ids: bool = False,
+    ):
+        """Get tube names/ids for a selected well."""
+
+    @abstractmethod
+    def query_gdf(
+        self,
+        query: str | None = None,
+        operator: str = "==",
+        columns: Optional[List[str] | str] = None,
+        **kwargs,
+    ) -> gpd.GeoDataFrame:
+        """Query the metadata GeoDataFrame."""
+
+    @abstractmethod
+    def get_internal_id(self, **kwargs):
+        """Get internal id from query criteria."""
+
+    @abstractmethod
     def list_observation_wells_with_data_sorted_by_distance(
         self, wid: int
     ) -> gpd.GeoDataFrame:
@@ -142,9 +175,10 @@ class DataSourceTemplate(ABC):
     @abstractmethod
     def get_timeseries(
         self,
-        wid: int,
-        tube_id: int,
-        observation_type: Optional[str] = None,
+        wid: Optional[int] = None,
+        query: Optional[dict[str, Any]] = None,
+        observation_type: Optional[Union[str, Sequence[str]]] = "reguliereMeting",
+        columns: Optional[Union[List[str], str]] = None,
         tmin: Optional[str] = None,
         tmax: Optional[str] = None,
         deduplicate: bool = True,
@@ -153,12 +187,15 @@ class DataSourceTemplate(ABC):
 
         Parameters
         ----------
-        wid : int
+        wid : int, optional
             internal id of the observation well
-        tube_id : int
-            tube number of the observation well
-        observation_type : str, optional
-            type of observation, for BRO "reguliereMeting" or "controlemeting"
+        query : dict, optional
+            Alternative query for selecting one observation well.
+        observation_type : str or sequence, optional
+            Type(s) of observation, for BRO "reguliereMeting" or
+            "controlemeting".
+        columns : str or list[str], optional
+            Optional subset of columns to return.
         tmin : str or None, optional
             ISO-8601 date string; only measurements at or after this timestamp
             are returned.
@@ -186,6 +223,18 @@ class DataSourceTemplate(ABC):
         df : pd.DataFrame
             dataframe containig error detection results after manual review.
         """
+
+    @abstractmethod
+    def count_measurements_per_tube(self) -> pd.DataFrame:
+        """Count measurements per tube."""
+
+    @abstractmethod
+    def save_correction(self, df: pd.DataFrame) -> None:
+        """Save manual correction results."""
+
+    @abstractmethod
+    def reset_correction(self, df: pd.DataFrame) -> None:
+        """Reset manual correction results."""
 
     @property
     @abstractmethod
@@ -359,9 +408,9 @@ class PostgreSQLDataSource(DataSourceTemplate):
             stmt,
             index_col=[ColumnNames.WELL_STATIC_ID, ColumnNames.TUBE_STATIC_ID],
         )
-        return df.loc[:, ["first_observation_date", "last_observation_date"]].map(
-            lambda t: t.date()
-        )
+        df = df.loc[:, ["first_observation_date", "last_observation_date"]]
+        df.columns = [ColumnNames.TMIN, ColumnNames.TMAX]
+        return df.map(lambda t: t.date())
 
     def get_tube_numbers(self, wid=None, query=None, return_ids=False):
         """Get tube numbers for a given well.
@@ -603,6 +652,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
         tmin: Optional[str] = None,
         tmax: Optional[str] = None,
         deduplicate: bool = True,
+        column: Optional[Union[List[str], str]] = None,
     ) -> pd.Series | pd.DataFrame:
         """Return a Pandas Series for the measurements for given bro-id and tube-id.
 
@@ -637,6 +687,9 @@ class PostgreSQLDataSource(DataSourceTemplate):
         pd.Series
             time series of head observations.
         """
+        if columns is None and column is not None:
+            columns = column
+
         if wid is not None:
             well_static_id = self.gmw_gdf.at[wid, ColumnNames.WELL_STATIC_ID]
             tube_static_id = int(self.gmw_gdf.at[wid, ColumnNames.TUBE_STATIC_ID])
@@ -1063,11 +1116,11 @@ class PostgreSQLDataSource(DataSourceTemplate):
 
         staged_values = (
             values(
-                column("measurement_point_metadata_id"),
-                column("status_quality_control"),
-                column("status_quality_control_reason_datalens"),
-                column("censor_reason"),
-                column("value_limit"),
+                sa_column("measurement_point_metadata_id"),
+                sa_column("status_quality_control"),
+                sa_column("status_quality_control_reason_datalens"),
+                sa_column("censor_reason"),
+                sa_column("value_limit"),
                 name="tmp_qc_qualifier_updates",
             )
             .data(stage_rows)
@@ -1157,6 +1210,8 @@ class PostgreSQLDataSource(DataSourceTemplate):
             corrected_value = row["corrected_value"]
             if corrected_value is not None and pd.notna(corrected_value):
                 corrected_value = float(corrected_value)
+            else:
+                corrected_value = None
 
             param = {
                 "b_measurement_tvp_id": measurement_tvp_id,
@@ -1297,12 +1352,11 @@ class PostgreSQLDataSource(DataSourceTemplate):
         return "postgresql"
 
 
-class PstoreDataSource(DataSourceTemplate):
-    """DataSource using pstore (in-memory, read-only).
+class PastaStoreDataSource(DataSourceTemplate):
+    """DataSource using a PastaStore.
 
-    This source loads groundwater monitoring well data from a pstore file, which
-    can be created from BRO or other sources. Data is stored in-memory as
-    DataFrames, not in a database.
+    This source loads groundwater monitoring well data from a PastaStore file, which
+    can be created from BRO or other sources.
 
     Parameters
     ----------
@@ -1310,33 +1364,135 @@ class PstoreDataSource(DataSourceTemplate):
         Path to the pstore file containing the data.
     """
 
-    def __init__(self, path: Path | str):
-        path = Path(path)
-        if path.suffix == ".zip":
-            pstore = PastaStore.from_zip(path)
+    def __init__(
+        self,
+        path: Path | str | None = None,
+        pstore: PastaStore | None = None,
+    ):
+        if pstore is not None:
+            self.pstore = pstore
+        elif path is None:
+            self.pstore = PastaStore(pst.DictConnector(name="runtime"))
         else:
-            pstore = PastaStore.from_pastastore_config_file(path)
-        self.pstore: PastaStore = pstore
+            self.pstore = self._load_pastastore(path)
         self.value_column = "values"
         self.qualifier_column = "qualifier"
 
+    @staticmethod
+    def _load_pastastore(path: Path | str) -> PastaStore:
+        path = Path(path)
+        if path.suffix == ".zip":
+            return PastaStore.from_zip(path)
+        return PastaStore.from_pastastore_config_file(path)
+
+    def set_pastastore(self, pstore: PastaStore) -> None:
+        """Replace active PastaStore and invalidate cached metadata."""
+        self.pstore = pstore
+        self.__dict__.pop("gmw_gdf", None)
+
+    @staticmethod
+    def _oseries_key_column() -> str:
+        return "oseries_name"
+
     @cached_property
     def gmw_gdf(self) -> gpd.GeoDataFrame:
-        oseries_df = self.pstore.oseries.sort_index()
-        transformer = Transformer.from_proj(EPSG_28992, WGS84, always_xy=False)
-        oseries_df.loc[:, ["lon", "lat"]] = np.vstack(
-            transformer.transform(oseries_df["x"].values, oseries_df["y"].values)
-        ).T
-        oseries_df.loc[:, [ColumnNames.LONGITUDE, ColumnNames.LATITUDE]] = (
-            oseries_df.loc[:, ["lon", "lat"]].values
+        oseries_df = self.pstore.oseries.copy()
+        if oseries_df is None:
+            oseries_df = pd.DataFrame()
+        oseries_df = oseries_df.sort_index()
+
+        oseries_df = oseries_df.rename(
+            columns={
+                "screen_top": ColumnNames.SCREEN_TOP,
+                "screen_bottom": ColumnNames.SCREEN_BOT,
+                "ground_level": ColumnNames.GROUND_LEVEL_POSITION,
+                "tube_nr": ColumnNames.TUBE_NUMBER,
+                "tube_top": ColumnNames.TUBE_TOP_POSITION,
+                "location": ColumnNames.LOCATION_NAME,
+                "name": ColumnNames.DISPLAY_NAME,
+            }
         )
+
+        oseries_df[self._oseries_key_column()] = oseries_df.index.astype(str)
+
+        if ColumnNames.DISPLAY_NAME not in oseries_df.columns:
+            oseries_df[ColumnNames.DISPLAY_NAME] = oseries_df[
+                self._oseries_key_column()
+            ].astype(str)
+        if ColumnNames.LOCATION_NAME not in oseries_df.columns:
+            oseries_df[ColumnNames.LOCATION_NAME] = oseries_df[
+                ColumnNames.DISPLAY_NAME
+            ].astype(str)
+        if ColumnNames.TUBE_NUMBER not in oseries_df.columns:
+            oseries_df[ColumnNames.TUBE_NUMBER] = np.nan
+        if ColumnNames.ID not in oseries_df.columns:
+            oseries_df[ColumnNames.ID] = np.arange(len(oseries_df), dtype=int)
+        if ColumnNames.WELL_CODE not in oseries_df.columns:
+            oseries_df[ColumnNames.WELL_CODE] = oseries_df[ColumnNames.DISPLAY_NAME]
+        if ColumnNames.WELL_STATIC_ID not in oseries_df.columns:
+            oseries_df[ColumnNames.WELL_STATIC_ID] = pd.factorize(
+                oseries_df[ColumnNames.WELL_CODE].astype(str)
+            )[0]
+        if ColumnNames.TUBE_STATIC_ID not in oseries_df.columns:
+            oseries_df[ColumnNames.TUBE_STATIC_ID] = oseries_df[ColumnNames.ID]
+
+        if not oseries_df.empty:
+            tmintmax = self.pstore.get_tmin_tmax("oseries").map(lambda t: t.date())
+            tmintmax = tmintmax.reindex(oseries_df.index)
+            oseries_df[ColumnNames.TMIN] = tmintmax["tmin"]
+            oseries_df[ColumnNames.TMAX] = tmintmax["tmax"]
+
+            oseries_df[ColumnNames.NUMBER_OF_OBSERVATIONS] = self.pstore.apply(
+                "oseries",
+                lambda s: self.pstore.get_oseries(s).index.size,
+                names=oseries_df.index,
+            )
+        else:
+            oseries_df[ColumnNames.TMIN] = pd.NaT
+            oseries_df[ColumnNames.TMAX] = pd.NaT
+            oseries_df[ColumnNames.NUMBER_OF_OBSERVATIONS] = 0
+
+        defaults = {
+            ColumnNames.BRO_ID: None,
+            ColumnNames.WELL_NITG_CODE: None,
+            ColumnNames.SCREEN_TOP: np.nan,
+            ColumnNames.SCREEN_BOT: np.nan,
+            ColumnNames.TUBE_TOP_POSITION: np.nan,
+            ColumnNames.TMIN: pd.NaT,
+            ColumnNames.TMAX: pd.NaT,
+            ColumnNames.NUMBER_OF_OBSERVATIONS: 0,
+            ColumnNames.NUMBER_OF_CONTROL_OBSERVATIONS: 0,
+            ColumnNames.GROUND_LEVEL_POSITION: np.nan,
+            ColumnNames.X: np.nan,
+            ColumnNames.Y: np.nan,
+        }
+        for col, default_val in defaults.items():
+            if col not in oseries_df.columns:
+                oseries_df[col] = default_val
+
+        valid_xy = oseries_df[ColumnNames.X].notna() & oseries_df[ColumnNames.Y].notna()
+        oseries_df["lon"] = np.nan
+        oseries_df["lat"] = np.nan
+        if valid_xy.any():
+            transformer = Transformer.from_proj(EPSG_28992, WGS84, always_xy=False)
+            lon, lat = transformer.transform(
+                oseries_df.loc[valid_xy, ColumnNames.X].values,
+                oseries_df.loc[valid_xy, ColumnNames.Y].values,
+            )
+            oseries_df.loc[valid_xy, "lon"] = lon
+            oseries_df.loc[valid_xy, "lat"] = lat
+
+        oseries_df[ColumnNames.LONGITUDE] = oseries_df["lon"]
+        oseries_df[ColumnNames.LATITUDE] = oseries_df["lat"]
 
         gdf = gpd.GeoDataFrame(
             oseries_df,
-            geometry=gpd.points_from_xy(oseries_df.x, oseries_df.y),
+            geometry=gpd.points_from_xy(
+                oseries_df[ColumnNames.X],
+                oseries_df[ColumnNames.Y],
+            ),
         )
-        gdf = gdf.set_index("id", drop=False)
-        # gdf.index = range(len(gdf))
+        gdf = gdf.set_index(ColumnNames.ID, drop=False)
         return gdf
 
     def get_tube_numbers(self, wid=None, query=None, return_ids=False):
@@ -1357,14 +1513,21 @@ class PstoreDataSource(DataSourceTemplate):
             Tube names or IDs
         """
         if wid is not None:
-            sel = self.gmw_gdf.loc[wid, ColumnNames.WELL_STATIC_ID]
+            well_static_id = self.gmw_gdf.loc[wid, ColumnNames.WELL_STATIC_ID]
         elif query is not None:
-            sel = self.query_gdf(**query).loc[:, ColumnNames.WELL_STATIC_ID]
+            sel = self.query_gdf(**query, columns=[ColumnNames.WELL_STATIC_ID])
+            row = validate_single_result(sel, context="well lookup")
+            well_static_id = row[ColumnNames.WELL_STATIC_ID]
+        else:
+            raise ValueError("Either 'wid' or 'query' must be provided.")
+
+        mask = self.gmw_gdf[ColumnNames.WELL_STATIC_ID] == well_static_id
+        names = self.gmw_gdf.loc[mask, ColumnNames.DISPLAY_NAME]
 
         if return_ids:
-            return sel.index
+            return names.index
         else:
-            return sel
+            return names.to_list()
 
     @property
     def list_locations(self) -> pd.DataFrame:
@@ -1375,7 +1538,7 @@ class PstoreDataSource(DataSourceTemplate):
             ColumnNames.BRO_ID,
             ColumnNames.WELL_CODE,
             ColumnNames.WELL_NITG_CODE,
-            "location_name",
+            ColumnNames.LOCATION_NAME,
             ColumnNames.ID,
         ]
         locs = gr.first().reset_index().loc[:, cols]
@@ -1419,6 +1582,14 @@ class PstoreDataSource(DataSourceTemplate):
             qgdf = qgdf.loc[:, columns]
         return qgdf
 
+    def get_internal_id(self, **kwargs):
+        q = self.query_gdf(**kwargs, columns=ColumnNames.ID)
+        validate_not_empty(q, context="internal id lookup")
+        try:
+            return int(q.item())
+        except (AttributeError, ValueError) as e:
+            raise ValueError("Query did not return a single internal id.") from e
+
     @property
     def list_observation_wells_with_data(self) -> pd.DataFrame:
         """Return a list of locations that contain groundwater level dossiers.
@@ -1459,12 +1630,14 @@ class PstoreDataSource(DataSourceTemplate):
 
     def get_timeseries(
         self,
-        wid: int,
-        query: Optional[dict] = None,
+        wid: Optional[int] = None,
+        query: Optional[dict[str, Any]] = None,
         observation_type: Optional[Union[str, Sequence[str]]] = "reguliereMeting",
+        columns: Optional[Union[List[str], str]] = None,
+        tmin: Optional[str] = None,
+        tmax: Optional[str] = None,
+        deduplicate: bool = True,
         column: Optional[Union[List[str], str]] = None,
-        # tube_id: int,
-        # observation_type: Optional[str] = None,
     ) -> pd.DataFrame:
         """Return a Pandas Series for the measurements for given location name.
 
@@ -1480,25 +1653,47 @@ class PstoreDataSource(DataSourceTemplate):
         pd.DataFrame
             time series of head observations.
         """
+        _ = deduplicate
+        selected_columns = columns if columns is not None else column
+
         if observation_type is not None:
             if isinstance(observation_type, str):
                 if observation_type != "reguliereMeting":
-                    return pd.Series()
+                    return pd.DataFrame(
+                        columns=[self.value_column, self.qualifier_column]
+                    )
             else:
                 if "reguliereMeting" not in observation_type:
-                    return pd.Series()
+                    return pd.DataFrame()
         try:
-            gdf = self.gmw_gdf
-            if query is not None:
-                sel = self.query_gdf(**query, columns=column)
-                _ = validate_single_result(sel, context="timeseries lookup")
-                gdf = sel
-            idx = gdf.at[wid, "well_code"]
-            ts = self.pstore.conn.get_oseries(idx, return_metadata=False).to_frame(idx)
+            if wid is None and query is None:
+                raise ValueError("Either 'wid' or 'query' must be provided.")
+
+            if wid is None and query is not None:
+                sel = self.query_gdf(**query, columns=[ColumnNames.ID])
+                row = validate_single_result(sel, context="timeseries lookup")
+                wid = int(row[ColumnNames.ID])
+
+            key_col = self._oseries_key_column()
+            if key_col in self.gmw_gdf.columns:
+                oseries_name = self.gmw_gdf.at[wid, key_col]
+            elif ColumnNames.DISPLAY_NAME in self.gmw_gdf.columns:
+                oseries_name = self.gmw_gdf.at[wid, ColumnNames.DISPLAY_NAME]
+            else:
+                oseries_name = self.gmw_gdf.at[wid, ColumnNames.WELL_CODE]
+
+            ts = self.pstore.conn.get_oseries(str(oseries_name), return_metadata=False)
+            if isinstance(ts, pd.Series):
+                ts = ts.to_frame()
             ts = ts.rename(columns={ts.columns[0]: self.value_column})
-            ts[self.qualifier_column] = ""
-            if column is not None:
-                ts = ts.loc[:, column]
+            ts[self.qualifier_column] = "onbekend"
+            ts.index.name = str(oseries_name)
+            if tmin is not None:
+                ts = ts.loc[tmin:]
+            if tmax is not None:
+                ts = ts.loc[:tmax]
+            if selected_columns is not None:
+                ts = ts.loc[:, selected_columns]
             return ts
         except KeyError as e:
             raise ValueError(
@@ -1513,10 +1708,70 @@ class PstoreDataSource(DataSourceTemplate):
         df : pd.DataFrame
             dataframe containig error detection results after manual review.
         """
-        _ = df  # to avoid unused variable warning
-        logger.warning(
-            "PstoreDatasource is read-only. Qualifier changes not saved. "
-            "Export to CSV if modifications needed."
+        _ = df
+        raise NotImplementedError(
+            "PastaStoreDataSource is read-only: save_qualifier is not supported."
+        )
+
+    def count_measurements_per_tube(self) -> pd.DataFrame:
+        """Return per-tube measurement counts based on cached metadata."""
+        counts = self.gmw_gdf.set_index(
+            [ColumnNames.WELL_STATIC_ID, ColumnNames.TUBE_STATIC_ID]
+        )[
+            [
+                ColumnNames.NUMBER_OF_OBSERVATIONS,
+                ColumnNames.NUMBER_OF_CONTROL_OBSERVATIONS,
+            ]
+        ].copy()
+        return counts
+
+    def save_correction(self, df: pd.DataFrame) -> None:
+        """Save manual corrections to PastaStore using timestamp-indexed values."""
+        oseries_name = df.index.name
+
+        if ColumnNames.TIMESTAMP in df.columns:
+            correction_index = pd.to_datetime(
+                df.loc[:, ColumnNames.TIMESTAMP], errors="coerce"
+            )
+        else:
+            correction_index = pd.to_datetime(df.index, errors="coerce")
+
+        valid_mask = correction_index.notna()
+        if not valid_mask.any():
+            logger.warning(
+                (
+                    "No valid timestamped corrected values found for oseries '%s'; "
+                    "skipping update."
+                ),
+                oseries_name,
+            )
+            return
+
+        corrected_values = pd.to_numeric(
+            df.loc[valid_mask, ColumnNames.CORRECTED_VALUE], errors="coerce"
+        )
+        corrected_series = pd.Series(
+            corrected_values.values,
+            index=correction_index[valid_mask],
+            name=ColumnNames.CORRECTED_VALUE,
+        )
+        corrected_series.index.name = ColumnNames.TIMESTAMP
+
+        self.pstore.update_oseries(corrected_series, oseries_name, force=True)
+        logger.info(
+            (
+                "Saved corrections to PastaStore for oseries '%s' "
+                "with %d corrected points."
+            ),
+            oseries_name,
+            len(corrected_series),
+        )
+
+    def reset_correction(self, df: pd.DataFrame) -> None:
+        """PastaStore data source is read-only for correction resets."""
+        _ = df
+        raise NotImplementedError(
+            "PastaStoreDataSource is does not support reset_correction."
         )
 
     @property
