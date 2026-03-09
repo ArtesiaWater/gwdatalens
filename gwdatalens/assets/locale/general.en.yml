@@ -124,6 +124,7 @@ en:
   error_no_plot_data: "No data to plot for: %{names}."
   error_corrections_commit_failed: "Error committing corrections: %{error}."
   error_corrections_reset_failed: "Error resetting corrections: %{error}."
+  error_pastastore_load_failed: "Failed to load PastaStore: %{error}."
   # success/info
   success_loaded_ruleset: "Ruleset loaded."
   success_traval_run: "QC run successful."
@@ -131,5 +132,6 @@ en:
   success_loaded_timeseries_pastastore: "Loaded time series model '%{name}' from PastaStore."
   success_corrections_committed: "Successfully committed %{count} correction(s)."
   success_corrections_reset: "Successfully reset %{count} correction(s)."
+  success_pastastore_loaded: "Loaded PastaStore from '%{source}'."
   no_corrections_to_commit: "No corrections to commit. Please edit corrected values before committing."
   no_corrections_to_reset: "No corrections to reset. All observations are showing original values."

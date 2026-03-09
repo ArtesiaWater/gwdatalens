@@ -124,6 +124,7 @@ nl:
   error_no_plot_data: "Geen data voor visualisatie: %{names}."
   error_corrections_commit_failed: "Fout bij opslaan van correcties: %{error}."
   error_corrections_reset_failed: "Fout bij terugzetten van correcties: %{error}."
+  error_pastastore_load_failed: "PastaStore laden mislukt: %{error}."
   # success/info
   success_loaded_ruleset: "Ruleset geladen."
   success_traval_run: "QC run geslaagd."
@@ -131,5 +132,6 @@ nl:
   success_loaded_timeseries_pastastore: "Tijdreeksmodel '%{name}' opgehaald uit PastaStore."
   success_corrections_committed: "%{count} correctie(s) opgeslagen."
   success_corrections_reset: "%{count} correctie(s) teruggezet."
+  success_pastastore_loaded: "PastaStore geladen vanuit '%{source}'."
   no_corrections_to_commit: "Geen correcties om op te slaan. Bewerk eerst de gecorrigeerde waarden voordat u opslaat."
   no_corrections_to_reset: "Geen correcties om terug te zetten. Alle waarnemingen tonen de originele waarden."
