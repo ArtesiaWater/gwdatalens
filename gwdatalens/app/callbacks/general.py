@@ -1,12 +1,17 @@
+import base64
+import binascii
 import logging
+import os
+import tempfile
 from typing import Any
 
 import dash_bootstrap_components as dbc
+import pastastore as pst
 from dash import Input, Output, State, html, no_update
 from dash.exceptions import PreventUpdate
 
 from gwdatalens.app.constants import ConfigDefaults
-from gwdatalens.app.messages import t_
+from gwdatalens.app.messages import ErrorMessages, SuccessMessages, t_
 from gwdatalens.app.src.components import (
     ids,
     tab_corrections,
@@ -65,6 +70,7 @@ def register_general_callbacks(app, data):
         Output(ids.TAB_CONTENT, "children"),
         Output(ids.ALERT_TAB_RENDER, "data"),
         Input(ids.TAB_CONTAINER, "value"),
+        Input(ids.PASTASTORE_REFRESH_STORE, "data"),
         State(ids.SELECTED_OSERIES_STORE, "data"),
         State(ids.TRAVAL_RESULT_FIGURE_STORE, "data"),
     )
@@ -75,7 +81,10 @@ def register_general_callbacks(app, data):
         log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def render_tab_content(
-        tab: str, selected_data: list[int] | None, figure: tuple | None
+        tab: str,
+        _pastastore_refresh: tuple | None,
+        selected_data: list[int] | None,
+        figure: tuple | None,
     ) -> tuple[Any, tuple]:
         """Render tab content with appropriate alerts for selection limits.
 
@@ -142,6 +151,7 @@ def register_general_callbacks(app, data):
         Input(ids.ALERT_RUN_TRAVAL, "data"),
         Input(ids.ALERT_TAB_RENDER, "data"),
         Input(ids.ALERT_STATUS_CORRECTIONS, "data"),
+        Input(ids.ALERT_LOAD_PASTASTORE, "data"),
         prevent_initial_call=True,
     )
     @log_callback(
@@ -190,6 +200,76 @@ def register_general_callbacks(app, data):
             ),
         ]
 
+    @app.callback(
+        Output(ids.ALERT_LOAD_PASTASTORE, "data"),
+        Output(ids.PASTASTORE_REFRESH_STORE, "data"),
+        Input(ids.LOAD_PASTASTORE_UPLOAD, "contents"),
+        State(ids.LOAD_PASTASTORE_UPLOAD, "filename"),
+        prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def load_pastastore_from_upload(
+        contents: str | None,
+        filename: str | None,
+    ) -> tuple[tuple, tuple | Any]:
+        """Load and activate a PastaStore from uploaded .pastastore or .zip."""
+        if contents is None:
+            raise PreventUpdate
+
+        try:
+            content_type, content_string = contents.split(",", maxsplit=1)
+            decoded = base64.b64decode(content_string)
+
+            is_zip = (filename or "").lower().endswith(
+                ".zip"
+            ) or "zip" in content_type.lower()
+            suffix = ".zip" if is_zip else ".pastastore"
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
+                tmp_file.write(decoded)
+                tmp_path = tmp_file.name
+
+            try:
+                if is_zip:
+                    pstore = pst.PastaStore.from_zip(tmp_path)
+                else:
+                    pstore = pst.PastaStore.from_pastastore_config_file(
+                        tmp_path,
+                        update_path=False,
+                    )
+            finally:
+                os.unlink(tmp_path)
+
+            if getattr(data.db, "backend", None) == "pastastore":
+                set_pastastore = getattr(data.db, "set_pastastore", None)
+                if callable(set_pastastore):
+                    set_pastastore(pstore)
+
+            data.set_pastastore(pstore)
+            source_name = filename or suffix
+            logger.info("Loaded PastaStore from upload: %s", source_name)
+            return (
+                AlertBuilder.success(
+                    t_(SuccessMessages.PASTASTORE_LOADED, source=source_name)
+                ),
+                TimestampStore.create(success=True),
+            )
+        except (binascii.Error, OSError, TypeError, ValueError, RuntimeError) as e:
+            logger.warning(
+                "Failed to load PastaStore from upload: %s", e, exc_info=True
+            )
+            return (
+                AlertBuilder.danger(
+                    t_(ErrorMessages.PASTASTORE_LOAD_FAILED, error=str(e))
+                ),
+                no_update,
+            )
+
     # ------------------------------------------------------------------
     # Time-range filter callbacks
     # ------------------------------------------------------------------
@@ -224,11 +304,11 @@ def register_general_callbacks(app, data):
         log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def update_time_range_store(
-        n_clicks: int | None,
+        _n_clicks: int | None,
         preset: str | None,
         custom_tmin: str | None,
         custom_tmax: str | None,
-        current_store: dict | None,
+        _current_store: dict | None,
         **kwargs,
     ) -> dict:
         """Update the global time-range store.

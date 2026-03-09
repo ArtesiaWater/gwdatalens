@@ -5,6 +5,7 @@ HELP_BUTTON_OPEN = "help-button-open"
 HELP_BUTTON_CLOSE = "help-button-close"
 HELP_MODAL = "help-modal"
 HELP_TITLE = "help-title"
+LOAD_PASTASTORE_UPLOAD = "load-pastastore-upload"
 
 # ALERT
 ALERT = "alert"
@@ -24,6 +25,7 @@ ALERT_LOAD_RULESET = "alert-load-ruleset"
 ALERT_RUN_TRAVAL = "alert-run-traval"
 ALERT_TAB_RENDER = "alert-tab-render"
 ALERT_STATUS_CORRECTIONS = "alert-status-corrections"
+ALERT_LOAD_PASTASTORE = "alert-load-pastastore"
 
 # STORES
 SELECTED_OSERIES_STORE = "selected-oseries-store"
@@ -32,6 +34,7 @@ ACTIVE_TABLE_SELECTION_STORE = "qc-result-table-selection"
 TRAVAL_RULESET_STORE = "traval-ruleset-values-store"
 TRAVAL_RESULT_FIGURE_STORE = "traval-result-figure-store"
 TRAVAL_RESULT_TABLE_STORE = "traval-result-table-store"
+PASTASTORE_REFRESH_STORE = "pastastore-refresh-store"
 
 # DUPLICATE STORES
 OVERVIEW_TABLE_SELECTION_1 = "overview-table-selection-1"

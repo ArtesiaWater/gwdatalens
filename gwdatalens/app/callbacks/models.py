@@ -116,11 +116,13 @@ def register_model_callbacks(app, data):
             # Get well name for model
             name = well_service.get_well_name(wid)
 
-            # Add or update series in pastastore (update also overwrite, to ensure
-            # measurements that have been removed in a time series are also purged
-            # in the pastastore)
+            # Add or update series in pastastore (update also overwrites, to ensure
+            # measurements that have been removed in a time series through the app
+            # are also purged in the pastastore)
             if name in data.pastastore.oseries_names:
-                ometa = data.pastastore.get_metadata(libname="oseries", name=name)
+                ometa = data.pastastore.get_metadata(
+                    libname="oseries", names=name, as_frame=False
+                )
                 data.pastastore.add_oseries(ts, name, ometa, overwrite=True)
                 logger.info(
                     "Head time series '%s' updated in pastastore database.", name
@@ -138,11 +140,13 @@ def register_model_callbacks(app, data):
 
             # Get meteorological data if available
             if PASTASTORE_GT_1_7_1:
-                data.get_knmi_data(name)
+                data.get_knmi_data(name, tmin=tmin, tmax=tmax)
 
             # Create and solve model
+            ts.index.name = None
             ml = ps.Model(ts)
             data.pastastore.add_recharge(ml)
+
             ml.solve(freq="D", tmin=tmin, tmax=tmax, report=False)
             ml.add_noisemodel(ps.ArNoiseModel())
             ml.solve(freq="D", tmin=tmin, tmax=tmax, report=False, initial=False)
@@ -207,7 +211,11 @@ def register_model_callbacks(app, data):
         os.remove("temp.pas")
 
         try:
+            # NOTE: avoid issue where freq of series is not set when loading from
+            # pas file.
+            data.pastastore.validator.set_check_model_series_values(False)
             data.pastastore.add_model(ml, overwrite=True)
+            data.pastastore.validator.set_check_model_series_values(True)
             return AlertBuilder.success(
                 f"Success! Saved model for {ml.oseries.name} in Pastastore!"
             )

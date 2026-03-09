@@ -29,7 +29,7 @@ There are two ways of plotting head time series:
      mouse or the rectangle selection tool.
 - (Shift+)Click on row(s) in the table.
 
-### Time Series Models tab
+### Models tab
 
 The time series models tab allows users to create or inspect time series models using
 Pastas and Pastastore. Models are created using precipitation and evaporation from the
@@ -50,10 +50,6 @@ Steps:
    3. Press the "Run TRAVAL" button.
    4. The chart will update showing the original time series and the measurements that were deemed suspect by the error detection algorithm. If available a pastas model simulation and prediction interval are also shown in the chart.
 
-### Manual Review tab
-
-The Manual Review tab lets you review the results of the error detection scheme and
-commit your manual review to the database, or download the results as a CSV file.
 
 ### Corrections tab
 
@@ -62,6 +58,11 @@ It shows a graph of well configuration (showing all tubes), and the time series
 for each observation well. It lets you select two time series for comparison, and
 edit manual observations with a helpful calculator tool at the bottom. Modifcations
 can be commited to the database.
+
+### Review tab
+
+The Review tab lets you review the results of the error detection scheme and
+commit your manual review to the database, or download the results as a CSV file.
 
 ### References
 

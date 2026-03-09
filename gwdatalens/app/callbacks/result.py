@@ -139,9 +139,9 @@ def register_result_callbacks(app, data):
             logger.debug("QC export CSV: wid is None, preventing update")
             raise PreventUpdate
 
-        timestr = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+        _ = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
         name = well_service.get_well_name(wid).squeeze()
-        filename = f"{timestr}_qc_result_{name}.csv"
+        filename = f"qc_result_{name}.csv"
         if data.qc.traval_result is not None:
             return dcc.send_string(data.qc.traval_result.to_csv, filename=filename)
 
@@ -151,7 +151,11 @@ def register_result_callbacks(app, data):
         State(ids.SELECTED_OSERIES_STORE, "data"),
         State(ids.QC_RESULT_EXPORT_QC_STATUS_FLAG, "value"),
         running=[
-            (Output(ids.QC_RESULT_EXPORT_DB, "disabled"), True, False),
+            (
+                Output(ids.QC_RESULT_EXPORT_DB, "disabled"),
+                True,
+                data.db.backend == "pastastore",
+            ),
             (
                 Output("span-export-db", "children"),
                 [
@@ -177,6 +181,11 @@ def register_result_callbacks(app, data):
 
         Applies quality control status flags and saves to database.
         """
+        if data.db.backend == "pastastore":
+            return AlertBuilder.warning(
+                t_(ErrorMessages.EXPORT_FAILED, well="current backend")
+            )
+
         if not n_clicks:
             logger.debug("QC export DB: no click, preventing update")
             raise PreventUpdate
@@ -732,7 +741,7 @@ def register_result_callbacks(app, data):
                 //console.log(dash_clientside.callback_context);
                 const triggered_id = dash_clientside.callback_context.triggered_id;
                 //use this to set the focus on last active component
-                document.lastActiveElement.focus(); 
+                document.lastActiveElement.focus();
                 return;
             }
             """,

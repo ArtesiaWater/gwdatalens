@@ -481,9 +481,9 @@ def register_correction_callbacks(app: Dash, data: DataManager):
         ):
             well1_id = state_well1_id
             well2_id = state_well2_id
-            # On reset, clear the edit history (user is reloading fresh)
-            if trigger_id == ids.CORRECTIONS_RESET_TRIGGER_STORE:
-                edit_history = {}
+            # On reset/commit, clear edit history to avoid reapplying stale edits
+            # after fresh data has been loaded from the backend.
+            edit_history = {}
         else:
             # Well selection changed - clear edit history for new time series
             edit_history = {}
@@ -521,8 +521,35 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                     tmax=global_tmax,
                 )
                 if obs is not None and not obs.empty:
+                    required_cols = [
+                        ColumnNames.FIELD_VALUE,
+                        ColumnNames.CALCULATED_VALUE,
+                        ColumnNames.INITIAL_CALCULATED_VALUE,
+                        ColumnNames.OBSERVATION_TYPE,
+                        ColumnNames.CORRECTION_REASON,
+                        ColumnNames.MEASUREMENT_TVP_ID,
+                    ]
+
+                    if data.db.value_column in obs.columns:
+                        series_values = obs[data.db.value_column]
+                    else:
+                        series_values = pd.Series(np.nan, index=obs.index)
+
+                    if ColumnNames.FIELD_VALUE not in obs.columns:
+                        obs[ColumnNames.FIELD_VALUE] = series_values
+                    if ColumnNames.CALCULATED_VALUE not in obs.columns:
+                        obs[ColumnNames.CALCULATED_VALUE] = series_values
+                    if ColumnNames.INITIAL_CALCULATED_VALUE not in obs.columns:
+                        obs[ColumnNames.INITIAL_CALCULATED_VALUE] = np.nan
                     if ColumnNames.OBSERVATION_TYPE not in obs.columns:
-                        obs = obs.assign(**{ColumnNames.OBSERVATION_TYPE: None})
+                        obs[ColumnNames.OBSERVATION_TYPE] = None
+                    if ColumnNames.CORRECTION_REASON not in obs.columns:
+                        obs[ColumnNames.CORRECTION_REASON] = ""
+                    if ColumnNames.MEASUREMENT_TVP_ID not in obs.columns:
+                        obs[ColumnNames.MEASUREMENT_TVP_ID] = np.arange(
+                            len(obs), dtype=int
+                        )
+
                     if obs.index.has_duplicates:
                         dup_count = obs.index.duplicated().sum()
                         logger.warning(
@@ -533,17 +560,14 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                         obs = obs[~obs.index.duplicated(keep="first")]
                     obs = obs.loc[
                         :,
-                        [
+                        required_cols,
+                    ].dropna(
+                        how="all",
+                        subset=[
                             ColumnNames.FIELD_VALUE,
                             ColumnNames.CALCULATED_VALUE,
                             ColumnNames.INITIAL_CALCULATED_VALUE,
-                            ColumnNames.OBSERVATION_TYPE,
-                            ColumnNames.CORRECTION_REASON,
-                            ColumnNames.MEASUREMENT_TVP_ID,
                         ],
-                    ].dropna(
-                        how="all",
-                        subset=[ColumnNames.FIELD_VALUE, ColumnNames.CALCULATED_VALUE],
                     )
                     obs = _merge_traval_comments_into_observations(
                         obs,
@@ -830,6 +854,8 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                 return None
             if isinstance(val, str) and val.strip() == "":
                 return None
+            if col == ColumnNames.SET_MISSING:
+                return _as_bool_set_missing(val)
             if col in {
                 ColumnNames.CALCULATED_VALUE,
                 ColumnNames.FIELD_VALUE,
@@ -861,6 +887,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
             ColumnNames.CALCULATED_VALUE,
             ColumnNames.FIELD_VALUE,
             "corrected_value",
+            ColumnNames.SET_MISSING,
             "comment",
         ]
 
@@ -976,8 +1003,11 @@ def register_correction_callbacks(app: Dash, data: DataManager):
             table2_data and len(table2_data) > 0
         )
 
-        # Both commit and reset buttons enabled if well selected and data available
-        buttons_disabled = not (has_well_selected and has_data)
+        # Commit enabled when a well is selected and data is available.
+        commit_disabled = not (has_well_selected and has_data)
+
+        # Reset is not supported for pastastore backend.
+        reset_disabled = commit_disabled or data.db.backend == "pastastore"
 
         unsaved_count = 0
         if original_data:
@@ -1012,8 +1042,8 @@ def register_correction_callbacks(app: Dash, data: DataManager):
 
         return (
             CallbackResponse()
-            .add(buttons_disabled)
-            .add(buttons_disabled)
+            .add(commit_disabled)
+            .add(reset_disabled)
             .add(commit_label)
             .add(commit_button_style)
             .build()
@@ -1076,6 +1106,9 @@ def register_correction_callbacks(app: Dash, data: DataManager):
             if isinstance(val, str) and val.strip() == "":
                 return None
 
+            if col == ColumnNames.SET_MISSING:
+                return _as_bool_set_missing(val)
+
             if col in {
                 ColumnNames.CALCULATED_VALUE,
                 ColumnNames.FIELD_VALUE,
@@ -1123,6 +1156,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
             field_val = row.get(ColumnNames.FIELD_VALUE)
             corrected_val = row.get("corrected_value")
             comment_val = row.get("comment", "")
+            set_missing = _as_bool_set_missing(row.get(ColumnNames.SET_MISSING))
 
             # Treat empty strings like None for emptiness check
             def empty(val, col):
@@ -1133,6 +1167,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                 empty(calculated_val, ColumnNames.CALCULATED_VALUE)
                 and empty(field_val, ColumnNames.FIELD_VALUE)
                 and empty(corrected_val, "corrected_value")
+                and not set_missing
                 and (
                     comment_val is None
                     or (isinstance(comment_val, str) and comment_val.strip() == "")
@@ -1161,8 +1196,9 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                     for col in [
                         ColumnNames.CALCULATED_VALUE,
                         ColumnNames.FIELD_VALUE,
-                        "corrected_value",
-                        "comment",
+                        ColumnNames.CORRECTED_VALUE,
+                        ColumnNames.SET_MISSING,
+                        ColumnNames.COMMENT,
                     ]:
                         current_val = current_row.get(col)
                         original_val = original_row.get(col)
@@ -1200,8 +1236,9 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                     for col in [
                         ColumnNames.CALCULATED_VALUE,
                         ColumnNames.FIELD_VALUE,
-                        "corrected_value",
-                        "comment",
+                        ColumnNames.CORRECTED_VALUE,
+                        ColumnNames.SET_MISSING,
+                        ColumnNames.COMMENT,
                     ]:
                         current_val = current_row.get(col)
                         original_val = original_row.get(col)
@@ -1333,6 +1370,8 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                 return None
             if isinstance(val, str) and val.strip() == "":
                 return None
+            if col == ColumnNames.SET_MISSING:
+                return _as_bool_set_missing(val)
             if col in {
                 ColumnNames.CALCULATED_VALUE,
                 ColumnNames.FIELD_VALUE,
@@ -1381,18 +1420,33 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                             original_row.get("comment"),
                             "comment",
                         )
+                        set_missing_changed = not _equal_values(
+                            current_row.get(ColumnNames.SET_MISSING),
+                            original_row.get(ColumnNames.SET_MISSING),
+                            ColumnNames.SET_MISSING,
+                        )
 
-                        if corrected_changed or comment_changed:
-                            # Only save if corrected_value is provided
-                            corrected_val = _normalize_value(
-                                current_row.get("corrected_value"), "corrected_value"
+                        if corrected_changed or comment_changed or set_missing_changed:
+                            set_missing = _as_bool_set_missing(
+                                current_row.get(ColumnNames.SET_MISSING)
                             )
-                            if corrected_val is not None:
+                            corrected_val = (
+                                np.nan
+                                if set_missing
+                                else _normalize_value(
+                                    current_row.get(ColumnNames.CORRECTED_VALUE),
+                                    ColumnNames.CORRECTED_VALUE,
+                                )
+                            )
+                            if corrected_val is not None or set_missing:
                                 corrections_to_save.append(
                                     {
                                         "measurement_tvp_id": current_row[
                                             "measurement_tvp_id"
                                         ],
+                                        ColumnNames.TIMESTAMP: current_row.get(
+                                            ColumnNames.DATETIME
+                                        ),
                                         "original_calculated_value": _normalize_value(
                                             original_row.get(
                                                 ColumnNames.CALCULATED_VALUE
@@ -1401,6 +1455,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                                         ),
                                         "corrected_value": corrected_val,
                                         "comment": current_row.get("comment", ""),
+                                        "display_name": wid1,
                                     }
                                 )
                                 wids.append(wid1)
@@ -1421,18 +1476,33 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                             original_row.get("comment"),
                             "comment",
                         )
+                        set_missing_changed = not _equal_values(
+                            current_row.get(ColumnNames.SET_MISSING),
+                            original_row.get(ColumnNames.SET_MISSING),
+                            ColumnNames.SET_MISSING,
+                        )
 
-                        if corrected_changed or comment_changed:
-                            # Only save if corrected_value is provided
-                            corrected_val = _normalize_value(
-                                current_row.get("corrected_value"), "corrected_value"
+                        if corrected_changed or comment_changed or set_missing_changed:
+                            set_missing = _as_bool_set_missing(
+                                current_row.get(ColumnNames.SET_MISSING)
                             )
-                            if corrected_val is not None:
+                            corrected_val = (
+                                np.nan
+                                if set_missing
+                                else _normalize_value(
+                                    current_row.get(ColumnNames.CORRECTED_VALUE),
+                                    ColumnNames.CORRECTED_VALUE,
+                                )
+                            )
+                            if corrected_val is not None or set_missing:
                                 corrections_to_save.append(
                                     {
                                         "measurement_tvp_id": current_row[
                                             "measurement_tvp_id"
                                         ],
+                                        ColumnNames.TIMESTAMP: current_row.get(
+                                            ColumnNames.DATETIME
+                                        ),
                                         "original_calculated_value": _normalize_value(
                                             original_row.get(
                                                 ColumnNames.CALCULATED_VALUE
@@ -1441,6 +1511,7 @@ def register_correction_callbacks(app: Dash, data: DataManager):
                                         ),
                                         "corrected_value": corrected_val,
                                         "comment": current_row.get("comment", ""),
+                                        "display_name": wid2,
                                     }
                                 )
                                 wids.append(wid2)
@@ -1718,6 +1789,9 @@ def _normalize_correction_value(val, col):
     if isinstance(val, str) and val.strip() == "":
         return None
 
+    if col == ColumnNames.SET_MISSING:
+        return _as_bool_set_missing(val)
+
     if col in {
         ColumnNames.CALCULATED_VALUE,
         ColumnNames.FIELD_VALUE,
@@ -1771,8 +1845,13 @@ def _count_unsaved_corrections(current_table, original_table):
             original_row.get("comment"),
             "comment",
         )
+        set_missing_changed = not _equal_correction_values(
+            current_row.get(ColumnNames.SET_MISSING),
+            original_row.get(ColumnNames.SET_MISSING),
+            ColumnNames.SET_MISSING,
+        )
 
-        if corrected_changed or comment_changed:
+        if corrected_changed or comment_changed or set_missing_changed:
             unsaved_count += 1
 
     return unsaved_count
@@ -1813,6 +1892,12 @@ def _prepare_observation_table_data(obs_df):
     # Show correction reason in comment column if it exists
     table_df[ColumnNames.COMMENT] = table_df[ColumnNames.CORRECTION_REASON].fillna("")
 
+    # SET_MISSING is True when an active DB correction exists but the corrected
+    # value is NaN (i.e. initial_calculated_value is set, calculated_value is NULL).
+    has_db_correction = table_df[ColumnNames.INITIAL_CALCULATED_VALUE].notna()
+    corrected_to_nan = has_db_correction & pd.isna(current_calculated)
+    table_df[ColumnNames.SET_MISSING] = corrected_to_nan
+
     # Format datetime
     table_df[ColumnNames.DATETIME] = table_df[ColumnNames.DATETIME].dt.strftime(
         ConfigDefaults.DATETIME_FORMAT
@@ -1826,11 +1911,26 @@ def _prepare_observation_table_data(obs_df):
             ColumnNames.FIELD_VALUE,
             ColumnNames.CALCULATED_VALUE,
             ColumnNames.CORRECTED_VALUE,
+            ColumnNames.SET_MISSING,
             ColumnNames.COMMENT,
             ColumnNames.MEASUREMENT_TVP_ID,
             ColumnNames.INITIAL_CALCULATED_VALUE,
         ]
     ].to_dict("records")
+
+
+def _as_bool_set_missing(value) -> bool:
+    """Normalize set-missing values from DataTable payload to bool."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        return normalized in {"true", "1", "yes", "set nan", "nan"}
+
+    return bool(value)
 
 
 def _filter_by_date_range(table_data, start_date, end_date):

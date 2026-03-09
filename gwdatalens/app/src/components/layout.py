@@ -1,6 +1,11 @@
 from dash import Dash, dcc, html
 
-from gwdatalens.app.src.components import button_help_modal, ids, tabs
+from gwdatalens.app.src.components import (
+    button_help_modal,
+    button_load_pastastore,
+    ids,
+    tabs,
+)
 from gwdatalens.app.src.components.time_range_filter import (
     default_store_value,
     render_time_range_filter,
@@ -34,6 +39,7 @@ def create_layout(app: Dash, data: DataManager) -> html.Div:
             dcc.Store(id=ids.TRAVAL_RESULT_FIGURE_STORE),
             dcc.Store(id=ids.TRAVAL_RESULT_TABLE_STORE),
             dcc.Store(id=ids.OVERVIEW_TIME_RANGE_REFRESH_STORE),
+            dcc.Store(id=ids.PASTASTORE_REFRESH_STORE),
             # Global time-range store — persists across all tab changes
             dcc.Store(
                 id=ids.TIME_RANGE_STORE,
@@ -53,6 +59,7 @@ def create_layout(app: Dash, data: DataManager) -> html.Div:
             dcc.Store(id=ids.ALERT_LOAD_RULESET),
             dcc.Store(id=ids.ALERT_RUN_TRAVAL),
             dcc.Store(id=ids.ALERT_STATUS_CORRECTIONS),
+            dcc.Store(id=ids.ALERT_LOAD_PASTASTORE),
             # header + tabs
             html.Div(
                 id="header",
@@ -64,6 +71,7 @@ def create_layout(app: Dash, data: DataManager) -> html.Div:
                         className="d-flex align-items-center gap-3",
                         children=[
                             render_time_range_filter(),
+                            button_load_pastastore.render(),
                             button_help_modal.render(),
                         ],
                     ),

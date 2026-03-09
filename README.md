@@ -4,166 +4,151 @@
 
 ![Example error detection result](gwdatalens/assets/traval_result_example.png)
 
-GW DataLens is a dashboard that can be used to view and check head time series.
-This dashboard runs in a browser (e.g. Firefox, Chrome) and connects to a
-database (e.g. PostgreSQL, or Hydropandas ObsCollection) to load and run error
-detection algorithms on stored head time series.
+GW DataLens is a browser-based dashboard for viewing and quality-controlling groundwater head time series. It connects to a PostgreSQL database or a PastaStore and runs error-detection algorithms on stored time series.
 
 ## Installation
-
-Install `gwdatalens` with:
 
 ```bash
 pip install gwdatalens
 ```
 
-Or clone the repository to your computer (or download a zip from GitHub and
-extract it). Open a terminal (e.g. Terminal, Anaconda Prompt), navigate to the
-folder containing the repository and install `gwdatalens` with:
+To configure or develop the application, install from source instead:
 
 ```bash
+git clone https://github.com/ArtesiaWater/gwdatalens.git
+cd gwdatalens
 pip install -e .
 ```
 
-### Pixi environment
+## Quick start
 
-If you cloned gwdatalens, it comes with a `pixi.toml` file. If you have pixi,
-the application can be launched with the following command:
+### PastaStore (simplest)
 
-```bash
-pixi run gwdatalens
-```
-
-Or activate the pixi environment using `pixi shell` and launch the gwdatalens
-from there.
-
-## Usage
-
-The dashboard can be run both as a stand-alone application, or as part of the Django
-application [BRO-Connector](https://github.com/nens/bro-connector).
-
-The settings for the dashboard are stored in the `gwdatalens/app/config.toml` file.
-
-### Stand-alone
-
-Currently, the app is set up to connect to a PostgreSQL database (a local copy
-of the Provincie Zeeland database). For more information about the database,
-see [DJANGO HELP](gwdatalens/django/DJANGO_HELP.md).
-
-For a standalone run the configuration settings for the database (user,
-password, host, etc.) are stored in the `database.toml` file. See the
-`database_template.toml` file. Modify entries to match your database and rename
-the file to `database.toml`.
-
-Once you have modified the TOML files for your setup, the dashboard can be
-launched from the command-line with:
+Start GW DataLens by starting the application from the command-line:
 
 ```bash
 gwdatalens
 ```
 
-### BRO-Connector
+This opens the app in an empty state. Use the **Load PastaStore** button (top right) to load a `.pastastore` file or zip archive.
 
-For implementing GW DataLens under BRO-Connector, follow these steps:
+To startup with BRO data within a spatial extent (EPSG:28992):
 
-1. Modify `gwdatalens/app/config.toml`, and set `DJANGO_APP = true`.
-2. Copy GW DataLens to the BRO-Connector root directory with
-   `cp_gwdatalens_to_broconnector [BRO_CONNECTOR_PATH]` or modify the `django_copy.py`
-   file to point to the correct path and run the file with `python django_copy.py`.
-3. Update `main/urls.py` file and `main/settings/settings.py` as outlined in this readme
-   file: [DJANGO_HELP](gwdatalens/django/DJANGO_HELP.md)
-4. Prepare the BRO-Connector application as
-   [outlined here](https://github.com/nens/bro-connector?tab=readme-ov-file#installeren-van-django-applicatie)
-5. Run the application with `python manage.py runserver` (from the directory containing
-   the `manage.py` file).
+```bash
+gwdatalens --extent XMIN XMAX YMIN YMAX
+```
 
-More background and information is available in
-[DJANGO_HELP](gwdatalens/django/DJANGO_HELP.md) and at the
-[BRO-Connector repository](https://github.com/nens/bro-connector).
+This downloads time series via `hydropandas.read_bro()` and loads them into an in-memory PastaStore. Large extents may take a while to download.
 
-### Using a HydroPandas ObsCollection as "database"
+### PostgreSQL (stand-alone)
 
-The application can also be run using a HydroPandas ObsCollection as a data source.
+1. In `gwdatalens/app/config.toml`, set `DATA_BACKEND = "postgresql"`.
+2. Copy `gwdatalens/app/database_template.toml` to `gwdatalens/app/database.toml` and fill in your credentials:
 
-Replace the current `PostgreSQLDataSource()` with `HydropandasDataSource()`. This
-data source can be instantiated in a few ways:
+   ```toml
+   [database]
+   database = "mydb"
+   user = "myuser"
+   password = "mypassword"
+   host = "localhost"
+   port = "5432"
+   ```
 
-- specify an extent (xmin, xmax, ymin, ymax) and `source="bro"`. This will download
-  all groundwater level observations within an extent, and store the resulting
-  `ObsCollection` as a pickle-file (for faster loading next time). To update the data,
-  delete the pickle-file and let the download run again.
-- specify a file name (e.g. `fname="oc.pkl"`) containing a pickled `ObsCollection`.
-  Specify the data source (`"dino"` or `"bro"`) of the file.
-- Specify an `ObsCollection` instance using `oc=oc`.
+3. Run `gwdatalens`.
 
-See the documentation for `HydropandasDataSource` for more information.
+See [DJANGO_HELP](gwdatalens/django/DJANGO_HELP.md) for more information on the expected database structure.
 
-## Data validation with GW DataLens
+### PostgreSQL (BRO-Connector)
 
-The GW DataLens dashboard can be used to validate/check groundwater measurements.
+1. In `config.toml`, set `DJANGO_APP = true` and `DATA_BACKEND = "postgresql"`.
+2. Copy GW DataLens into BRO-Connector:
 
-The validation process consists of the following steps:
+   ```bash
+   cp_gwdatalens_to_broconnector /path/to/bro-connector
+   ```
 
-   1. Select a head time series from a database. ([Overview](#overview-tab))
-   2. Run a set of error-detection rules to identify potentially suspect measurements. ([Error Detection](#error-detection-tab))
-   3. The time series is manually reviewed (accepting or rejecting) suggestions made by the  error detection algorithm. ([Manual Review](#error-detection-tab))
+3. Update `main/urls.py` and `main/settings/settings.py` as described in [DJANGO_HELP](gwdatalens/django/DJANGO_HELP.md).
+4. Set up BRO-Connector as [outlined here](https://github.com/nens/bro-connector?tab=readme-ov-file#installeren-van-django-applicatie).
+5. Run with `python manage.py runserver`.
 
-Optionally, time series models can be inspected or created using the [Time Series Models](#time-series-models-tab) tab. These models can be used in the error detection step.
+## Configuration
+
+Settings are stored in `gwdatalens/app/config.toml`. The most commonly changed options:
+
+| Setting | Default | Description |
+|---|---|---|
+| `DATA_BACKEND` | `"postgresql"` | Data source: `"postgresql"` or `"pastastore"` |
+| `LOCALE` | `"nl"` | Language: `"nl"` or `"en"` |
+| `PORT` | `8050` | Dashboard port |
+| `LOG_LEVEL` | `"DEBUG"` | Log level: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
+| `SERIES_LOAD_LIMIT` | `50` | Max time series loaded simultaneously |
+
+CLI arguments override `config.toml`:
+
+```bash
+gwdatalens --port 8080 --locale en --log-level INFO
+```
+
+Settings can also be set via environment variables, which override `config.toml` but are overridden by CLI arguments:
+
+```
+GWDATALENS_PORT=8080
+GWDATALENS_LOCALE=en
+GWDATALENS_LOG_LEVEL=INFO
+GWDATALENS_DB_HOST=localhost
+GWDATALENS_DB_PORT=5432
+GWDATALENS_DB_NAME=mydb
+GWDATALENS_DB_USER=myuser
+GWDATALENS_DB_PASSWORD=mypassword
+```
+
+## Data validation workflow
+
+1. **Select** a time series. ([Overview tab](#overview-tab))
+2. **Run error detection** to flag suspect measurements. ([Error Detection tab](#error-detection-tab))
+3. **Correct** measurements where the correct value is known. ([Corrections tab](#corrections-tab))
+4. **Review** and accept or reject flagged measurements, then commit to the database. ([Review tab](#review-tab))
+
+Optionally, create or inspect time series models in the [Time Series Models tab](#time-series-models-tab). Models can be used in the error detection step.
 
 ### Overview tab
 
 ![Overview Tab](/gwdatalens/assets/00_overview_tab.png)
 
-The overview tab consists of three elements:
-
-- Interactive map view showing measurement locations (top left)
-- Interactive table showing measurement location metadata (top right)
-- Interactive chart showing time series (bottom)
-
-There are two ways of plotting head time series:
-
-- Select one or multiple (up to 10, this value can be changed in `config.toml`)
-  measurement locations on the map using your mouse or the rectangle selection tool.
-- (Shift+)Click on row(s) in the table.
+- Interactive map (top left), metadata table (top right), and time series chart (bottom).
+- Select locations on the map or (Shift+)click table rows to plot time series (up to 50 by default; configurable in `config.toml`).
 
 ### Time Series Models tab
 
 ![Time Series Models Tab](/gwdatalens/assets/01_model_tab.png)
 
-The time series models tab allows users to create or inspect time series models using
-Pastas and Pastastore. Models are created using precipitation and evaporation from the
-nearest KNMI station.
+Create or inspect Pastas time series models. Models use precipitation and evaporation from the nearest KNMI station.
 
 ### Error Detection tab
 
 ![Automatic Error Detection Tab](/gwdatalens/assets/02_qc_tab.png)
 
-The Error Detection tab lets you run automatic error detection schemes on head time
-series (see the [`traval`](https://traval.readthedocs.io) package). The rules that
-comprise the error detection algorithm are shown in the expandable section at the
-bottom. The error detection rules that are applied can be modified or adjusted in the
-dashboard.
+Runs automatic error detection using the [`traval`](https://traval.readthedocs.io) package.
 
-Steps:
+1. Select a time series from the dropdown.
+2. Optionally adjust detection rules under **Show Parameters**.
+3. Click **Run TRAVAL**. The chart shows suspect measurements, and (if available) a Pastas model simulation with prediction interval.
 
-   1. Use the first dropdown to select or search for any time series in the database.
-   2. Optionally modify the rules or parameters used for error detection under the `Show Parameters` button.
-   3. Press the "Run TRAVAL" button.
-   4. The chart will update showing the original time series and the
-   measurements that were deemed suspect by the error detection algorithm. If
-   available a pastas model simulation and prediction interval are also shown
-   in the chart.
+### Corrections tab
 
-### Manual Review tab
+![Corrections Tab](/gwdatalens/assets/03_corrections_tab.png)
 
-![Manual Review Tab](/gwdatalens/assets/03_review_tab.png)
+View all time series at a location with well configuration and screen depth metadata. Edit one or two time series simultaneously. Corrections can be saved to or reset from the database (where supported).
 
-The Manual Review tab lets you review the results of the error detection scheme and
-commit your manual review to the database, or download the results as a CSV file.
+### Review tab
 
-### References
+![Review Tab](/gwdatalens/assets/04_review_tab.png)
 
-- Documentation for [hydropandas](https://hydropandas.readthedocs.io/en/latest/).
-- Documentation for [pastas](https://pastas.dev/).
-- Documentation for [pastastore](https://pastastore.readthedocs.io/en/latest/).
-- Documentation for [traval](https://traval.readthedocs.io/en/latest/).
+Accept or reject flagged measurements and commit the review to the database, or download results as a CSV file.
+
+## References
+
+- [hydropandas](https://hydropandas.readthedocs.io/en/latest/)
+- [pastas](https://pastas.dev/)
+- [pastastore](https://pastastore.readthedocs.io/en/latest/)
+- [traval](https://traval.readthedocs.io/en/latest/)

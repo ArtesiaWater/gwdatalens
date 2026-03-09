@@ -152,7 +152,7 @@ def plot_obs(
             hoverinfo = None
 
         df[data.db.qualifier_column] = df.loc[:, data.db.qualifier_column].fillna("")
-        display_name = df.index.name
+        display_name = str(df.index.name)
 
         # Track dates from this dataframe
         all_dates.extend(df.index.tolist())
@@ -193,7 +193,7 @@ def plot_obs(
                     mode="markers",
                     marker={"color": color, "size": 4},
                     name=qualifier,
-                    legendgroup=qualifier,
+                    legendgroup=str(qualifier),
                     showlegend=True,
                     legendrank=legendrank,
                     hoverinfo=hoverinfo,
