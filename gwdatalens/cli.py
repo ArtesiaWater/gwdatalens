@@ -7,6 +7,19 @@ from gwdatalens.app.main import run_dashboard
 from gwdatalens.django_copy import copy_gwdatalens_to_django_app
 
 
+def _validate_extent_28992(
+    parser: argparse.ArgumentParser, extent: list[float]
+) -> None:
+    """Validate [xmin, xmax, ymin, ymax] extent bounds in EPSG:28992."""
+    xmin, xmax, ymin, ymax = extent
+    if xmin >= xmax:
+        parser.error("Invalid extent: expected xmin < xmax.")
+    if ymin >= ymax:
+        parser.error("Invalid extent: expected ymin < ymax.")
+    if xmax > ymin:
+        parser.error("Invalid extent: expected xmax <= ymin for EPSG:28992.")
+
+
 def cli_main():
     """GW DataLens dashboard command-line interface.
 
@@ -20,6 +33,7 @@ def cli_main():
     Run Dashboard with::
 
         gwdatalens [--debug] [--port PORT] [--locale LOCALE]
+                   [--extent XMIN XMAX YMIN YMAX]
 
     Environment Variables
     ---------------------
@@ -77,7 +91,23 @@ def cli_main():
         help=f"Logging level (default: {config.get('LOG_LEVEL')})",
     )
 
+    parser.add_argument(
+        "--extent",
+        nargs=4,
+        type=float,
+        metavar=("XMIN", "XMAX", "YMIN", "YMAX"),
+        default=None,
+        help=(
+            "Optional startup extent in EPSG:28992 as four numbers: "
+            "XMIN XMAX YMIN YMAX. When set, app bootstraps from BRO data "
+            "for this extent."
+        ),
+    )
+
     args = parser.parse_args()
+
+    if args.extent is not None:
+        _validate_extent_28992(parser, args.extent)
 
     # Update configuration from CLI arguments (only if explicitly provided)
     cli_overrides = {
@@ -85,6 +115,7 @@ def cli_main():
         "port": args.port,
         "locale": args.locale,
         "log_level": args.log_level,
+        "extent": args.extent,
     }
     config.update_from_cli(**cli_overrides)
 
