@@ -14,11 +14,6 @@ import pandas as pd
 from gwdatalens.app.constants import ColumnNames
 from gwdatalens.app.exceptions import TimeSeriesError
 
-try:
-    from cachetools.keys import hashkey
-except (ModuleNotFoundError, ImportError):
-    hashkey = None
-
 logger = logging.getLogger(__name__)
 
 
@@ -73,7 +68,7 @@ class TimeSeriesService:
         """
         try:
             ts = self.db.get_timeseries(
-                wid=wid,
+                wid,
                 observation_type=observation_type,
                 columns=columns,
                 tmin=tmin,
@@ -215,6 +210,28 @@ class TimeSeriesService:
         ts = self.db.get_timeseries(wid, columns=[self.db.value_column])
         return ts.dropna()
 
+    def _invalidate_cache_for_wid(self, wid: int) -> None:
+        """Remove all cache entries that belong to a given well ID.
+
+        ``cachetools.cachedmethod`` uses ``methodkey`` by default, which strips
+        ``self`` before building the key.  The first positional argument
+        (``wid``) therefore lands at index 0.  Calls with extra parameters such
+        as *tmin*, *tmax*, or *observation_type* produce longer keys that also
+        start with ``wid``.  Iterating over a snapshot of the keys and removing
+        every entry whose first element equals *wid* covers all call variants.
+
+        Parameters
+        ----------
+        wid : int
+            Well internal ID whose cached entries should be evicted.
+        """
+        if not (hasattr(self.db, "use_cache") and self.db.use_cache):
+            return
+        stale_keys = [k for k in list(self.db._cache.keys()) if k[0] == wid]
+        for key in stale_keys:
+            del self.db._cache[key]
+        logger.debug("Evicted %d cache entries for wid=%s", len(stale_keys), wid)
+
     def save_correction(self, wids: List[int], corrections_df: pd.DataFrame) -> None:
         """Save manual corrections to database.
 
@@ -223,14 +240,11 @@ class TimeSeriesService:
         corrections_df : pd.DataFrame
             Corrections data to save
         """
+        name = self.db.gmw_gdf.loc[wids, ColumnNames.DISPLAY_NAME]
+        corrections_df.index.name = name.item()
         self.db.save_correction(corrections_df)
-        # clear cache after saving corrections
-        if hasattr(self.db, "use_cache") and self.db.use_cache:
-            for wid in wids:
-                self.db._cache.pop((wid,))
-                self.db._cache.pop(
-                    hashkey(wid, observation_type="controlemeting"), None
-                )
+        for wid in wids:
+            self._invalidate_cache_for_wid(wid)
         logger.info("Saved %d corrections", len(corrections_df))
 
     def reset_correction(self, wids, corrections_df: pd.DataFrame) -> None:
@@ -242,12 +256,8 @@ class TimeSeriesService:
             Corrections to reset
         """
         self.db.reset_correction(corrections_df)
-        if hasattr(self.db, "use_cache") and self.db.use_cache:
-            for wid in wids:
-                self.db._cache.pop((wid,))
-                self.db._cache.pop(
-                    hashkey(wid, observation_type="controlemeting"), None
-                )
+        for wid in wids:
+            self._invalidate_cache_for_wid(wid)
         logger.info("Reset %d corrections", len(corrections_df))
 
     def save_qualifier(self, wid: int, qualifiers_df: pd.DataFrame) -> None:
@@ -260,6 +270,5 @@ class TimeSeriesService:
         """
         # delete cached copy after saving new qualifiers
         self.db.save_qualifier(qualifiers_df)
-        if hasattr(self.db, "use_cache") and self.db.use_cache:
-            self.db._cache.pop((wid,))
+        self._invalidate_cache_for_wid(wid)
         logger.info("Saved %d qualifiers", len(qualifiers_df))
