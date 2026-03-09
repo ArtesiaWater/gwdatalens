@@ -119,6 +119,7 @@ class ColumnNames:
     CATEGORY = "category"
     DATETIME = "datetime"
     CORRECTED_VALUE = "corrected_value"
+    SET_MISSING = "set_missing"
 
 
 class TimeRangeDefaults:
