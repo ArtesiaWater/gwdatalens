@@ -31,7 +31,7 @@ def register_overview_callbacks(app, data):
 
     @app.callback(
         Output(ids.SELECTED_OSERIES_STORE, "data"),
-        Input(ids.OVERVIEW_MAP, "selectedData", allow_optional=True),
+        Input(ids.OVERVIEW_MAP, "selectedData"),  # allow_optional=True
         State(ids.SELECTED_OSERIES_STORE, "data"),
         prevent_initial_call=True,
     )
@@ -46,7 +46,7 @@ def register_overview_callbacks(app, data):
     ) -> list[int] | None:
         """Store selected well IDs from map selection."""
         if selected_data is None:
-            return None if current_value is None else current_value
+            return None
 
         _, wids = well_service.get_selected_wells_from_map_data(selected_data)
         if wids:
@@ -74,7 +74,7 @@ def register_overview_callbacks(app, data):
         Output(ids.OVERVIEW_TABLE, "data"),
         Output(ids.ALERT_TIME_SERIES_CHART, "data"),
         Output(ids.OVERVIEW_TABLE_SELECTION_1, "data"),
-        Input(ids.OVERVIEW_MAP, "selectedData", allow_optional=True),
+        Input(ids.OVERVIEW_MAP, "selectedData"),  # allow_optional=True
         Input(ids.OVERVIEW_TIME_RANGE_REFRESH_STORE, "data"),
         State(ids.TIME_RANGE_STORE, "data"),
         State(ids.SELECTED_OSERIES_STORE, "data"),
@@ -117,6 +117,22 @@ def register_overview_callbacks(app, data):
         # Determine if selection originated from table
         table_triggered = _was_selection_from_table(table_selected_1, table_selected_2)
 
+        # Handle explicit deselection on map
+        if (
+            selectedData is None
+            and triggered_id == ids.OVERVIEW_MAP
+            and not table_triggered
+        ):
+            all_wells_table = well_service.get_well_metadata_for_display(
+                well_service.get_all_well_ids()
+            ).to_dict("records")
+            return (
+                EmptyFigure.with_message(t_("general.select_location")),
+                all_wells_table,
+                no_update,
+                TimestampStore.create(success=False),
+            )
+
         # Extract well IDs from map selection
         if selectedData is not None:
             names, wids = well_service.get_selected_wells_from_map_data(selectedData)
@@ -141,10 +157,11 @@ def register_overview_callbacks(app, data):
                     .build()
                 )
 
-            # Generate table data (skip if selection came from table)
+            # Generate table data (skip if selection came from table or if it's a time range update)
             if time_range_triggered or table_triggered:
                 table_data = no_update
             else:
+                # When box selecting on the map, filter the table to show only selected wells
                 table_data = well_service.get_well_metadata_for_display(wids).to_dict(
                     "records"
                 )
@@ -191,7 +208,9 @@ def register_overview_callbacks(app, data):
                 ).to_dict("records")
                 return (
                     CallbackResponse()
-                    .add_figure(EmptyFigure.with_message(t_(ErrorMessages.NO_SERIES)))
+                    .add_figure(
+                        EmptyFigure.with_message(t_(ErrorMessages.NO_SERIES_DATA))
+                    )
                     .add(all_wells_table)
                     .add(AlertBuilder.warning(t_(ErrorMessages.NO_SERIES_DATA)))
                     .add(TimestampStore.create(success=False))
@@ -243,9 +262,10 @@ def register_overview_callbacks(app, data):
             if time_range_triggered:
                 table_data = no_update
             else:
-                table_data = well_service.get_well_metadata_for_display(
-                    well_service.get_all_well_ids()
-                ).to_dict("records")
+                # When using stored selection, filter the table to show only selected wells
+                table_data = well_service.get_well_metadata_for_display(wids).to_dict(
+                    "records"
+                )
             return (
                 CallbackResponse()
                 .add_figure(chart)
@@ -255,9 +275,6 @@ def register_overview_callbacks(app, data):
                 .build()
             )
 
-        # No selection - preserve current state (likely table filter operation)
-        # Don't show alerts or update when selectedData becomes None after having
-        # a selection
         return no_update, no_update, no_update, no_update
 
     def _was_selection_from_table(table_selected_1, table_selected_2):
@@ -316,14 +333,23 @@ def register_overview_callbacks(app, data):
 
         # Update map highlighting with Patch
         dfm = well_service.get_wells_subset(wids)
-        dfm["curveNumber"] = 1
 
         mappatch = Patch()
-        mappatch["data"][1]["selectedpoints"] = dfm.loc[:, ColumnNames.ID].tolist()
-        # mask = dfm.loc[:, "metingen"] > 0
-        # mappatch["data"][1]["selectedpoints"] = (
-        #     dfm.loc[~mask, ColumnNames.ID].tolist()
-        # )
+
+        # For Mapbox, we have two traces: one for wells without data (index 0) and one for wells with data (index 1)
+        # We need to update both traces with the appropriate selected points
+        if config.get("USE_MAPBOX"):
+            # Update both traces with the selected points
+            mappatch["data"][0]["selectedpoints"] = dfm.loc[
+                dfm["metingen"] == 0, ColumnNames.ID
+            ].tolist()
+            mappatch["data"][1]["selectedpoints"] = dfm.loc[
+                dfm["metingen"] > 0, ColumnNames.ID
+            ].tolist()
+        else:
+            # For non-Mapbox maps, there's only one trace (index 1)
+            dfm["curveNumber"] = 0
+            mappatch["data"][0]["selectedpoints"] = dfm.loc[:, ColumnNames.ID].tolist()
 
         return (
             selectedData,
