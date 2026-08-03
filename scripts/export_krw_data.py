@@ -34,6 +34,8 @@ db = PostgreSQLDataSource(
 gdf = db._build_gmw_gdf(include_krw_lichaam=True)
 db._gmw_gdf_store = gdf
 
+mask = ~gdf["krw_lichaam"].isnull()
+
 # %%
 
 use_metadata_cols = [
@@ -71,18 +73,31 @@ use_time_series_cols = [
     "observation_type",
 ]
 
+
 metadata = []
 
-missing = []
+# search based on NITG codes
+# missing = []
+# for idx in tqdm(dfkrw_zeeland.index):
+#     nitg, tube = idx
+#     sel = db.query_gdf(nitg_code=nitg, tube_number=tube)
+#     if sel.empty:
+#         missing.append(idx)
+#         continue
+#     metadata.append(sel.loc[:, use_metadata_cols])
+#     ts = db.get_timeseries(sel.index[0], columns=tuple(use_time_series_cols))
+#     if ts.empty:
+#         missing.append(idx)
+#         continue
+#     ts.to_parquet(f"krw/{ts.index.name}.parquet", compression="snappy")
 
-for idx in tqdm(dfkrw_zeeland.index):
-    nitg, tube = idx
-    sel = db.query_gdf(nitg_code=nitg, tube_number=tube)
-    if sel.empty:
-        missing.append(idx)
-        continue
+# pd.concat(metadata, axis=0).to_parquet("krw/metadata.parquet", compression="snappy")
+
+missing = []
+for idx in tqdm(gdf.loc[mask].index):
+    sel = gdf.loc[[idx], :]
     metadata.append(sel.loc[:, use_metadata_cols])
-    ts = db.get_timeseries(sel.index[0], columns=tuple(use_time_series_cols))
+    ts = db.get_timeseries(idx, columns=tuple(use_time_series_cols))
     if ts.empty:
         missing.append(idx)
         continue
@@ -92,6 +107,7 @@ pd.concat(metadata, axis=0).to_parquet("krw/metadata.parquet", compression="snap
 
 with open("krw/missing.txt", "w") as f:
     for idx in missing:
-        f.write(f"{idx}\n")
+        f.write(f"{gdf.loc[idx, 'display_name']}\n")
+
 
 # %%

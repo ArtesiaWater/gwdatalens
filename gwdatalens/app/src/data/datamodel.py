@@ -120,3 +120,9 @@ class MeasurementPointMetadata(Base):
     censor_reason: Mapped[str]
     status_quality_control_reason_datalens: Mapped[str]
     value_limit: Mapped[str]
+    date_created: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    date_modified: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )

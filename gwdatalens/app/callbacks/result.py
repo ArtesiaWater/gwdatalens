@@ -183,7 +183,11 @@ def register_result_callbacks(app, data):
         """
         if data.db.backend == "pastastore":
             return AlertBuilder.warning(
-                t_(ErrorMessages.EXPORT_FAILED, well="current backend")
+                t_(
+                    ErrorMessages.EXPORT_FAILED,
+                    well="PastastoreDataSource",
+                    error="Pastastore backend does not support export.",
+                )
             )
 
         if not n_clicks:
@@ -268,7 +272,10 @@ def register_result_callbacks(app, data):
             well_display = name.squeeze()
         # Save to database
         try:
-            ts_service.save_qualifier(wid[0], df)
+            if config.get("DJANGO_APP"):
+                ts_service.save_qualifier_api(wid[0], df)
+            else:
+                ts_service.save_qualifier(wid[0], df)
 
             return AlertBuilder.success(
                 t_(SuccessMessages.EXPORT_SUCCESS, well=well_display)
@@ -277,7 +284,7 @@ def register_result_callbacks(app, data):
             logger.exception("Failed to export data to database: %s", e)
 
             return AlertBuilder.danger(
-                t_(ErrorMessages.EXPORT_FAILED, well=well_display)
+                t_(ErrorMessages.EXPORT_FAILED, well=well_display, error=str(e))
             )
 
     @app.callback(
