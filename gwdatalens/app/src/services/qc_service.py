@@ -6,7 +6,6 @@ and result processing for the traval QC workflow.
 
 import logging
 from copy import deepcopy
-from functools import partial
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
@@ -127,11 +126,16 @@ class QCService:
 
             # Inject manual observation fetcher if needed
             if inject_manual_obs and "manual_obs" in func.__code__.co_varnames:
-                rule_kwargs["manual_obs"] = partial(
-                    self.db.get_timeseries,
-                    observation_type="controlemeting",
-                    column=self.db.value_column,
-                )
+
+                def fetch_manual_obs(name):
+                    wid = self.db.get_internal_id(display_name=name)
+                    return self.db.get_timeseries(
+                        wid,
+                        observation_type="controlemeting",
+                        column=self.db.value_column,
+                    )
+
+                rule_kwargs["manual_obs"] = fetch_manual_obs
 
             rule = {"name": rule_name, "func": func, "kwargs": rule_kwargs}
 
