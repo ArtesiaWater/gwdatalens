@@ -27,7 +27,9 @@ gwdatalens_app  # noqa
 
 # Add to urlpatterns:
 urlpatterns = [
-    path("django_plotly_dash/", include("django_plotly_dash.urls")), # maybe already present
+    path(
+        "django_plotly_dash/", include("django_plotly_dash.urls")
+    ),  # maybe already present
     path("gwdatalens/", render_gwdatalens_tool, name="gwdatalens"),
 ]
 ```
