@@ -123,6 +123,34 @@ def render_reset_rules_button():
     )
 
 
+def render_reset_qc_button():
+    """Renders a reset QC button component.
+
+    Returns
+    -------
+    html.Div
+        A `Div` element containing the reset QC button.
+    """
+    return html.Div(
+        Button(
+            html.Span(
+                [
+                    html.I(className="fa-solid fa-arrows-rotate"),
+                    " Reset QC",
+                ],
+                id="span-reset-qc",
+                n_clicks=0,
+            ),
+            style={
+                "margin-top": UI.MARGIN_TOP,
+                "margin-bottom": UI.MARGIN_BOTTOM,
+            },
+            disabled=False,
+            id=ids.QC_RESET_BUTTON,
+        ),
+    )
+
+
 def render_export_ruleset_button():
     """Renders the export ruleset button component.
 
