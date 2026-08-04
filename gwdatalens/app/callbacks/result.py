@@ -270,11 +270,14 @@ def register_result_callbacks(app, data):
             well_display = str(wid[0])
         else:
             well_display = name.squeeze()
+
         # Save to database
         try:
-            if config.get("DJANGO_APP"):
+            if config.get("BRO_CONNECTOR_USE_API", False) and config.get("DJANGO_APP"):
                 ts_service.save_qualifier_api(wid[0], df)
             else:
+                # if necessary create and update missing measurement_point_metadata_ids
+                df = ts_service.create_metadata_tables(wid[0], df)
                 ts_service.save_qualifier(wid[0], df)
 
             return AlertBuilder.success(

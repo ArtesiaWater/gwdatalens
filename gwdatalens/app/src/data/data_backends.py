@@ -39,7 +39,6 @@ from sqlalchemy import (
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from gwdatalens.app.config import config
 from gwdatalens.app.constants import (
     ColumnNames,
     DatabaseFields,
@@ -48,7 +47,7 @@ from gwdatalens.app.constants import (
     UnitConversion,
 )
 from gwdatalens.app.messages import t_
-from gwdatalens.app.src.data import datamodel, sql
+from gwdatalens.app.src.data import api, datamodel, sql
 from gwdatalens.app.src.data.database_connector import DatabaseConnector
 from gwdatalens.app.src.data.metadata_builder import (
     TUBE_NUMBER_FORMAT,
@@ -228,69 +227,7 @@ class DataSourceTemplate(ABC):
 
     @abstractmethod
     def save_qualifier_api(self, df: pd.DataFrame) -> None:
-        """Save qualifier information to the BRO-connector API.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            The DataFrame containing the qualifier data to be saved. It must include
-            the following columns:
-            - DatabaseFields.FIELD_MEASUREMENT_POINT_METADATA_ID
-            - DatabaseFields.FIELD_MEASUREMENT_TVP_ID
-            - DatabaseFields.FIELD_STATUS_QUALITY_CONTROL
-            - DatabaseFields.FIELD_CENSOR_REASON_DATALENS
-            - DatabaseFields.FIELD_CENSOR_REASON
-            - DatabaseFields.VALUE_LIMIT
-        """
-        if df is None or df.empty:
-            logger.warning("No data to save to API")
-            return
-
-        # Prepare the data for the API request
-        measurements = []
-        for idx, row in df.iterrows():
-            measurement = {
-                "measurement_time": idx.isoformat(),
-                "status_quality_control": row[
-                    DatabaseFields.FIELD_STATUS_QUALITY_CONTROL
-                ],
-                "status_quality_control_reason_datalens": row[
-                    DatabaseFields.FIELD_CENSOR_REASON_DATALENS
-                ],
-                "value_limit": row[DatabaseFields.FIELD_VALUE_LIMIT],
-            }
-            measurements.append(measurement)
-
-        # Get the BRO ID for the well
-        well_static_id = df[ColumnNames.WELL_STATIC_ID].iloc[0]
-        bro_id = self.get_corresponding_value(
-            to=ColumnNames.BRO_ID, well_static_id=well_static_id
-        )
-
-        # Prepare the API request payload
-        payload = {
-            "gld_id": bro_id,
-            "observation_type": "reguliereMeting",
-            "measurements": measurements,
-        }
-
-        # Make the API request
-        api_url = config.get("BRO_CONNECTOR_API_URL")
-        username = config.get("BRO_CONNECTOR_USERNAME")
-        password = config.get("BRO_CONNECTOR_PASSWORD")
-
-        try:
-            response = requests.post(
-                api_url,
-                auth=(username, password),
-                json=payload,
-                timeout=30,
-            )
-            response.raise_for_status()
-            logger.info("Successfully saved qualifiers to API: %s", response.json())
-        except requests.exceptions.RequestException as e:
-            logger.error("Failed to save qualifiers to API: %s", e)
-            raise
+        """Save qualifier information to the BRO-connector API."""
 
     @abstractmethod
     def count_measurements_per_tube(self) -> pd.DataFrame:
@@ -883,7 +820,7 @@ class PostgreSQLDataSource(DataSourceTemplate):
                 "(null measurement_point_metadata_id: %d)",
                 display_name,
                 nqcnan,
-                nmetaidnan
+                nmetaidnan,
             )
             # use Dutch flag, as database uses Dutch values
             df[ColumnNames.STATUS_QUALITY_CONTROL] = df[
@@ -1270,51 +1207,75 @@ class PostgreSQLDataSource(DataSourceTemplate):
             logger.warning("No data to save to API")
             return
 
-        # Prepare the data for the API request
-        measurements = []
-        for idx, row in df.iterrows():
-            measurement = {
-                "measurement_time": idx.isoformat(),
-                "status_quality_control": row[
-                    DatabaseFields.FIELD_STATUS_QUALITY_CONTROL
-                ],
-                "status_quality_control_reason_datalens": row[
-                    DatabaseFields.FIELD_CENSOR_REASON_DATALENS
-                ],
-                "value_limit": row[DatabaseFields.FIELD_VALUE_LIMIT],
-            }
-            measurements.append(measurement)
+        if "gld_id" not in df.columns:
+            raise KeyError("Missing required column 'gld_id' in API export.")
 
-        # Get the BRO ID for the well
-        well_static_id = df[ColumnNames.WELL_STATIC_ID].iloc[0]
-        bro_id = self.get_corresponding_value(
-            to=ColumnNames.BRO_ID, well_static_id=well_static_id
-        )
+        null_gld_count = int(df["gld_id"].isna().sum())
+        if null_gld_count > 0:
+            logger.warning(
+                "Skipping %s row(s) with NULL/NaN gld_id for API export.",
+                null_gld_count,
+            )
 
-        # Prepare the API request payload
-        payload = {
-            "gld_id": bro_id,
-            "observation_type": "reguliereMeting",
-            "measurements": measurements,
-        }
+        df = df.dropna(subset=["gld_id"])
+        if df.empty:
+            logger.warning("No valid rows to save to API after dropping null gld_id.")
+            return
+
+        # Resolve the GroundwaterLevelDossier primary key expected by the API.
+        gld_ids = df["gld_id"].unique().tolist()
+        logger.info("Unique GroundwaterLevelDossier IDs in DataFrame: %s", gld_ids)
 
         # Make the API request
-        api_url = config.get("BRO_CONNECTOR_API_URL")
-        username = config.get("BRO_CONNECTOR_USERNAME")
-        password = config.get("BRO_CONNECTOR_PASSWORD")
+        api_url = api.resolve_bro_connector_api_url()
+        base_request_kwargs = {
+            "timeout": api.resolve_bro_connector_api_timeout_seconds(),
+        }
+        base_request_kwargs.update(api.build_api_auth_kwargs())
 
-        try:
-            response = requests.post(
-                api_url,
-                auth=(username, password),
-                json=payload,
-                timeout=30,
-            )
-            response.raise_for_status()
-            logger.info("Successfully saved qualifiers to API: %s", response.json())
-        except requests.exceptions.RequestException as e:
-            logger.error("Failed to save qualifiers to API: %s", e)
-            raise
+        grouped = df.groupby("gld_id", sort=True)
+        for gld_id, gld_df in grouped:
+            # Prepare the measurements for this GroundwaterLevelDossier.
+            measurements = []
+            for idx, row in gld_df.iterrows():
+                measurements.append(
+                    {
+                        "measurement_time": api.serialize_measurement_time_for_api(idx),
+                        "status_quality_control": row[
+                            DatabaseFields.FIELD_STATUS_QUALITY_CONTROL
+                        ],
+                        "status_quality_control_reason_datalens": row[
+                            DatabaseFields.FIELD_CENSOR_REASON_DATALENS
+                        ],
+                        "value_limit": row[DatabaseFields.FIELD_VALUE_LIMIT],
+                    }
+                )
+
+            payload = {
+                "gld_id": int(gld_id),
+                "observation_type": "reguliereMeting",
+                "measurements": measurements,
+            }
+
+            request_kwargs = dict(base_request_kwargs)
+            request_kwargs["json"] = payload
+
+            try:
+                response = requests.post(api_url, **request_kwargs)
+                response.raise_for_status()
+                logger.info(
+                    "Successfully saved %s qualifier(s) to API for gld_id=%s: %s",
+                    len(measurements),
+                    int(gld_id),
+                    response.json(),
+                )
+            except requests.exceptions.RequestException as e:
+                logger.error(
+                    "Failed to save qualifiers to API for gld_id=%s: %s",
+                    int(gld_id),
+                    e,
+                )
+                raise
 
     def save_correction(self, df):
         """Save correction information to the database.

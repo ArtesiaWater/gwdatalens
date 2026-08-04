@@ -11,7 +11,7 @@ SERIES_LOAD_LIMIT = 50       # number of observations to load and plot simultane
 PORT = 8050                  # default port for the Dash app
 BACKGROUND_CALLBACKS = false # false is recommended at this moment
 USE_MAPBOX = false           # DEPRECATED: set to True to use Mapbox for plotting, requires access token
-LOG_LEVEL = "DEBUG"          # set logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+LOG_LEVEL = "WARNING"        # set logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
 
 [pastastore]
 connector = "pas"               # database connector pas|dict|arctic
@@ -20,7 +20,9 @@ path = "./gwdatalens/pastasdb/" # path to pastas model database
 update_knmi = false             # update knmi data in pastas database on startup
 
 [bro_connector]
-api_url = "https://<host>/gld/observation/measurements/"
-username = "<username>"
-password = "<password>"
-force_create_metadata_ids = false # set to true to force creation of measurement_point_metadata_id for observations missing it
+use_api = false
+api_endpoint = "/api/gld/observation/measurements/"
+api_url = "http://127.0.0.1:8000/api/gld/observation/measurements/"
+auth_mode = "auto"                # auth mode for API calls: auto|session|basic
+username = "david"                # username for basic auth, only used if auth_mode is set to basic
+password = "admin"                # password for basic auth, only used if auth_mode is set to basic
