@@ -236,7 +236,8 @@ def draw_map(
         }
     ]
 
-    # Add legend items for each category - these are dummy traces that only appear in the legend
+    # Add legend items for each category - these are dummy traces that only appear
+    # in the legend
     legend_items = [
         {
             "name": t_("general.no_data"),

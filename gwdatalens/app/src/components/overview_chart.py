@@ -128,7 +128,7 @@ def plot_obs(
 
     traces = []
     series_colors = px.colors.qualitative.Set2
-    manual_obs_colors = px.colors.qualitative.Dark2
+    # manual_obs_colors = px.colors.qualitative.Dark2
 
     # Track min/max dates across all traces
     all_dates = []
@@ -281,8 +281,9 @@ def plot_obs(
                         marker={
                             "size": PlotConstants.CONTROL_OBS_SIZE,
                             "symbol": PlotConstants.CONTROL_OBS_SYMBOL,
+                            "color": series_colors[i % len(series_colors)],
                             "line_width": PlotConstants.CONTROL_OBS_LINE_WIDTH,
-                            "line_color": manual_obs_colors[i % len(manual_obs_colors)],
+                            "line_color": series_colors[i % len(series_colors)],
                         },
                         name=t_("general.manual_observations"),
                         legendgroup=display_name,
