@@ -186,6 +186,10 @@ class ConfigManager:
                 lambda x: x.lower() in ("true", "1", "yes"),
             ),
             # BRO connector API settings
+            f"{env_prefix}BRO_CONNECTOR_USE_API": (
+                "bro_connector.use_api",
+                lambda x: x.lower() in ("true", "1", "yes"),
+            ),
             f"{env_prefix}BRO_CONNECTOR_API_URL": ("bro_connector.api_url", str),
             f"{env_prefix}BRO_CONNECTOR_API_ENDPOINT": (
                 "bro_connector.api_endpoint",

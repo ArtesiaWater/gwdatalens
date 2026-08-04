@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pandas as pd
 import plotly.express as px
@@ -20,7 +20,7 @@ from gwdatalens.app.src.components import ids
 from gwdatalens.app.src.data.data_manager import DataManager
 
 
-def render(data: DataManager, selected_data: Optional[List[int]] = None) -> html.Div:
+def render(data: DataManager, selected_data: list[int] | None = None) -> html.Div:
     kwargs = (
         {"delay_show": 500}
         if parse_version(DASH_VERSION) >= parse_version("2.17.0")
@@ -59,13 +59,13 @@ def render(data: DataManager, selected_data: Optional[List[int]] = None) -> html
 
 
 def plot_obs(
-    wids: Optional[List[int]],
+    wids: list[int] | None,
     data: DataManager,
     plot_manual_obs: bool = False,
-    tmin: Optional[str] = None,
-    tmax: Optional[str] = None,
-    time_range_preset: Optional[str] = None,
-) -> Dict[str, Any]:
+    tmin: str | None = None,
+    tmax: str | None = None,
+    time_range_preset: str | None = None,
+) -> dict[str, Any]:
     """Plots observation data for given monitoring wells and tube numbers.
 
     Parameters
