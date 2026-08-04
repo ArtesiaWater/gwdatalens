@@ -11,8 +11,9 @@ from typing import Dict, List, Optional, Sequence, Union
 import numpy as np
 import pandas as pd
 
-from gwdatalens.app.constants import ColumnNames
+from gwdatalens.app.constants import ColumnNames, DatabaseFields
 from gwdatalens.app.exceptions import TimeSeriesError
+from gwdatalens.app.src.data.sql import create_missing_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -270,3 +271,56 @@ class TimeSeriesService:
         self.db.save_qualifier(qualifiers_df)
         self._invalidate_cache_for_wid(wid)
         logger.info("Saved %d qualifiers", len(qualifiers_df))
+
+    def save_qualifier_api(self, wid: int, qualifiers_df: pd.DataFrame) -> None:
+        """Save qualifiers to database.
+
+        Parameters
+        ----------
+        qualifiers_df : pd.DataFrame
+            Qualifier data to save
+        """
+        # delete cached copy after saving new qualifiers
+        self.db.save_qualifier_api(qualifiers_df)
+        self._invalidate_cache_for_wid(wid)
+        logger.info("Saved %d qualifiers", len(qualifiers_df))
+
+    def create_metadata_tables(self, wid: int, df: pd.DataFrame) -> pd.DataFrame:
+        # Check for missing measurement_point_metadata_id and create if needed
+        if DatabaseFields.FIELD_MEASUREMENT_POINT_METADATA_ID in df.columns:
+            missing_metadata_mask = df[
+                DatabaseFields.FIELD_MEASUREMENT_POINT_METADATA_ID
+            ].isna()
+            if missing_metadata_mask.any():
+                # Get unique observation_ids for measurements with missing metadata
+                affected_observation_ids = (
+                    df.loc[missing_metadata_mask, "observation_id"].unique().tolist()
+                )
+                if affected_observation_ids:
+                    logger.info(
+                        "Creating missing metadata for %d observation_ids "
+                        "before export",
+                        len(affected_observation_ids),
+                    )
+                    n_updates = create_missing_metadata(
+                        affected_observation_ids, self.db.engine
+                    )
+                    logger.info("Created metadata for %d observation_ids", n_updates)
+
+                # clear the cache
+                self._invalidate_cache_for_wid(wid)
+                ts = self.db.get_timeseries(wid, tmin=df.index[0], tmax=df.index[-1])
+                df.loc[
+                    missing_metadata_mask,
+                    DatabaseFields.FIELD_MEASUREMENT_POINT_METADATA_ID,
+                ] = ts.loc[
+                    missing_metadata_mask,
+                    DatabaseFields.FIELD_MEASUREMENT_POINT_METADATA_ID,
+                ]
+                logger.debug(
+                    "Fetched time series for wid=%s to update missing metadata, "
+                    "NaNs after update: %s",
+                    wid,
+                    df[DatabaseFields.FIELD_MEASUREMENT_POINT_METADATA_ID].isna().sum(),
+                )
+        return df

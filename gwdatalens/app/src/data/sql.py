@@ -8,14 +8,12 @@ from urllib.parse import quote
 
 import pandas as pd
 from sqlalchemy import (
-    bindparam,
     case,
     column,
     create_engine,
     func,
     select,
     table,
-    text,
     update,
 )
 from sqlalchemy.dialects import postgresql
@@ -607,7 +605,10 @@ def sql_observations_for_well_and_tube_id(well_static_id: int, tube_static_id: i
                 datamodel.WellStatic.groundwater_monitoring_well_static_id
                 == well_static_id
             )
-            & (datamodel.TubeStatic.groundwater_monitoring_tube_static_id == tube_static_id)
+            & (
+                datamodel.TubeStatic.groundwater_monitoring_tube_static_id
+                == tube_static_id
+            )
         )
         .group_by(
             datamodel.Observation.observation_id,
@@ -843,6 +844,7 @@ def sql_get_timeseries(
         datamodel.MeasurementPointMetadata.value_limit,
         datamodel.ObservationMetadata.observation_type,
         datamodel.Observation.observation_id,
+        datamodel.GroundwaterLevelDossier.groundwater_level_dossier_id.label("gld_id"),
         datamodel.WellStatic.groundwater_monitoring_well_static_id.label(
             "well_static_id"
         ),
@@ -955,6 +957,7 @@ def sql_get_timeseries(
             ranked.c.value_limit,
             ranked.c.observation_type,
             ranked.c.observation_id,
+            ranked.c.gld_id,
             ranked.c.well_static_id,
             ranked.c.tube_static_id,
             ranked.c.bro_id,
@@ -1360,8 +1363,14 @@ def sql_measurements_for_observation_id_with_metadata(observation_id: int):
             datamodel.MeasurementTvp.field_value_unit,
             datamodel.MeasurementTvp.calculated_value,
             datamodel.MeasurementTvp.measurement_point_metadata_id,
+            datamodel.MeasurementPointMetadata.status_quality_control,
         )
         .select_from(datamodel.MeasurementTvp)
+        .outerjoin(
+            datamodel.MeasurementPointMetadata,
+            datamodel.MeasurementTvp.measurement_point_metadata_id
+            == datamodel.MeasurementPointMetadata.measurement_point_metadata_id,
+        )
         .where(datamodel.MeasurementTvp.observation_id == observation_id)
         .order_by(datamodel.MeasurementTvp.measurement_time)
     )
@@ -1369,7 +1378,7 @@ def sql_measurements_for_observation_id_with_metadata(observation_id: int):
 
 
 def sql_measurements_missing_metadata_for_observation_id(observation_id: int):
-    """Return measurements for a specific observation that lack measurement_point_metadata_id.
+    """Return measurements for an observation that lack measurement_point_metadata_id.
 
     Useful for identifying orphaned measurements missing QC metadata.
 
@@ -1381,7 +1390,8 @@ def sql_measurements_missing_metadata_for_observation_id(observation_id: int):
     Returns
     -------
     sqlalchemy.sql.Select
-        A statement that returns measurements where measurement_point_metadata_id IS NULL.
+        A statement that returns measurements where
+        measurement_point_metadata_id IS NULL.
     """
     stmt = (
         select(
@@ -1405,7 +1415,7 @@ def sql_measurements_missing_metadata_for_observation_id(observation_id: int):
 
 
 def sql_find_duplicate_metadata_ids():
-    """Find measurement_point_metadata_id values shared by multiple measurement_tvp rows.
+    """Find measurement_point_metadata_id values shared by multiple measurement_tvp.
 
     Returns
     -------
@@ -1471,7 +1481,7 @@ def create_missing_metadata(observation_ids: list[int], engine):
                 "measurement_tvp_id": mtv_id,
                 "measurement_point_metadata_id": meta.measurement_point_metadata_id,
             }
-            for mtv_id, meta in zip(measurements, new_metadata)
+            for mtv_id, meta in zip(measurements, new_metadata, strict=True)
         ]
 
         session.execute(
@@ -1519,24 +1529,3 @@ def run_sql(stmt, print_sql: bool = False):
     with engine.connect() as conn:
         df = pd.read_sql(stmt, con=conn)
     return df
-
-#%%
-# wid = 765
-# tid = 1974
-# stmt = sql.sql_observations_for_well_and_tube_id(wid, tid)
-# obs_df = sql.run_sql(stmt)
-# print(obs_df)
-# tsdict ={}
-# for oid in obs_df["observation_id"].values:
-#     stmt = sql.sql_measurements_for_observation_id_with_metadata(int(oid))
-#     ts = sql.run_sql(stmt)
-#     tsdict[oid] = {"series": ts, "tmin": ts.measurement_time.iloc[0], "tmax": ts.measurement_time.iloc[-1]}
-#     print(oid, ts["measurement_point_metadata_id"].isna().sum(), "NULL in measurement_point_metadata_id")
-
-# df = pd.DataFrame(tsdict).T
-# ts = pd.concat([*df["series"]]).set_index("measurement_time")
-
-# ax = tsdict[10868]["series"].set_index("measurement_time")["calculated_value"].plot(marker=".", ls="none")
-# tsdict[11259]["series"].set_index("measurement_time")["calculated_value"].plot(ax=ax, marker="x", ls="none")
-# t = tsdict[11259]["series"]["measurement_time"].iloc[0]
-# ax.set_xlim(t-pd.Timedelta(days=1), t+pd.Timedelta(days=1))
