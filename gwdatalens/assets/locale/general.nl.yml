@@ -26,7 +26,8 @@ nl:
   select_rule: Selecteer een regel om toe te voegen
   add_rule_button: Toevoegen regel
   load: Open
-  export: Exporteer
+  load_ruleset: Open RuleSet (pickle)
+  export: Exporteer RuleSet (pickle)
   export_params: Exporteer Parameters
   # tab-result
   datetime: Datum

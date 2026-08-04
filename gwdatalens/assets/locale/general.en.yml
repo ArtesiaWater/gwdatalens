@@ -26,7 +26,8 @@ en:
   select_rule: Select a rule to add
   add_rule_button: Add rule
   load: Load
-  export: Export
+  load_ruleset: Load RuleSet (pickle)
+  export: Export RuleSet (pickle)
   export_params: Export Parameters
   # tab-result
   datetime: Datetime
