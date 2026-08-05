@@ -46,7 +46,7 @@ def render_selection_series_dropdown(
                 value=wid,
                 clearable=True,
                 searchable=True,
-                placeholder=t_("general.select_series"),
+                placeholder=t_("general.select_series_qc"),
                 id=ids.QC_DROPDOWN_SELECTION,
                 disabled=False,
             )
@@ -94,7 +94,7 @@ def render_additional_series_dropdown(
                 options=options,
                 clearable=True,
                 searchable=True,
-                placeholder=t_("general.select_series2"),
+                placeholder=t_("general.select_series_qc_extra"),
                 id=ids.QC_DROPDOWN_ADDITIONAL,
                 disabled=selected_data is None,
                 multi=True,

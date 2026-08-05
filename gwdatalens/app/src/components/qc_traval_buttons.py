@@ -1,6 +1,7 @@
 from dash import dcc, html
 from dash_bootstrap_components import Button
 
+
 from gwdatalens.app.constants import UI
 from gwdatalens.app.messages import t_
 from gwdatalens.app.src.components import ids
@@ -236,21 +237,21 @@ def render_load_ruleset_button():
                 #     ".pickle",
                 #     ".pkl",
                 # ],  # Only works in production mode, not in debug mode
-                children=[
-                    html.P(
-                        html.Span(
-                            [
-                                html.I(className="fa-solid fa-file-import"),
-                                f" {t_('general.load')} RuleSet",
-                            ],
-                            style={
-                                "color": "white",
-                            },
-                        )
-                    )
-                ],
+                children=Button(
+                    html.Span(
+                        [
+                            html.I(className="fa-solid fa-file-import"),
+                            " " + t_("general.load_ruleset"),
+                        ],
+                    ),
+                    color="primary",
+                    style={
+                        "backgroundColor": UI.DEFAULT_BUTTON_COLOR,
+                        "border": "none",
+                    },
+                ),
                 style={
-                    "width": "110px",
+                    # "width": "110px",
                     "height": "37px",
                     "lineHeight": "31.5px",
                     "borderWidth": "1px",
