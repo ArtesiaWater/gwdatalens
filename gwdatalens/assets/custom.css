@@ -1,3 +1,21 @@
+/* ROOT LAYOUT - Ensure full viewport height */
+html,
+body {
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+
+#_dash-app-content {
+    height: 100vh;
+}
+
+.gwdatalens-main {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
 /* HEADER */
 
 #header {
@@ -13,11 +31,14 @@
     font-weight: 500;
 }
 
-#help-button-open {
+#help-button-open,
+#time-range-apply-button {
     background-color: #006f92;
-    margin-left: auto;
     font-size: medium;
+}
 
+#help-button-open {
+    margin-left: auto;
     /* Push this element to the right */
 }
 
@@ -34,17 +55,44 @@
     cursor: pointer;
 }
 
-button {
-    background-color: #006f92 !important;
+.gwdatalens-main button[id*="-button"] {
+    background-color: #006f92;
     font-size: medium;
 }
 
-button.btn-close {
+.gwdatalens-main #corrections-commit-button {
+    background-color: var(--corrections-commit-bg, #006f92) !important;
+    border-color: var(--corrections-commit-border, #006f92) !important;
+    color: var(--corrections-commit-text, #ffffff) !important;
+}
+
+.gwdatalens-main button.btn-close {
     background-color: #ffffff00 !important;
 }
 
-button[id*="clear-button"] {
+.gwdatalens-main button[id*="clear-button"] {
     background-color: darkred !important;
+}
+
+/* QC Mark Buttons - override default button styling */
+.gwdatalens-main button[id*='\"index\":\"reliable\"'] {
+    background-color: #d4edda !important;
+    color: black !important;
+}
+
+.gwdatalens-main button[id*='\"index\":\"unreliable\"'] {
+    background-color: #f8d7da !important;
+    color: black !important;
+}
+
+.gwdatalens-main button[id*='\"index\":\"undecided\"'] {
+    background-color: #fff3cd !important;
+    color: black !important;
+}
+
+.gwdatalens-main button[id*='\"index\":\"unknown\"'] {
+    background-color: #e2e3e5 !important;
+    color: black !important;
 }
 
 .loading-wrapper-qc-result>div {
@@ -54,6 +102,55 @@ button[id*="clear-button"] {
 }
 
 /* TABS */
+
+/* The dcc.Tabs component wrapper needs flex growth */
+.gwdatalens-main>.tabs {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* The tabs content area */
+#tab-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    min-height: 0;
+}
+
+/* Ensure all intermediary divs and dcc.Tabs content fill the tab-content */
+#tab-content>* {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+#tab-content>.tab-content {
+    height: 100%;
+}
+
+/* Dash-generated tab wrapper */
+.tab-content>* {
+    height: 100%;
+}
+
+/* Override Bootstrap container max-width to fill available space */
+.container-fluid {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* Make rows inside container-fluid expand to fill space */
+.container-fluid>.row {
+    flex: 1;
+    min-height: 0;
+}
 
 .custom-tabs-container {
     width: 85%;
@@ -94,7 +191,7 @@ button[id*="clear-button"] {
 /* ---------------------------------------
    * textarea
    */
-   .dbc textarea {
+.dbc textarea {
     background-color: var(--bs-body-bg) !important;
     color: var(--bs-body-color) !important;
     border: var(--bs-border-width) solid var(--bs-border-color) !important;
@@ -164,6 +261,24 @@ button[id*="clear-button"] {
 .dbc .VirtualizedSelectOption {
     background-color: white;
     color: black;
+}
+
+/* dropup options */
+.dropUp .Select-menu-outer {
+    top: 0;
+    -webkit-transform: translateY(3px) translateY(-100%);
+    transform: translateY(3px) translateY(-100%);
+    border-top-right-radius: 4px;
+    border-top-left-radius: 4px;
+    border-bottom-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border: 1px solid #ccc;
+    border-bottom: none;
+}
+
+/* CORRECTIONS TAB - plotly modebar spacing/alignment */
+#correction-series-chart .modebar {
+    top: 6px !important;
 }
 
 /* dropdown menu hover effect */
@@ -427,6 +542,11 @@ Defines the .dbc class
 
 /* ------------ datepickers ----------------------- */
 
+/* Ensure the calendar popup renders above table headers and filter fields */
+.SingleDatePicker_picker {
+    z-index: 9999 !important;
+}
+
 .dbc .SingleDatePickerInput__withBorder {
     border: var(--bs-border-width) solid var(--bs-border-color) !important;
     background-color: transparent !important;
@@ -466,6 +586,38 @@ Defines the .dbc class
     font-family: var(--bs-body-font-family);
     line-height: 34px !important;
     padding: 0 10px !important
+}
+
+#time-range-filter-container .DateInput_input {
+    font-size: 0.85rem !important;
+    height: 36px !important;
+    line-height: 36px !important;
+    padding: 0 10px !important;
+    box-sizing: border-box;
+    border: 0 !important;
+}
+
+#time-range-filter-container .SingleDatePicker,
+#time-range-filter-container .SingleDatePickerInput,
+#time-range-filter-container .DateInput,
+#time-range-filter-container .SingleDatePickerInput__withBorder {
+    min-height: 38px !important;
+    height: auto !important;
+    line-height: normal !important;
+    box-sizing: border-box;
+    vertical-align: top;
+}
+
+#time-range-filter-container .SingleDatePickerInput__withBorder {
+    border: var(--bs-border-width) solid var(--bs-border-color) !important;
+    border-bottom: var(--bs-border-width) solid var(--bs-border-color) !important;
+    border-radius: var(--bs-border-radius) !important;
+    background-color: var(--bs-body-bg) !important;
+    overflow: visible !important;
+}
+
+#time-range-filter-container .DateInput_input__focused {
+    border-bottom: 0 !important;
 }
 
 .dbc .DayPicker {
@@ -753,16 +905,26 @@ code.hljs {
 /* ---- end dbc-row-selectable ------------------------- */
 
 .col-right-border {
-    height:100%;
-    position:relative;
+    height: 100%;
+    position: relative;
 }
 
 .col-right-border::after {
-    content:"";
-    position:absolute;
-    top:22.5%;
-    right:0;
-    width:3px;
-    height:55%;
-    background:grey;
+    content: "";
+    position: absolute;
+    top: 22.5%;
+    right: 0;
+    width: 3px;
+    height: 55%;
+    background: grey;
+}
+
+/* ---- tooltip options ------------------------- */
+
+.wide-tooltip {
+    max-width: 800px !important;
+}
+
+.wide-tooltip .tooltip-inner {
+    max-width: 800px !important;
 }

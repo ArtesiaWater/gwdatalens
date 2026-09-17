@@ -1,12 +1,9 @@
 import base64
 import io
+import logging
 import pickle
-from ast import literal_eval
-from copy import deepcopy
-from functools import partial
-from inspect import signature
+from typing import Any
 
-import i18n
 import pandas as pd
 import traval
 from dash import (
@@ -15,27 +12,93 @@ from dash import (
     Input,
     Output,
     State,
-    ctx,
     dcc,
     html,
     no_update,
 )
-from dash import __version__ as DASH_VERSION
 from dash.exceptions import PreventUpdate
-from packaging.version import parse as parse_version
-from traval import rulelib
 
+from gwdatalens.app.constants import ConfigDefaults
+from gwdatalens.app.exceptions import (
+    EmptyResultError,
+)
+from gwdatalens.app.messages import ErrorMessages, SuccessMessages, t_
 from gwdatalens.app.src.components import ids
 from gwdatalens.app.src.components.overview_chart import plot_obs
 from gwdatalens.app.src.components.qc_rules_form import (
     derive_form_parameters,
-    generate_kwargs_from_func,
     generate_traval_rule_components,
 )
+from gwdatalens.app.src.services import QCService, TimeSeriesService, WellService
+from gwdatalens.app.src.utils import log_callback
+from gwdatalens.app.src.utils.callback_helpers import (
+    AlertBuilder,
+    CallbackResponse,
+    EmptyFigure,
+    extract_trigger_id,
+    get_callback_context,
+)
+from gwdatalens.app.validators import validate_not_empty
+
+logger = logging.getLogger(__name__)
+
+
+def _run_qc_button_idle() -> html.Span:
+    return html.Span([html.I(className="fa-solid fa-gear"), " Run QC"])
+
+
+def _run_qc_button_loading() -> html.Span:
+    return html.Span([html.I(className="fa-solid fa-spinner fa-spin"), " Run QC"])
 
 
 # %% TRAVAL TAB
 def register_qc_callbacks(app, data):
+    qc_service = QCService(data.qc, data.db)
+    well_service = WellService(data.db)
+    ts_service = TimeSeriesService(data.db)
+
+    def _get_effective_qc_range(
+        qc_tmin: str | None,
+        qc_tmax: str | None,
+        time_range: dict | None,
+    ) -> tuple[pd.Timestamp | None, pd.Timestamp | None]:
+        """Compute effective QC run window.
+
+        The effective window is the intersection of:
+        - user-selected QC datepicker range (if provided)
+        - global time-range store bounds (if provided)
+        """
+        effective_tmin = pd.Timestamp(qc_tmin) if qc_tmin else None
+        effective_tmax = pd.Timestamp(qc_tmax) if qc_tmax else None
+
+        global_tmin = time_range.get("tmin") if time_range else None
+        global_tmax = time_range.get("tmax") if time_range else None
+
+        if global_tmin is not None:
+            global_tmin_ts = pd.Timestamp(global_tmin)
+            if effective_tmin is None or effective_tmin < global_tmin_ts:
+                effective_tmin = global_tmin_ts
+
+        if global_tmax is not None:
+            global_tmax_ts = pd.Timestamp(global_tmax)
+            if effective_tmax is None or effective_tmax > global_tmax_ts:
+                effective_tmax = global_tmax_ts
+
+        if (
+            effective_tmin is not None
+            and effective_tmax is not None
+            and effective_tmin > effective_tmax
+        ):
+            effective_tmin = effective_tmax
+
+        return effective_tmin, effective_tmax
+
+    def _get_trigger_index(triggered_id, inputs_list):
+        for i, item in enumerate(inputs_list):
+            if item["id"] == triggered_id:
+                return i
+        return 0
+
     @app.callback(
         Output(
             {"type": "rule_input_tooltip", "index": MATCH},
@@ -46,46 +109,42 @@ def register_qc_callbacks(app, data):
         Input({"type": "rule_input", "index": MATCH}, "disabled"),
         prevent_initial_call=True,
     )
-    def update_ruleset_values(val, disabled, **kwargs):
-        """Update the values of a ruleset.
-
-        Parameters
-        ----------
-        val : any
-            The new value for a particular rule.
-        disabled : bool
-            A flag indicating whether the input field is disabled.
-        **kwargs : dict
-            Additional keyword arguments, including the callback context.
-
-        Returns
-        -------
-        list or no_update
-            Returns a list containing the new value as a string if the update is
-            successful, otherwise returns `no_update`.
-        """
-        if not disabled:
-            if len(kwargs) > 0:
-                ctx_ = kwargs["callback_context"]
-                triggered_id = literal_eval(ctx_.triggered[0]["prop_id"].split(".")[0])
-            else:
-                triggered_id = ctx.triggered_id
-            (idx, rule, param) = triggered_id["index"].split("-")
-            ruledict = data.traval._ruleset.get_rule(stepname=rule)
-            ruledict["kwargs"][param] = val
-            data.traval._ruleset.update_rule(**ruledict)
-            return [str(val)]
-        else:
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def update_ruleset_values(val: Any, disabled: bool, **kwargs) -> list[str]:
+        """Update the values of a ruleset."""
+        if disabled:
             return no_update
+
+        ctx_obj = get_callback_context(**kwargs)
+        triggered_id = extract_trigger_id(ctx_obj, parse_json=True)
+        _, rule_name, param = triggered_id["index"].split("-")
+        qc_service.update_rule_parameter(rule_name, param, val)
+        return [str(val)]
 
     @app.callback(
         Output(ids.QC_CHART_STORE_1, "data"),
         Input(ids.QC_DROPDOWN_SELECTION, "value"),
         Input(ids.QC_DROPDOWN_ADDITIONAL, "value"),
-        State(ids.QC_DROPDOWN_ADDITIONAL, "disabled"),
-        State(ids.TRAVAL_RESULT_FIGURE_STORE, "data"),
+        Input(ids.TIME_RANGE_STORE, "data"),
+        Input(ids.TRAVAL_RESULT_FIGURE_STORE, "data"),
     )
-    def plot_qc_time_series(value, additional_values, disabled, traval_figure):
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def plot_qc_time_series(
+        value: int | None,
+        additional_values: list[int] | None,
+        time_range: dict | None,
+        traval_figure: tuple | None,
+    ) -> dict:
         """Plot time series.
 
         Parameters
@@ -96,8 +155,8 @@ def register_qc_callbacks(app, data):
         additional_values : list or None
             Additional series to include in the plot. If None, no additional series
             will be included.
-        disabled : bool
-            whether to disable the dropdown.
+        time_range : dict or None
+            Global time-range store value with keys ``tmin`` and ``tmax``.
         traval_figure : tuple or None
             A tuple containing a stored name and a traval-result figure. If the stored
             name matches the primary series name, the traval-figure will be returned.
@@ -109,25 +168,42 @@ def register_qc_callbacks(app, data):
             available.
         """
         if value is None:
-            return {"layout": {"title": "No series selected."}}
-        elif disabled:
-            raise PreventUpdate
-        else:
-            if data.db.source == "bro":
-                name = value.split("-")[0]
-            else:
-                name = value
-            if additional_values is not None:
-                additional = additional_values
-            else:
-                additional = []
+            return EmptyFigure.no_selection()
 
-            if traval_figure is not None:
-                stored_name, figure = traval_figure
-                if stored_name == name:
-                    return figure
+        additional = additional_values or []
 
-            return plot_obs([name] + additional, data)
+        # The traval figure only contains the primary series, so we cannot use it when
+        # additional series are selected.
+        if additional:
+            tmin = time_range.get("tmin") if time_range else None
+            tmax = time_range.get("tmax") if time_range else None
+            preset = time_range.get("preset") if time_range else None
+            return plot_obs(
+                [value] + additional,
+                data,
+                tmin=tmin,
+                tmax=tmax,
+                time_range_preset=preset,
+            )
+
+        # When a traval figure is already stored for this series, return it directly
+        # (it already contains the full time range; do NOT apply tmin/tmax filter here
+        # so the traval result is always shown in full).
+        if traval_figure is not None:
+            stored_name, figure = traval_figure
+            if stored_name == value:
+                return figure
+
+        tmin = time_range.get("tmin") if time_range else None
+        tmax = time_range.get("tmax") if time_range else None
+        preset = time_range.get("preset") if time_range else None
+        return plot_obs(
+            [value] + additional,
+            data,
+            tmin=tmin,
+            tmax=tmax,
+            time_range_preset=preset,
+        )
 
     @app.callback(
         Output(ids.QC_DROPDOWN_ADDITIONAL_DISABLED_1, "data"),
@@ -135,7 +211,13 @@ def register_qc_callbacks(app, data):
         Input(ids.QC_DROPDOWN_SELECTION, "value"),
         prevent_initial_call=True,
     )
-    def enable_additional_dropdown(value):
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def enable_additional_dropdown(wid: int | None) -> tuple[bool, list[dict] | Any]:
         """Enable or disable an additional time series dropdown based.
 
         Parameters
@@ -151,17 +233,75 @@ def register_qc_callbacks(app, data):
             The list of dictionaries contains the options for the dropdown, where each
             dictionary has a 'label' and a 'value' key.
         """
-        if value is not None:
-            # value = value.split("-")
-            # value[1] = int(value[1])
-            locs = data.db.list_locations_sorted_by_distance(value)
-            options = [
-                {"label": i + f" ({row.distance / 1e3:.1f} km)", "value": i}
-                for i, row in locs.iterrows()
-            ]
-            return False, options
-        else:
+        if wid is None:
             return True, no_update
+
+        options = well_service.format_wells_as_options(wid)
+        return False, options
+
+    @app.callback(
+        Output(ids.QC_DATEPICKER_TMIN, "disabled"),
+        Output(ids.QC_DATEPICKER_TMIN, "date"),
+        Output(ids.QC_DATEPICKER_TMAX, "disabled"),
+        Output(ids.QC_DATEPICKER_TMAX, "date"),
+        Input(ids.QC_DROPDOWN_SELECTION, "value"),
+        Input(ids.TIME_RANGE_STORE, "data"),
+        prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def enable_datepickers(
+        wid: int | None, time_range: dict | None
+    ) -> tuple[bool, Any, bool, Any]:
+        """Enable datepickers and set dates when a well is selected.
+
+        Parameters
+        ----------
+        wid : int or None
+            Internal ID of the selected well.
+
+        Returns
+        -------
+        tuple
+            (tmin_disabled, tmin_date, tmax_disabled, tmax_date)
+        """
+        if wid is None:
+            return True, None, True, None
+
+        try:
+            ts = ts_service.get_timeseries_with_column(wid)
+            validate_not_empty(ts, context="time series for date range")
+
+            start_date = ts.index[0].to_pydatetime()
+            end_date = ts.index[-1].to_pydatetime()
+
+            # Default QC run window follows global time-range selection,
+            # clamped to available series bounds.
+            global_tmin = time_range.get("tmin") if time_range else None
+            global_tmax = time_range.get("tmax") if time_range else None
+            if global_tmin is not None:
+                tmin_candidate = pd.to_datetime(global_tmin).to_pydatetime()
+                if tmin_candidate > start_date:
+                    start_date = tmin_candidate
+            if global_tmax is not None:
+                tmax_candidate = pd.to_datetime(global_tmax).to_pydatetime()
+                if tmax_candidate < end_date:
+                    end_date = tmax_candidate
+
+            if start_date > end_date:
+                start_date = end_date
+
+            return False, start_date, False, end_date
+        except EmptyResultError:
+            logger.warning("No time series data for well %s", wid)
+            return True, None, True, None
+        except Exception as e:
+            logger.exception("Error enabling datepickers for well %s: %s", wid, e)
+            return True, None, True, None
 
     @app.callback(
         Output(ids.TRAVAL_RULES_FORM_STORE_1, "data"),
@@ -171,53 +311,30 @@ def register_qc_callbacks(app, data):
         State(ids.TRAVAL_RULES_FORM, "children"),
         prevent_initial_call=True,
     )
-    def delete_rule(n_clicks, clickstate, rules, **kwargs):
-        """Deletes a rule from the ruleset based on the delete button that was pressed.
-
-        Parameters
-        ----------
-        n_clicks : list
-            List of click counts for the delete buttons.
-        clickstate : any
-            The state of the clicks, currently not used in the function.
-        rules : list
-            List of current rules.
-        **kwargs : dict
-            Additional keyword arguments, expected to contain 'callback_context'.
-
-        Returns
-        -------
-        tuple
-            A tuple containing the updated list of rules and a boolean flag that
-            enables/disables the reset button.
-
-        Raises
-        ------
-        PreventUpdate
-            If all values in `n_clicks` are None.
-        """
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def delete_rule(
+        n_clicks: list[int | None],
+        _clickstate: list[int | None],
+        rules: list[dict],
+        **kwargs,
+    ) -> tuple[list[dict], bool]:
+        """Delete a rule from the ruleset when its clear button is clicked."""
         if all(v is None for v in n_clicks):
             raise PreventUpdate
 
-        if len(kwargs) > 0:
-            ctx_ = kwargs["callback_context"]
-            triggered_id = literal_eval(ctx_.triggered[0]["prop_id"].split(".")[0])
-        else:
-            triggered_id = ctx.triggered_id
-
-        keep = []
-        for rule in rules:
-            if rule["props"]["id"]["index"] != triggered_id["index"]:
-                keep.append(rule)
-            else:
-                data.traval._ruleset.del_rule(triggered_id["index"].split("-")[0])
-
-            data.traval._ruleset.del_rule("combine_results")
-            data.traval._ruleset.add_rule(
-                "combine_results",
-                rulelib.rule_combine_nan_or,
-                apply_to=tuple(range(1, len(keep) + 1)),
-            )
+        ctx_obj = get_callback_context(**kwargs)
+        triggered_id = extract_trigger_id(ctx_obj, parse_json=True)
+        keep = [
+            rule
+            for rule in rules
+            if rule["props"]["id"]["index"] != triggered_id["index"]
+        ]
+        qc_service.delete_rule_from_ruleset(triggered_id["index"])
         return keep, False
 
     @app.callback(
@@ -228,80 +345,32 @@ def register_qc_callbacks(app, data):
         State(ids.TRAVAL_RULES_FORM, "children"),
         prevent_initial_call=True,
     )
-    def add_rule(n_clicks, rule_to_add, current_rules):
-        """Add a new rule to the current set of rules.
-
-        Parameters
-        ----------
-        n_clicks : int
-            The number of clicks, used to trigger the addition of a rule.
-        rule_to_add : str
-            The name of the rule to add, which should correspond to a function
-            in `rulelib`.
-        current_rules : list
-            The current list of rules, where each rule is a dictionary containing
-            rule properties.
-
-        Returns
-        -------
-        tuple
-            A tuple containing the updated list of rules and a boolean flag set to
-            False.
-
-        Raises
-        ------
-        PreventUpdate
-            If `n_clicks` is not provided, indicating no action should be taken.
-        """
-        if n_clicks:
-            try:
-                rule_number = (
-                    int(current_rules[-1]["props"]["id"]["index"].split("-")[-1]) + 1
-                )
-            except IndexError:
-                rule_number = 0
-            func = getattr(rulelib, rule_to_add)
-            rule = {"name": rule_to_add, "kwargs": generate_kwargs_from_func(func)}
-            rule["func"] = func
-            # fill function to get manual observations
-            if "manual_obs" in signature(func).parameters:
-                rule["kwargs"]["manual_obs"] = partial(
-                    data.db.get_timeseries,
-                    observation_type="controlemeting",
-                    column=data.db.value_column,
-                )
-            irow = generate_traval_rule_components(rule, rule_number)
-
-            # add to ruleset, if multiple rules present ad combine_results at the end
-            if len(current_rules) > 1:
-                # remove combine results first if a rule is added
-                try:
-                    data.traval._ruleset.del_rule("combine_results")
-                except KeyError:
-                    # no rule combine results, so pass
-                    pass
-                data.traval._ruleset.add_rule(
-                    rule["name"], func, apply_to=0, kwargs=rule["kwargs"]
-                )
-                data.traval._ruleset.add_rule(
-                    "combine_results",
-                    rulelib.rule_combine_nan_or,
-                    apply_to=tuple(range(1, len(current_rules) + 1)),
-                )
-            else:
-                # remove combine results first if a rule is added
-                try:
-                    data.traval._ruleset.del_rule("combine_results")
-                except KeyError:
-                    # no rule combine results, so pass
-                    pass
-                data.traval._ruleset.add_rule(
-                    rule["name"], func, apply_to=0, kwargs=rule["kwargs"]
-                )
-            current_rules.append(irow)
-            return current_rules, False
-        else:
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def add_rule(
+        n_clicks: int | None, rule_to_add: str, current_rules: list[dict]
+    ) -> tuple[list[dict], bool]:
+        """Add a new rule to the current set of rules."""
+        if not n_clicks:
             raise PreventUpdate
+
+        try:
+            rule_number = (
+                int(current_rules[-1]["props"]["id"]["index"].split("-")[-1]) + 1
+            )
+        except IndexError:
+            rule_number = 0
+
+        rule = qc_service.add_rule_to_ruleset(rule_to_add)
+        irow = generate_traval_rule_components(
+            rule, rule_number, well_service=well_service
+        )
+        current_rules.append(irow)
+        return current_rules, False
 
     @app.callback(
         Output({"type": "rule_input", "index": ALL}, "value"),
@@ -318,13 +387,21 @@ def register_qc_callbacks(app, data):
         Input(ids.QC_DROPDOWN_SELECTION, "value"),
         prevent_initial_call=True,
     )
-    def display_rules_for_series(name):
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def display_rules_for_series(
+        wid: int | None,
+    ) -> tuple[list, list, list, list, list, bool, tuple]:
         """Display rules for a given series name.
 
         Parameters
         ----------
-        name : str
-            The name of the series for which to display rules.
+        wid : int
+            The internal id of the series for which to display rules.
 
         Returns
         -------
@@ -356,49 +433,67 @@ def register_qc_callbacks(app, data):
         disableds = []
         steps = []
         tooltips = []
-        nrules = len(data.traval._ruleset.rules) - 1
+        nrules = len(qc_service.traval._ruleset.rules) - 1
         errors = []
 
+        name = well_service.get_well_name(wid) if wid is not None else None
         for i in range(1, nrules + 1):
-            irule = data.traval._ruleset.get_rule(istep=i)
+            irule = qc_service.get_rule_from_ruleset(istep=i)
+            irule_orig = qc_service.traval.ruleset.get_rule(istep=i)
+            orig_kwargs = irule_orig.get("kwargs", {}) or {}
             for k, v in irule["kwargs"].items():
-                if callable(v):
-                    if name is not None:
-                        try:
-                            v = v(name)
-                        except Exception as e:
-                            errors.append((f"{irule['name']}: {k}", e))
+                # savedir is not rendered as an input; skip to keep output
+                # lengths aligned
+                if irule["name"] == "pastas" and k == "savedir":
+                    continue
+                vorig = orig_kwargs.get(k)
+                derived_value = v
+                if callable(vorig) and name is not None:
+                    try:
+                        derived_value = vorig(name)
+                    except KeyError:
+                        logger.exception(
+                            "No parameter for rule %s.%s, series %s",
+                            irule["name"],
+                            k,
+                            name,
+                        )
+                        errors.append(f"{irule['name']}: {k}")
+                    # generic exception for other potential errors
+                    except Exception as e:
+                        logger.error(
+                            "Could not derive parameter for rule %s.%s, "
+                            "for time series %s",
+                            irule["name"],
+                            k,
+                            name,
+                        )
+                        raise e
 
-                v, input_type, disabled, step = derive_form_parameters(v)
-                tooltips.append(str(v))
-                values.append(v)
+                value, input_type, disabled, step = derive_form_parameters(
+                    derived_value
+                )
+                tooltips.append(str(value))
+                values.append(value)
                 input_types.append(input_type)
                 disableds.append(disabled)
                 steps.append(step)
-        if len(errors) > 0:
-            return (
-                values,
-                input_types,
-                disableds,
-                steps,
-                tooltips,
-                False,
-                (
-                    True,
-                    "danger",
-                    f"Error! Could not load parameter(s) for: {[e[0] for e in errors]}",
-                ),
-            )
-        else:
-            return (
-                values,
-                input_types,
-                disableds,
-                steps,
-                tooltips,
-                False,
-                (False, None, None),
-            )
+
+        alert = (
+            AlertBuilder.danger(f"Error! Could not load parameter(s) for: {errors}")
+            if errors
+            else AlertBuilder.no_alert()
+        )
+
+        return (
+            values,
+            input_types,
+            disableds,
+            steps,
+            tooltips,
+            False,
+            alert,
+        )
 
     @app.callback(
         Output(ids.TRAVAL_RULES_FORM_STORE_3, "data"),
@@ -406,7 +501,15 @@ def register_qc_callbacks(app, data):
         State(ids.QC_DROPDOWN_SELECTION, "value"),
         prevent_initial_call=True,
     )
-    def reset_ruleset_to_current_default(n_clicks, name):
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def reset_ruleset_to_current_default(
+        n_clicks: int | None, name: str | None
+    ) -> list[dict]:
         """Resets the ruleset to its current default and generates form components.
 
         Parameters
@@ -427,28 +530,33 @@ def register_qc_callbacks(app, data):
         PreventUpdate
             If `n_clicks` is None.
         """
-        if n_clicks is not None:
-            form_components = []
-            nrules = len(data.traval.ruleset.rules) - 1
-
-            # reset ruleset to original version
-            data.traval._ruleset = deepcopy(data.traval.ruleset)
-
-            idx = 0
-            for i in range(1, nrules + 1):
-                irule = data.traval.ruleset.get_rule(istep=i)
-                irow = generate_traval_rule_components(irule, idx, series_name=name)
-                form_components.append(irow)
-                idx += 1
-            return form_components
-        else:
+        if n_clicks is None:
             raise PreventUpdate
+
+        form_components = []
+        nrules = len(qc_service.traval.ruleset.rules) - 1
+
+        qc_service.reset_ruleset_to_default()
+
+        idx = 0
+        for i in range(1, nrules + 1):
+            irule = qc_service.traval.ruleset.get_rule(istep=i)
+            irow = generate_traval_rule_components(irule, idx, series_name=name)
+            form_components.append(irow)
+            idx += 1
+        return form_components
 
     @app.callback(
         Output(ids.TRAVAL_ADD_RULE_BUTTON, "disabled"),
         Input(ids.TRAVAL_ADD_RULE_DROPDOWN, "value"),
     )
-    def activate_add_rule_button(value):
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def activate_add_rule_button(value: Any) -> bool:
         """Set the state of the "Add Rule" button.
 
         Parameters
@@ -471,7 +579,13 @@ def register_qc_callbacks(app, data):
         Input(ids.TRAVAL_LOAD_RULESET_BUTTON, "contents"),
         prevent_initial_call=True,
     )
-    def load_ruleset(contents):
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def load_ruleset(contents: str | None) -> tuple[list[dict] | Any, tuple]:
         """Get input timeseries data.
 
         Parameters
@@ -484,32 +598,38 @@ def register_qc_callbacks(app, data):
         series : pandas.Series
             input series data
         """
-        if contents is not None:
-            try:
-                content_type, content_string = contents.split(",")
-                decoded = base64.b64decode(content_string)
-                rules = pickle.load(io.BytesIO(decoded))
-
-                ruleset = traval.RuleSet(name=rules.pop("name"))
-                ruleset.rules.update(rules)
-
-                # data.traval.ruleset = ruleset
-                data.traval._ruleset = ruleset
-
-                nrules = len(data.traval._ruleset.rules) - 1
-                form_components = []
-                idx = 0
-                for i in range(1, nrules + 1):
-                    irule = data.traval._ruleset.get_rule(istep=i)
-                    irow = generate_traval_rule_components(irule, idx)
-                    form_components.append(irow)
-                    idx += 1
-
-                return form_components, (True, "success", "Loaded ruleset")
-            except Exception as e:
-                return no_update, (True, "warning", f"Could not load ruleset: {e}")
-        elif contents is None:
+        if contents is None:
             raise PreventUpdate
+
+        try:
+            _content_type, content_string = contents.split(",")
+            decoded = base64.b64decode(content_string)
+            rules = pickle.load(io.BytesIO(decoded))
+
+            ruleset = traval.RuleSet(name=rules.pop("name"))
+            ruleset.rules.update(rules)
+
+            qc_service.traval._ruleset = ruleset
+
+            nrules = len(qc_service.traval._ruleset.rules) - 1
+            form_components = []
+            idx = 0
+            for i in range(1, nrules + 1):
+                irule = qc_service.traval._ruleset.get_rule(istep=i)
+                irow = generate_traval_rule_components(
+                    irule, idx, well_service=well_service
+                )
+                form_components.append(irow)
+                idx += 1
+
+            return form_components, AlertBuilder.success(
+                t_(SuccessMessages.RULESET_LOADED)
+            )
+        except Exception as e:
+            logger.warning("Failed to load ruleset: %s", e, exc_info=True)
+            return no_update, AlertBuilder.warning(
+                t_(ErrorMessages.RULESET_LOAD_ERROR, error=str(e))
+            )
 
     @app.callback(
         Output(ids.DOWNLOAD_TRAVAL_RULESET, "data"),
@@ -517,7 +637,13 @@ def register_qc_callbacks(app, data):
         State(ids.SELECTED_OSERIES_STORE, "data"),
         prevent_initial_call=True,
     )
-    def export_ruleset(n_clicks, name):
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def export_ruleset(n_clicks: int | None, wid: list[int] | None) -> Any:
         """Export the current ruleset to a pickle file.
 
         Parameters
@@ -525,8 +651,8 @@ def register_qc_callbacks(app, data):
         n_clicks : int
             The number of times the export button has been clicked. Used to trigger
             function.
-        name : list of str
-            A list containing the name of the ruleset to be exported.
+        wid : list of int
+            internal id of the well
 
         Returns
         -------
@@ -540,9 +666,10 @@ def register_qc_callbacks(app, data):
         of the time series.
         """
         timestr = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{timestr}_traval_ruleset_{name[0]}.pickle"
-        if data.traval._ruleset is not None:
-            ruleset = data.traval._ruleset.get_resolved_ruleset(name)
+        name = well_service.get_well_name(wid).squeeze()
+        filename = f"{timestr}_traval_ruleset_{name}.pickle"
+        if qc_service.traval._ruleset is not None:
+            ruleset = qc_service.get_resolved_ruleset_for_series(name)
             rules = ruleset.rules
 
             def to_pickle(f):
@@ -558,7 +685,13 @@ def register_qc_callbacks(app, data):
         State(ids.SELECTED_OSERIES_STORE, "data"),
         prevent_initial_call=True,
     )
-    def export_parameters_csv(n_clicks, name):
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def export_parameters_csv(n_clicks: int | None, wid: list[int] | None) -> Any:
         """Export travel parameters to a CSV file.
 
         This function generates a CSV file containing travel parameters based on the
@@ -578,9 +711,10 @@ def register_qc_callbacks(app, data):
             A Dash component that triggers the download of the generated CSV file.
         """
         timestr = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{timestr}_traval_parameters_{name[0]}.csv"
-        if data.traval._ruleset is not None:
-            ruleset = data.traval._ruleset.get_resolved_ruleset(name)
+        name = well_service.get_well_name(wid).squeeze()
+        filename = f"{timestr}_traval_parameters_{name}.csv"
+        if qc_service.traval._ruleset is not None:
+            ruleset = qc_service.get_resolved_ruleset_for_series(name)
             traval_params = traval.TravalParameters.from_ruleset(ruleset)
             return dcc.send_string(traval_params.to_csv, filename=filename)
 
@@ -590,7 +724,13 @@ def register_qc_callbacks(app, data):
         Input(ids.QC_COLLAPSE_BUTTON, "n_clicks"),
         State(ids.QC_COLLAPSE_CONTENT, "is_open"),
     )
-    def toggle_collapse(n, is_open):
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def toggle_collapse(n: int | None, is_open: bool) -> tuple[bool, str]:
         """Toggles the collapse state of the parameters form.
 
         Parameters
@@ -610,13 +750,13 @@ def register_qc_callbacks(app, data):
             if not is_open:
                 button_text = [
                     html.I(className="fa-solid fa-chevron-down"),
-                    " " + i18n.t("general.hide_parameters"),
+                    " " + t_("general.hide_parameters"),
                 ]
                 return not is_open, button_text
             else:
                 button_text = [
                     html.I(className="fa-solid fa-chevron-right"),
-                    " " + i18n.t("general.show_parameters"),
+                    " " + t_("general.show_parameters"),
                 ]
                 return not is_open, button_text
         # button_text = [
@@ -624,17 +764,6 @@ def register_qc_callbacks(app, data):
         #     " Show parameters",
         # ]
         return is_open, no_update
-
-    # @app.callback(
-    #     Output(ids.LOADING_QC_CHART_STORE_1, "data"),
-    #     Output(ids.RUN_TRAVAL_STORE, "data"),
-    #     Input(ids.QC_RUN_TRAVAL_BUTTON, "n_clicks"),
-    # )
-    # def trigger_traval_run_and_loading_state(n_clicks):
-    #     if n_clicks:
-    #         return pd.Timestamp.now().isoformat(), n_clicks
-    #     else:
-    #         raise PreventUpdate
 
     @app.callback(
         # NOTE: Remove first output for DJANGO
@@ -644,14 +773,21 @@ def register_qc_callbacks(app, data):
         Output(ids.QC_DROPDOWN_ADDITIONAL, "value"),
         Output(ids.QC_DROPDOWN_ADDITIONAL_DISABLED_2, "data"),
         Output(ids.ALERT_RUN_TRAVAL, "data"),
-        # Output(ids.LOADING_QC_CHART_STORE_2, "data"),
         Input(ids.QC_RUN_TRAVAL_BUTTON, "n_clicks"),
-        # Input(ids.RUN_TRAVAL_STORE, "data"),
+        Input(ids.QC_RESET_BUTTON, "n_clicks"),
         State(ids.QC_DROPDOWN_SELECTION, "value"),
         State(ids.QC_DATEPICKER_TMIN, "date"),
         State(ids.QC_DATEPICKER_TMAX, "date"),
+        State(ids.TIME_RANGE_STORE, "data"),
         State(ids.QC_RUN_ONLY_UNVALIDATED_CHECKBOX, "value"),
-        running=[(Output(ids.LOADING_QC_CHART, "display"), "show", "auto")],
+        running=[
+            (Output(ids.LOADING_QC_CHART, "display"), "show", "auto"),
+            (
+                Output(ids.QC_RUN_TRAVAL_BUTTON, "children"),
+                _run_qc_button_loading(),
+                _run_qc_button_idle(),
+            ),
+        ],
         background=False,
         # NOTE: only used if background is True
         # running=[
@@ -661,15 +797,32 @@ def register_qc_callbacks(app, data):
         # cancel=[Input(ids.QC_CANCEL_BUTTON, "n_clicks")],
         prevent_initial_call=True,
     )
-    def run_traval(n_clicks, name, tmin, tmax, only_unvalidated):
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def run_traval(
+        run_clicks: int | None,
+        reset_clicks: int | None,
+        wid: int | None,
+        tmin: str | None,
+        tmax: str | None,
+        time_range: dict | None,
+        only_unvalidated: list[bool],
+        **kwargs,
+    ) -> tuple[Any, Any, Any, bool, tuple]:
         """Run the error detection process based on the provided parameters.
 
         Parameters
         ----------
-        n_clicks : int
+        run_clicks : int
             The number of clicks to trigger the function.
-        name : str
-            The name identifier in the format "gmw_id-tube_id".
+        reset_clicks : int
+            The number of reset clicks.
+        wid : int
+            The internal id of the time series.
         tmin : float
             The start time.
         tmax : float
@@ -699,99 +852,77 @@ def register_qc_callbacks(app, data):
         Raises
         ------
         PreventUpdate
-            If `n_clicks` is not provided, the update is prevented.
+            If neither action has been triggered.
         """
-        if n_clicks:
-            if parse_version(DASH_VERSION) >= parse_version("2.17.0"):
-                from dash import set_props
+        ctx_obj = get_callback_context(**kwargs)
+        triggered_id = extract_trigger_id(ctx_obj, parse_json=False)
 
-                set_props(ids.LOADING_QC_CHART, {"display": "show"})
+        if triggered_id == ids.QC_RESET_BUTTON:
+            if not reset_clicks:
+                raise PreventUpdate
+            qc_service.traval.traval_result = None
+            return (
+                CallbackResponse()
+                .add(None)
+                .add(None)
+                .add(no_update)
+                .add(False)
+                .add(AlertBuilder.no_alert())
+                .build()
+            )
 
-            if "-" in name:
-                gmw_id, tube_id = name.split("-")
-            elif "_" in name:
-                gmw_id, tube_id = name.split("_")
-            else:
-                raise ValueError(
-                    "Error splitting name into monitoring well ID"
-                    f" and tube number: {name}"
-                )
-            try:
-                result, figure = data.traval.run_traval(
-                    gmw_id,
-                    tube_id,
-                    tmin=tmin,
-                    tmax=tmax,
-                    only_unvalidated=only_unvalidated,
-                )
-                return (
-                    # {"layout": {"title": "Running TRAVAL..."}},  # figure
-                    (name, figure),
-                    result.reset_index().to_dict("records"),
-                    None,
-                    True,
-                    # "auto"
-                    (
-                        False,
-                        "success",
-                        "Traval run succesful",
-                    ),
-                )
-            except Exception as e:
-                return (
-                    # {"layout": {"title": "Running TRAVAL..."}},  # figure
-                    no_update,
-                    no_update,
-                    None,
-                    True,
-                    # "auto"
-                    (
-                        True,
-                        "danger",
-                        f"Error: {e}",
-                    ),
-                )
-        else:
+        if not run_clicks:
             raise PreventUpdate
 
-    @app.callback(
-        Output(ids.QC_CHART_STORE_2, "data"),
-        # Output(ids.LOADING_QC_CHART_STORE_2, "data"),
-        Input(ids.TRAVAL_RESULT_FIGURE_STORE, "data"),
-        Input(ids.TRAVAL_RESULT_TABLE_STORE, "data"),
-        prevent_initial_call=True,
-    )
-    def update_traval_figure(figure, table):
-        """Update the traval figure and stored traval result table.
-
-        Parameters
-        ----------
-        figure : tuple or None
-            A tuple containing the figure to be updated. If None, no update is
-            performed.
-        table : list of dict
-            The table data to be converted into a DataFrame and used for updating the
-            figure.
-
-        Returns
-        -------
-        tuple
-            A tuple containing the updated figure
-        """
-        if figure is not None:
-            # set result table
-            df = pd.DataFrame(table).set_index("datetime")
-            df.index = pd.to_datetime(df.index)
-            data.traval.traval_result = df
-            _, figure = figure
-            return (
-                figure,
-                # "hide",
+        try:
+            effective_tmin, effective_tmax = _get_effective_qc_range(
+                tmin, tmax, time_range
             )
-        else:
+
+            result, figure = qc_service.run_traval(
+                wid,
+                tmin=effective_tmin,
+                tmax=effective_tmax,
+                only_unvalidated=only_unvalidated,
+            )
+            qc_service.traval.traval_result = result
             return (
-                no_update,
-                # "hide",
+                CallbackResponse()
+                .add((wid, figure))
+                .add(result.reset_index().to_dict("records"))
+                .add(None)
+                .add(True)
+                .add(AlertBuilder.success(t_(SuccessMessages.TRAVAL_RUN_SUCCESS)))
+                .build()
+            )
+        except EmptyResultError:
+            # send alert all obs are already validated
+            logger.warning("All observations are already checked for %s", wid)
+            return (
+                CallbackResponse()
+                .add(no_update)
+                .add(no_update)
+                .add(None)
+                .add(True)
+                .add(
+                    AlertBuilder.warning(t_(ErrorMessages.QC_ALL_OBSERVATIONS_CHECKED))
+                )
+                .build()
+            )
+        except Exception as e:
+            logger.error("Error running traval for %s: %s", wid, e, exc_info=True)
+            return (
+                CallbackResponse()
+                .add(no_update)
+                .add(no_update)
+                .add(None)
+                .add(True)
+                .add(
+                    AlertBuilder.danger(
+                        t_(ErrorMessages.QC_ANALYSIS_FAILED, error=str(e))
+                    )
+                )
+                .build()
             )
 
     @app.callback(
@@ -800,7 +931,13 @@ def register_qc_callbacks(app, data):
         Input(ids.QC_DROPDOWN_ADDITIONAL_DISABLED_2, "data"),
         prevent_initial_call=True,
     )
-    def toggle_qc_dropdown_additional(*disabled, **kwargs):
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def toggle_qc_dropdown_additional(*disabled):
         """Toggles the active state of the QC dropdown.
 
         Parameters
@@ -808,34 +945,14 @@ def register_qc_callbacks(app, data):
         *disabled : bool
             Variable length argument list of boolean values indicating the disabled
             state of the input.
-        **kwargs : dict
-            callback_context
 
         Returns
         -------
         bool
             enable/disable additional dropdown.
-
-        Raises
-        ------
-        PreventUpdate
-            If no inputs are disabled.
         """
-        if len(kwargs) > 0:
-            ctx_ = kwargs["callback_context"]
-            triggered_id = ctx_.triggered[0]["prop_id"].split(".")[0]
-            inputs_list = ctx_.inputs_list
-        else:
-            triggered_id = ctx.triggered_id
-            inputs_list = ctx.inputs_list
-
-        if any(disabled):
-            for i in range(len(inputs_list)):
-                if inputs_list[i]["id"] == triggered_id:
-                    break
-            return disabled[i]
-        else:
-            raise PreventUpdate
+        selection_disabled, traval_disabled = disabled
+        return bool(selection_disabled) or bool(traval_disabled)
 
     @app.callback(
         Output(ids.TRAVAL_RULES_FORM, "children"),
@@ -844,6 +961,12 @@ def register_qc_callbacks(app, data):
         Input(ids.TRAVAL_RULES_FORM_STORE_3, "data"),
         Input(ids.TRAVAL_RULES_FORM_STORE_4, "data"),
         prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def update_traval_rules_form(*forms, **kwargs):
         """Updates the travel rules form.
@@ -860,18 +983,12 @@ def register_qc_callbacks(app, data):
         form
             The updated form object if found, otherwise `no_update`.
         """
-        if len(kwargs) > 0:
-            ctx_ = kwargs["callback_context"]
-            triggered_id = ctx_.triggered[0]["prop_id"].split(".")[0]
-            inputs_list = ctx_.inputs_list
-        else:
-            triggered_id = ctx.triggered_id
-            inputs_list = ctx.inputs_list
+        ctx_obj = get_callback_context(**kwargs)
+        triggered_id = ctx_obj.triggered_id
+        inputs_list = ctx_obj.inputs_list
 
-        for i in range(len(inputs_list)):
-            if inputs_list[i]["id"] == triggered_id:
-                break
-        return forms[i] if forms[i] is not None else no_update
+        idx = _get_trigger_index(triggered_id, inputs_list)
+        return forms[idx] if forms[idx] is not None else no_update
 
     @app.callback(
         Output(ids.TRAVAL_RESET_RULESET_BUTTON, "disabled"),
@@ -879,6 +996,12 @@ def register_qc_callbacks(app, data):
         Input(ids.TRAVAL_RESET_RULESET_BUTTON_STORE_2, "data"),
         Input(ids.TRAVAL_RESET_RULESET_BUTTON_STORE_3, "data"),
         prevent_initial_call=True,
+    )
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
     )
     def toggle_reset_ruleset_button(*bools, **kwargs):
         """Toggles the reset ruleset button.
@@ -900,61 +1023,35 @@ def register_qc_callbacks(app, data):
         PreventUpdate
             If none of the boolean values are not None.
         """
-        if len(kwargs) > 0:
-            ctx_ = kwargs["callback_context"]
-            triggered_id = ctx_.triggered[0]["prop_id"].split(".")[0]
-            inputs_list = ctx_.inputs_list
-        else:
-            triggered_id = ctx.triggered_id
-            inputs_list = ctx.inputs_list
+        ctx_obj = get_callback_context(**kwargs)
+        triggered_id = ctx_obj.triggered_id
+        inputs_list = ctx_obj.inputs_list
 
         if any(boolean is not None for boolean in bools):
-            for i in range(len(inputs_list)):
-                if inputs_list[i]["id"] == triggered_id:
-                    break
-            return bools[i]
-        else:
-            raise PreventUpdate
+            idx = _get_trigger_index(triggered_id, inputs_list)
+            return bools[idx]
 
-    # @app.callback(
-    #     Output(ids.LOADING_QC_CHART, "display"),
-    #     Input(ids.LOADING_QC_CHART_STORE_2, "data"),
-    #     Input(ids.LOADING_QC_CHART_STORE_1, "data"),
-    #     prevent_initial_call=True,
-    # )
-    # def toggle_chart_loading_state(*states, **kwargs):
-    #     if len(kwargs) > 0:
-    #         ctx_ = kwargs["callback_context"]
-    #         triggered_id = ctx_.triggered[0]["prop_id"].split(".")[0]
-    #         inputs_list = ctx_.inputs_list
-    #     else:
-    #         triggered_id = ctx.triggered_id
-    #         inputs_list = ctx.inputs_list
-    #     if any(states):
-    #         for i in range(len(ctx.inputs_list)):
-    #             if inputs_list[i]["id"] == triggered_id:
-    #                 break
-    #         return "auto" if i == 0 else "show"
-    #     else:
-    #         raise PreventUpdate
+        raise PreventUpdate
 
     @app.callback(
         Output(ids.QC_CHART, "figure"),
         Output(ids.LOADING_QC_CHART, "display"),
         Input(ids.QC_CHART_STORE_1, "data"),
-        Input(ids.QC_CHART_STORE_2, "data"),
         prevent_initial_call=True,
     )
-    def display_qc_chart(*figures, **kwargs):
+    @log_callback(
+        log_time=ConfigDefaults.CALLBACK_LOG_TIME,
+        log_inputs=ConfigDefaults.CALLBACK_LOG_INPUTS,
+        log_outputs=ConfigDefaults.CALLBACK_LOG_OUTPUTS,
+        log_trigger=ConfigDefaults.CALLBACK_LOG_TRIGGER,
+    )
+    def display_qc_chart(fig):
         """Display a QC chart.
 
         Parameters
         ----------
-        *figures : tuple
-            figure objects, figure displayed is determined by the component that
-            triggers this callback.
-        **kwargs : dict
-            callback_context
+        fig : dict
+            Figure object to display.
 
         Returns
         -------
@@ -967,22 +1064,10 @@ def register_qc_callbacks(app, data):
         PreventUpdate
             If no figures are provided.
         """
-        if len(kwargs) > 0:
-            ctx_ = kwargs["callback_context"]
-            triggered_id = ctx_.triggered[0]["prop_id"].split(".")[0]
-            inputs_list = ctx_.inputs_list
-        else:
-            triggered_id = ctx.triggered_id
-            inputs_list = ctx.inputs_list
-
-        if any(figures):
-            for i in range(len(inputs_list)):
-                if inputs_list[i]["id"] == triggered_id:
-                    break
-            fig = figures[i]
+        if fig:
             # NOTE: not sure how it can ever become a list, but it sometimes does...
             if isinstance(fig, list):
                 fig = fig[0]
             return fig, "auto"
-        else:
-            raise PreventUpdate
+
+        raise PreventUpdate

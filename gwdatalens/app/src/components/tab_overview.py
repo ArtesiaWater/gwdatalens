@@ -1,16 +1,21 @@
 import dash_bootstrap_components as dbc
-import i18n
 from dash import dcc, html
 
-from gwdatalens.app.settings import settings
+from gwdatalens.app.config import config
+from gwdatalens.app.constants import UI, ConfigDefaults
+from gwdatalens.app.messages import t_
+from gwdatalens.app.src.cache import cache
+from gwdatalens.app.src.components import (
+    ids,
+    overview_chart,
+    overview_map,
+    overview_table,
+)
+from gwdatalens.app.src.data.data_manager import DataManager
+from gwdatalens.app.src.utils import conditional_cache
 
-from ..cache import TIMEOUT, cache
-from ..data.interface import DataInterface
-from ..utils import conditional_cache
-from . import ids, overview_chart, overview_map, overview_table
 
-
-def render():
+def render() -> dcc.Tab:
     """Renders a Dash Tab component for the overview tab.
 
     Returns
@@ -19,14 +24,14 @@ def render():
         overview tab
     """
     return dcc.Tab(
-        label=i18n.t("general.tab_overview"),
+        label=t_("general.tab_overview"),
         value=ids.TAB_OVERVIEW,
         className="custom-tab",
         selected_className="custom-tab--selected",
     )
 
 
-def render_cancel_button():
+def render_cancel_button() -> html.Div:
     """Renders a cancel button component.
 
     Currently not in use.
@@ -42,14 +47,14 @@ def render_cancel_button():
                 html.Span(
                     [
                         html.I(className="fa-regular fa-circle-stop"),
-                        " " + i18n.t("general.cancel"),
+                        " " + t_("general.cancel"),
                     ],
                     id="span-cancel-button",
                     n_clicks=0,
                 ),
                 style={
-                    "margin-top": 10,
-                    "margin-bottom": 10,
+                    "margin-top": UI.MARGIN_TOP,
+                    "margin-bottom": UI.MARGIN_BOTTOM,
                 },
                 disabled=True,
                 id=ids.OVERVIEW_CANCEL_BUTTON,
@@ -58,12 +63,47 @@ def render_cancel_button():
     )
 
 
+def render_clear_selection_button() -> html.Div:
+    """Renders a clear selection button for the overview tab.
+
+    Returns
+    -------
+    html.Div
+        A Div containing a clear selection button with absolute positioning
+        to overlay on the map.
+    """
+    return html.Div(
+        dbc.Button(
+            html.Span(
+                [
+                    html.I(className="fa-solid fa-ban"),
+                    " " + t_("general.clear_selection_button"),
+                ],
+                id="span-clear-selection-button",
+                n_clicks=0,
+            ),
+            style={
+                "margin-top": UI.MARGIN_TOP,
+                "margin-bottom": UI.MARGIN_BOTTOM,
+            },
+            disabled=True,
+            id=ids.OVERVIEW_CLEAR_SELECTION_BUTTON,
+        ),
+        style={
+            "position": "absolute",
+            "bottom": "10px",
+            "left": "10px",
+            "zIndex": 1000,
+        },
+    )
+
+
 @conditional_cache(
     cache.memoize,
-    (not settings["DJANGO_APP"] and settings["CACHING"]),
-    timeout=TIMEOUT,
+    (not config.get("DJANGO_APP") and config.get("CACHING")),
+    timeout=ConfigDefaults.CACHE_TIMEOUT,
 )
-def render_content(data: DataInterface, selected_data: str):
+def render_content(data: DataManager, selected_data: str):
     """Renders the content for the overview tab.
 
     Parameters
@@ -85,7 +125,13 @@ def render_content(data: DataInterface, selected_data: str):
                 [
                     dbc.Col(
                         [
-                            overview_map.render(data, selected_data),
+                            html.Div(
+                                [
+                                    overview_map.render(data, selected_data),
+                                    render_clear_selection_button(),
+                                ],
+                                style={"position": "relative"},
+                            ),
                         ],
                         width=6,
                     ),
@@ -96,7 +142,7 @@ def render_content(data: DataInterface, selected_data: str):
                         width=6,
                     ),
                 ],
-                style={"height": "45vh"},
+                style={"height": "45cqh"},
             ),
             # dbc.Row([render_cancel_button()]),
             dbc.Row(
@@ -104,6 +150,9 @@ def render_content(data: DataInterface, selected_data: str):
                     overview_chart.render(data, selected_data),
                 ],
             ),
+            # duplicate callback outputs stores
+            dcc.Store(id=ids.OVERVIEW_TABLE_SELECTION_1),
+            dcc.Store(id=ids.OVERVIEW_TABLE_SELECTION_2),
         ],
         fluid=True,
     )

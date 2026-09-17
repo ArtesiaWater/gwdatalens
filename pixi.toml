@@ -21,6 +21,7 @@ pip = "*"
 psycopg2 = "*"
 python = "3.11.*"
 sqlalchemy = "*"
+openpyxl = ">=3.1.5,<4"
 
 [pypi-dependencies]
 arcticdb = "*"

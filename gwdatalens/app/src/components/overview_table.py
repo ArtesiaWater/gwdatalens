@@ -1,12 +1,14 @@
+
 from dash import dash_table, html
 from dash.dash_table.Format import Format
 
-from ..data.interface import DataInterface
-from . import ids
-from .styling import DATA_TABLE_HEADER_BGCOLOR
+from gwdatalens.app.constants import UI, ColumnNames
+from gwdatalens.app.src.components import ids
+from gwdatalens.app.src.components.styling import DATA_TABLE_HEADER_BGCOLOR
+from gwdatalens.app.src.data.data_manager import DataManager
 
 
-def render(data: DataInterface, selected_data=None):
+def render(data: DataManager, selected_data: list[int] | None = None) -> html.Div:
     """Render an the piezometer overview table.
 
     Parameters
@@ -30,17 +32,21 @@ def render(data: DataInterface, selected_data=None):
     and its cells is customized, including conditional styling for selected
     rows.
     """
-    df = data.db.gmw_gdf.reset_index()
+    df = data.db.gmw_gdf.copy()
     usecols = [
-        "id",
-        "bro_id",
-        "nitg_code",
-        "tube_number",
-        "screen_top",
-        "screen_bot",
-        "x",
-        "y",
-        "metingen",
+        ColumnNames.ID,
+        ColumnNames.DISPLAY_NAME,
+        ColumnNames.BRO_ID,
+        ColumnNames.WELL_CODE,
+        ColumnNames.TUBE_NUMBER,
+        ColumnNames.SCREEN_TOP,
+        ColumnNames.SCREEN_BOT,
+        ColumnNames.X,
+        ColumnNames.Y,
+        ColumnNames.TMIN,
+        ColumnNames.TMAX,
+        ColumnNames.NUMBER_OF_OBSERVATIONS,
+        ColumnNames.NUMBER_OF_CONTROL_OBSERVATIONS,
     ]
     return html.Div(
         id="table-div",
@@ -50,48 +56,64 @@ def render(data: DataInterface, selected_data=None):
                 data=df.loc[:, usecols].to_dict("records"),
                 columns=[
                     {
-                        "id": "bro_id",
-                        "name": "Naam",
+                        "id": ColumnNames.DISPLAY_NAME,
+                        "name": "Putcode",
                         "type": "text",
                     },
                     {
-                        "id": "nitg_code",
-                        "name": "NITG",
+                        "id": ColumnNames.BRO_ID,
+                        "name": "BRO-ID",
                         "type": "text",
                     },
                     {
-                        "id": "tube_number",
-                        "name": "Filternummer",
+                        "id": ColumnNames.TUBE_NUMBER,
+                        "name": "#",
                         "type": "numeric",
                         # "format": Format(scheme="r", precision=1),
                     },
                     {
-                        "id": "screen_top",
-                        "name": "Bovenzijde filter\n[m NAP]",
+                        "id": ColumnNames.SCREEN_TOP,
+                        "name": "BKF\n[mNAP]",
                         "type": "numeric",
                         "format": {"specifier": ".2f"},
                     },
                     {
-                        "id": "screen_bot",
-                        "name": "Onderzijde filter\n[m NAP]",
+                        "id": ColumnNames.SCREEN_BOT,
+                        "name": "OKF\n[mNAP]",
                         "type": "numeric",
                         "format": {"specifier": ".2f"},
                     },
                     {
-                        "id": "x",
+                        "id": ColumnNames.X,
                         "name": "X\n[m RD]",
                         "type": "numeric",
                         "format": Format(scheme="r", precision=5),
                     },
                     {
-                        "id": "y",
+                        "id": ColumnNames.Y,
                         "name": "Y\n[m RD]",
                         "type": "numeric",
                         "format": Format(scheme="r", precision=6),
                     },
                     {
-                        "id": "metingen",
+                        "id": ColumnNames.TMIN,
+                        "name": "Start",
+                        "type": "datetime",
+                    },
+                    {
+                        "id": ColumnNames.TMAX,
+                        "name": "End",
+                        "type": "datetime",
+                    },
+                    {
+                        "id": ColumnNames.NUMBER_OF_OBSERVATIONS,
                         "name": "Metingen",
+                        "type": "numeric",
+                        "format": {"specifier": ".0f"},
+                    },
+                    {
+                        "id": ColumnNames.NUMBER_OF_CONTROL_OBSERVATIONS,
+                        "name": "Controle-\nmetingen",
                         "type": "numeric",
                         "format": {"specifier": ".0f"},
                     },
@@ -101,11 +123,13 @@ def render(data: DataInterface, selected_data=None):
                 filter_action="native",
                 sort_action="native",
                 style_table={
-                    "height": "45vh",
-                    # "overflowY": "auto",
-                    "margin-top": 15,
+                    "height": "47cqh",
+                    "maxHeight": "45cqh",
+                    "overflowY": "auto",
+                    "margin-top": UI.MARGIN_TOP_LARGE,
                 },
-                # row_selectable="multi",
+                # NOTE: table will have scroll bar despite fitting on page when
+                # virtualization is set to True...
                 virtualization=True,
                 style_cell={"whiteSpace": "pre-line", "fontSize": 12},
                 style_cell_conditional=[
@@ -113,17 +137,26 @@ def render(data: DataInterface, selected_data=None):
                         "if": {"column_id": c},
                         "textAlign": "left",
                     }
-                    for c in ["bro_id"]
+                    for c in [ColumnNames.BRO_ID, ColumnNames.DISPLAY_NAME]
                 ]
                 + [
-                    {"if": {"column_id": "bro_id"}, "width": "15%"},
-                    {"if": {"column_id": "nitg_code"}, "width": "10%"},
-                    {"if": {"column_id": "tube_number"}, "width": "10%"},
-                    {"if": {"column_id": "screen_top"}, "width": "15%"},
-                    {"if": {"column_id": "screen_bot"}, "width": "15%"},
-                    {"if": {"column_id": "x"}, "width": "7.5%"},
-                    {"if": {"column_id": "y"}, "width": "7.5%"},
-                    {"if": {"column_id": "metingen"}, "width": "10%"},
+                    {"if": {"column_id": ColumnNames.DISPLAY_NAME}, "width": "15%"},
+                    {"if": {"column_id": ColumnNames.BRO_ID}, "width": "10%"},
+                    {"if": {"column_id": ColumnNames.TUBE_NUMBER}, "width": "5%"},
+                    {"if": {"column_id": ColumnNames.SCREEN_TOP}, "width": "7.5%"},
+                    {"if": {"column_id": ColumnNames.SCREEN_BOT}, "width": "7.5%"},
+                    {"if": {"column_id": ColumnNames.X}, "width": "7.5%"},
+                    {"if": {"column_id": ColumnNames.Y}, "width": "7.5%"},
+                    {"if": {"column_id": ColumnNames.TMIN}, "width": "10%"},
+                    {"if": {"column_id": ColumnNames.TMAX}, "width": "10%"},
+                    {
+                        "if": {"column_id": ColumnNames.NUMBER_OF_OBSERVATIONS},
+                        "width": "10%",
+                    },
+                    {
+                        "if": {"column_id": ColumnNames.NUMBER_OF_CONTROL_OBSERVATIONS},
+                        "width": "10%",
+                    },
                 ],
                 style_data_conditional=[
                     {

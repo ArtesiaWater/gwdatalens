@@ -1,8 +1,19 @@
 import logging
+from functools import wraps
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import traval
+
+from gwdatalens.app.src.data import sql
+
+try:
+    from cachetools import cachedmethod
+
+    CACHETOOLS_AVAILABLE = True
+except (ModuleNotFoundError, ImportError):
+    CACHETOOLS_AVAILABLE = False
 
 logger = logging.getLogger("__name__")
 
@@ -18,8 +29,14 @@ WGS84 = "proj=longlat datum=WGS84 no_defs ellps=WGS84 towgs84=0,0,0"
 
 
 def get_model_sim_pi(
-    ml, raw, ci=0.99, tmin=None, tmax=None, smoothfreq=None, savedir=None
-):
+    ml: Any,
+    raw: pd.DataFrame,
+    ci: float = 0.99,
+    tmin: Any | None = None,
+    tmax: Any | None = None,
+    smoothfreq: str | None = None,
+    savedir: Any | None = None,
+) -> tuple[pd.Series, pd.DataFrame]:
     """Compute time series model simulation and prediction interval.
 
     Parameters
@@ -52,7 +69,7 @@ def get_model_sim_pi(
     from a file. Otherwise, it is computed using the model.
     """
     if savedir is not None and ml is not None:
-        logger.debug(f"Load prediction interval from file: pi_{ml.name}.pkl")
+        logger.debug("Load prediction interval from file: pi_%s.pkl", ml.name)
         sim = ml.simulate(tmin=tmin, tmax=tmax)
         new_idx = raw.index.union(sim.index)
         df_pi = pd.read_pickle(savedir / f"pi_{ml.name}.pkl")
@@ -67,7 +84,7 @@ def get_model_sim_pi(
         sim_i.name = "sim"
 
     elif ml is not None:
-        logger.debug(f"Compute prediction interval with model: {ml.name}")
+        logger.debug("Compute prediction interval with model: %s", ml.name)
         alpha = 1 - float(ci)
 
         # get prediction interval
@@ -111,3 +128,105 @@ def get_model_sim_pi(
 
         pi = pd.DataFrame(index=raw.index, columns=["lower", "upper"], data=np.nan)
     return sim_i, pi.astype(float)
+
+
+def _make_hashable(value):
+    """Recursively convert unhashable types to hashable equivalents.
+
+    Lists become tuples, dicts become frozensets of (key, value) pairs.
+    All other types are returned as-is.
+    """
+    if isinstance(value, list):
+        return tuple(_make_hashable(v) for v in value)
+    if isinstance(value, dict):
+        return frozenset((k, _make_hashable(v)) for k, v in value.items())
+    return value
+
+
+def _hashable_key(self, *args, **kwargs):
+    """Key function for cachedmethod that tolerates unhashable args/kwargs.
+
+    Mirrors ``cachetools.keys.methodkey``: ``self`` is accepted but excluded
+    from the key so that ``k[0]`` is always the first real argument (``wid``).
+    Lists and dicts in arguments are converted to hashable equivalents before
+    building the key tuple.  Sorted kwargs are appended as flat (name, value)
+    pairs after the positional arguments.
+    """
+    key = tuple(_make_hashable(a) for a in args)
+    if kwargs:
+        key += tuple(
+            item for k, v in sorted(kwargs.items()) for item in (k, _make_hashable(v))
+        )
+    return key
+
+
+def conditional_cachedmethod(cache_getter):
+    """Decorator to conditionally cache a method using cachetools.cachedmethod.
+
+    This decorator checks the class USE_CACHE flag and only applies caching when
+    both cachetools is available and caching is enabled. It also bypasses caching
+    when ``query`` is provided in ``kwargs`` because ``query`` can be a
+    non-hashable dictionary.
+
+    Uses a custom key function so that list/dict arguments (e.g. ``columns=[...]``)
+    are converted to hashable types instead of raising ``TypeError``.
+
+    Parameters
+    ----------
+    cache_getter : callable
+        Function that returns the cache object from self
+        (e.g., lambda self: self._cache)
+    """
+
+    def decorator(func):
+        if not CACHETOOLS_AVAILABLE:
+            # No cachetools available - just return the original function
+            return func
+
+        # Create the cached version once at decoration time, using a key function
+        # that handles unhashable argument types.
+        cached_func = cachedmethod(cache_getter, key=_hashable_key)(func)
+
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            if self.use_cache and "query" not in kwargs:
+                return cached_func(self, *args, **kwargs)
+            else:
+                return func(self, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+# %% verification stuff
+
+
+def get_all_observation_series(well_static_id: int, tube_static_id: int):
+    well_static_id = 36250
+    tube_static_id = 3710
+    stmt = sql.sql_observations_for_well_and_tube_id(well_static_id, tube_static_id)
+    obs = sql.run_sql(stmt)
+    tsdict = {}
+    for oid in obs["observation_id"]:
+        stmt = sql.sql_measurements_for_observation_id_with_metadata(oid)
+        series = sql.run_sql(stmt)
+        series["observation_id"] = oid
+        tsdict[oid] = series
+
+    df = (
+        pd.concat(list(tsdict.values()), axis=0)
+        .set_index("measurement_time")
+        .sort_index()
+    )
+
+    dupes = df.index.duplicated(keep=False)
+    print("Has duplicates:", dupes.sum())
+    if dupes.sum() > 0:
+        print(df.loc[dupes])
+
+    # original time series
+    stmt = sql.sql_get_timeseries(well_static_id, tube_static_id)
+    ts = sql.run_sql(stmt).set_index("measurement_time").sort_index()
+
+    return df, ts

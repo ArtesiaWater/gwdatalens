@@ -8,13 +8,31 @@ class Base(DeclarativeBase):
     pass
 
 
-class Well(Base):
+class WellStatic(Base):
     __tablename__ = "groundwater_monitoring_well_static"
     groundwater_monitoring_well_static_id: Mapped[int] = mapped_column(primary_key=True)
+    internal_id: Mapped[int]
     bro_id: Mapped[str]
+    well_code: Mapped[str]
     nitg_code: Mapped[str]
     coordinates: Mapped[str]
     reference_system: Mapped[str]
+    construction_date: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class WellDynamic(Base):
+    __tablename__ = "groundwater_monitoring_well_dynamic"
+    groundwater_monitoring_well_dynamic_id: Mapped[int] = mapped_column(
+        primary_key=True
+    )
+    ground_level_position: Mapped[float]
+    groundwater_monitoring_well_static_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            "groundwater_monitoring_well_static.groundwater_monitoring_well_static_id"
+        )
+    )
 
 
 class TubeStatic(Base):
@@ -36,6 +54,9 @@ class TubeDynamic(Base):
     )
     tube_top_position: Mapped[float]
     plain_tube_part_length: Mapped[float]
+    date_created: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     groundwater_monitoring_tube_static_id: Mapped[int] = mapped_column(
         ForeignKey(
             "groundwater_monitoring_tube_static.groundwater_monitoring_tube_static_id"
@@ -83,6 +104,12 @@ class MeasurementTvp(Base):
     measurement_point_metadata_id: Mapped[int] = mapped_column(
         ForeignKey("measurement_point_metadata.measurement_point_metadata_id")
     )
+    # value_to_be_corrected: Mapped[Optional[float]] = mapped_column(nullable=True)
+    initial_calculated_value: Mapped[float | None] = mapped_column(nullable=True)
+    correction_reason: Mapped[str | None] = mapped_column(nullable=True)
+    correction_time: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class MeasurementPointMetadata(Base):
@@ -90,5 +117,11 @@ class MeasurementPointMetadata(Base):
     measurement_point_metadata_id: Mapped[int] = mapped_column(primary_key=True)
     status_quality_control: Mapped[str]
     censor_reason: Mapped[str]
-    censor_reason_artesia: Mapped[str]
-    value_limit: Mapped[float]
+    status_quality_control_reason_datalens: Mapped[str]
+    value_limit: Mapped[str]
+    date_created: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    date_modified: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )

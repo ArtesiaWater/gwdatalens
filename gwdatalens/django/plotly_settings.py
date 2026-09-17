@@ -28,6 +28,8 @@ PLOTLY_DASH = {
 }
 
 STATICFILES_FINDERS = [
+    "django.contrib.staticfiles.finders.FileSystemFinder",
+    "django.contrib.staticfiles.finders.AppDirectoriesFinder",
     "django_plotly_dash.finders.DashAssetFinder",
     "django_plotly_dash.finders.DashComponentFinder",
     "django_plotly_dash.finders.DashAppDirectoryFinder",

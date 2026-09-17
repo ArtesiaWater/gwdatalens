@@ -1,34 +1,125 @@
-import i18n
+import logging
+from typing import Any
+
 import numpy as np
+import pandas as pd
 import plotly.graph_objs as go
 from dash import dcc
 
-from gwdatalens.app.settings import settings
-from gwdatalens.app.src.cache import TIMEOUT, cache
+from gwdatalens.app.config import config
+from gwdatalens.app.constants import UI, ConfigDefaults, PlotConstants
+from gwdatalens.app.messages import t_
+from gwdatalens.app.paths import MAPBOX_ACCESS_TOKEN
+from gwdatalens.app.src.cache import cache
 from gwdatalens.app.src.components import ids
-from gwdatalens.app.src.data import DataInterface
+from gwdatalens.app.src.data import DataManager
 from gwdatalens.app.src.utils import conditional_cache
+
+logger = logging.getLogger(__name__)
+
+NL_DEFAULT_CENTER = {"lon": 5.3, "lat": 52.2}
+NL_DEFAULT_ZOOM = 6.2
+
+try:
+    with open(MAPBOX_ACCESS_TOKEN, encoding="utf-8") as f:
+        mapbox_access_token = f.read()
+except FileNotFoundError:
+    if config.get("USE_MAPBOX"):
+        logger.error("Mapbox access token not found: %s", MAPBOX_ACCESS_TOKEN)
+    mapbox_access_token = None
 
 
 @conditional_cache(
     cache.memoize,
-    (not settings["DJANGO_APP"] and settings["CACHING"]),
-    timeout=TIMEOUT,
+    (not config.get("DJANGO_APP") and config.get("CACHING")),
+    timeout=ConfigDefaults.CACHE_TIMEOUT,
 )
 def render(
-    data: DataInterface,
-    selected_data=None,
-):
-    df = data.db.gmw_gdf.reset_index()
+    data: DataManager,
+    selected_data: list[int] | None = None,
+) -> dcc.Graph:
+    df = data.db.gmw_gdf.copy()
+
+    if df.empty:
+        map_layout_key = "mapbox" if config.get("USE_MAPBOX") else "map"
+        map_layout = {
+            "bearing": 0,
+            "center": NL_DEFAULT_CENTER,
+            "pitch": 0,
+            "zoom": NL_DEFAULT_ZOOM,
+            "style": ConfigDefaults.DEFAULT_MAP_STYLE,
+        }
+        if config.get("USE_MAPBOX"):
+            map_layout["accesstoken"] = mapbox_access_token
+
+        empty_trace = (
+            {
+                "type": "scattermapbox",
+                "lat": [NL_DEFAULT_CENTER["lat"]],
+                "lon": [NL_DEFAULT_CENTER["lon"]],
+                "mode": "markers",
+                "marker": {"size": 1, "opacity": 0},
+                "hoverinfo": "skip",
+                "showlegend": False,
+            }
+            if config.get("USE_MAPBOX")
+            else {
+                "type": "scattermap",
+                "lat": [NL_DEFAULT_CENTER["lat"]],
+                "lon": [NL_DEFAULT_CENTER["lon"]],
+                "mode": "markers",
+                "marker": {"size": 1, "opacity": 0},
+                "hoverinfo": "skip",
+                "showlegend": False,
+            }
+        )
+
+        return dcc.Graph(
+            id=ids.OVERVIEW_MAP,
+            figure={
+                "data": [empty_trace],
+                "layout": {
+                    "margin": {"t": 0, "b": 0, "l": 0, "r": 0},
+                    "font": {"color": "#000000", "size": 11},
+                    "paper_bgcolor": "white",
+                    "clickmode": "event+select",
+                    map_layout_key: map_layout,
+                    "legend": {
+                        "x": 0.01,
+                        "y": 0.99,
+                        "xanchor": "left",
+                        "yanchor": "top",
+                    },
+                    "uirevision": False,
+                    "dragmode": "pan",
+                    "selectdirection": "d",
+                    "modebar": {"bgcolor": "rgba(255,255,255,0.9)"},
+                },
+            },
+            style={
+                "margin-top": UI.MARGIN_TOP_LARGE,
+                "height": "45cqh",
+            },
+            config={
+                "displayModeBar": True,
+                "displaylogo": False,
+                "scrollZoom": True,
+                "modeBarButtonsToAdd": ["zoom", "zoom2d"],
+            },
+        )
+
     return dcc.Graph(
         id=ids.OVERVIEW_MAP,
-        figure=draw_map(
+        figure=draw_map_mapbox(
             df,
+            mapbox_token=mapbox_access_token,
             selected_data=selected_data,
-        ),
+        )
+        if config.get("USE_MAPBOX")
+        else draw_map(df, selected_data=selected_data),
         style={
-            "margin-top": "15",
-            "height": "45vh",
+            "margin-top": UI.MARGIN_TOP_LARGE,
+            "height": "45cqh",
         },
         config={
             "displayModeBar": True,
@@ -40,7 +131,197 @@ def render(
 
 
 def draw_map(
+    df: pd.DataFrame,
+    selected_data: list[int] | None = None,
+) -> dict[str, Any]:
+    """Draw ScatterMap.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        data to plot
+    selected_data : list, optional
+        list of internal ids of selected data points
+
+    Returns
+    -------
+    dict
+        dictionary containing plotly maplayout and mapdata
+    """
+    # Determine data availability categories
+    now = pd.Timestamp.now()
+    two_years_ago = now - pd.Timedelta(days=2 * 365)
+
+    # Create color mapping based on data availability
+    colors = []
+    hover_texts = []
+
+    for _, row in df.iterrows():
+        # Format dates for hover text
+        first_obs = row.get("first_observation_date", "N/A")
+        last_obs = row.get("last_observation_date", "N/A")
+
+        if pd.notna(first_obs) and isinstance(first_obs, pd.Timestamp):
+            first_obs = first_obs.strftime("%Y-%m-%d")
+
+        if pd.notna(last_obs) and isinstance(last_obs, pd.Timestamp):
+            last_obs = last_obs.strftime("%Y-%m-%d")
+
+        # Get observation counts
+        metingen = row.get("metingen", 0)
+        controlemetingen = row.get("controlemetingen", 0)
+
+        if metingen == 0 and controlemetingen == 0:
+            hover_text = t_("general.no_data")
+        else:
+            # Create hover text
+            hover_text = (
+                f"{t_('general.period')}: {first_obs} - {last_obs}<br>"
+                f"{t_('general.number_of_observations')}: {metingen}<br>"
+                f"{t_('general.number_of_control_observations')}: {controlemetingen}"
+            )
+        hover_texts.append(hover_text)
+
+        # Determine color based on data availability
+        if metingen == 0:
+            colors.append("gray")  # No data
+        elif pd.notna(last_obs) and pd.to_datetime(last_obs) >= two_years_ago:
+            colors.append("green")  # Data in last 2 years
+        else:
+            colors.append("blue")  # Data but not in last 2 years
+
+    # Create a single trace for all data
+    if selected_data is not None:
+        selected_points = selected_data
+    else:
+        selected_points = None
+
+    mapdata = [
+        {
+            "lat": df.loc[:, "lat"],
+            "lon": df.loc[:, "lon"],
+            "name": t_("general.monitoring_wells"),
+            "customdata": df.loc[:, "well_static_id"].astype(str)
+            + "."
+            + df.loc[:, "tube_static_id"].astype(str),
+            "type": "scattermap",
+            "text": df.loc[:, "display_name"].tolist(),
+            "textposition": "top center",
+            "textfont": {"size": 12, "color": "black"},
+            "mode": "markers",
+            "marker": go.scattermap.Marker(
+                size=PlotConstants.OVERVIEW_MAP_MARKER_SIZE,
+                opacity=PlotConstants.OVERVIEW_MAP_MARKER_OPACITY,
+                color=colors,
+                symbol=PlotConstants.OVERVIEW_MAP_MARKER_SYMBOL,
+                showscale=False,
+            ),
+            "hovertemplate": ("<b>%{text}</b><br>%{hovertext}<extra></extra>"),
+            "hovertext": hover_texts,
+            "showlegend": False,
+            "selectedpoints": selected_points,
+            "unselected": {
+                "marker": {
+                    "opacity": PlotConstants.OVERVIEW_MAP_UNSELECTED_MARKER_OPACITY,
+                    "size": PlotConstants.OVERVIEW_MAP_MARKER_SIZE,
+                }
+            },
+            "selected": {
+                "marker": {
+                    "opacity": PlotConstants.OVERVIEW_MAP_SELECTED_MARKER_OPACITY,
+                    "color": PlotConstants.OVERVIEW_MAP_SELECTED_MARKER_COLOR,
+                    "size": PlotConstants.OVERVIEW_MAP_SELECTED_MARKER_SIZE,
+                }
+            },
+        }
+    ]
+
+    # Add legend items for each category - these are dummy traces that only appear
+    # in the legend
+    legend_items = [
+        {
+            "name": t_("general.no_data"),
+            "type": "scattermap",
+            "mode": "markers",
+            "marker": {
+                "size": PlotConstants.OVERVIEW_MAP_MARKER_SIZE,
+                "color": "gray",
+                "symbol": PlotConstants.OVERVIEW_MAP_MARKER_SYMBOL,
+            },
+            "showlegend": True,
+            "legendgroup": "data_availability",
+            "lat": [None],  # No actual data points
+            "lon": [None],  # No actual data points
+        },
+        {
+            "name": t_("general.historic_data_available"),
+            "type": "scattermap",
+            "mode": "markers",
+            "marker": {
+                "size": PlotConstants.OVERVIEW_MAP_MARKER_SIZE,
+                "color": "blue",
+                "symbol": PlotConstants.OVERVIEW_MAP_MARKER_SYMBOL,
+            },
+            "showlegend": True,
+            "legendgroup": "data_availability",
+            "lat": [None],  # No actual data points
+            "lon": [None],  # No actual data points
+        },
+        {
+            "name": t_("general.recent_data_available"),
+            "type": "scattermap",
+            "mode": "markers",
+            "marker": {
+                "size": PlotConstants.OVERVIEW_MAP_MARKER_SIZE,
+                "color": "green",
+                "symbol": PlotConstants.OVERVIEW_MAP_MARKER_SYMBOL,
+            },
+            "showlegend": True,
+            "legendgroup": "data_availability",
+            "lat": [None],  # No actual data points
+            "lon": [None],  # No actual data points
+        },
+    ]
+
+    mapdata.extend(legend_items)
+
+    # if selected_rows is None:
+    zoom, center = get_plotting_zoom_level_and_center_coordinates(
+        df.lon.values, df.lat.values
+    )
+    maplayout = {
+        # top, bottom, left and right margins
+        "margin": {"t": 0, "b": 0, "l": 0, "r": 0},
+        "font": {"color": "#000000", "size": 11},
+        "paper_bgcolor": "white",
+        "clickmode": "event+select",
+        "map": {
+            "bearing": 0,
+            # where we want the map to be centered
+            "center": center,
+            # we want the map to be "parallel" to our screen, with no angle
+            "pitch": 0,
+            # default level of zoom
+            "zoom": zoom,
+            # default map style (some options listed, not all support labels)
+            "style": ConfigDefaults.DEFAULT_MAP_STYLE,
+        },
+        # relayoutData=map_cfg,
+        "legend": {"x": 0.01, "y": 0.99, "xanchor": "left", "yanchor": "top"},
+        "uirevision": False,
+        "dragmode": "pan",
+        "selectdirection": "d",
+        "modebar": {
+            "bgcolor": "rgba(255,255,255,0.9)",
+        },
+    }
+
+    return {"data": mapdata, "layout": maplayout}
+
+
+def draw_map_mapbox(
     df,
+    mapbox_token=MAPBOX_ACCESS_TOKEN,
     selected_data=None,
 ):
     """Draw ScatterMap.
@@ -49,37 +330,40 @@ def draw_map(
     ----------
     df : pandas.DataFrame
         data to plot
+    mapbox_token : str
+        mapbox access token
+    selected_data : list, optional
+        list of selected data points
 
     Returns
     -------
     dict
         dictionary containing plotly maplayout and mapdata
     """
-    mask = df["metingen"] > 0
-
     if selected_data is not None:
-        pts_data = np.nonzero(df.loc[mask, "name"].isin(selected_data))[0].tolist()
-        pts_nodata = np.nonzero(df.loc[~mask, "name"].isin(selected_data))[0].tolist()
+        pts_data = selected_data
+        pts_nodata = df.index.difference(selected_data).tolist()
     else:
         pts_data = None
         pts_nodata = None
 
     # NOTE: this does not work as map and table have to be similarly ordered for
     # synchronized selection to work.
-    # df = df.sort_values(["nitg_code", "tube_number"], ascending=[False, False])
+    # df = df.sort_values([ColumnNames.WELL_NITG_CODE, "tube_number"],
+    # ascending=[False, False])
 
     # oseries data for map
     pb_data = {
         "lat": df.loc[:, "lat"],
         "lon": df.loc[:, "lon"],
-        "name": i18n.t("general.monitoring_wells"),
+        "name": t_("general.monitoring_wells"),
         # customdata=df.loc[:, "z"],
-        "type": "scattermap",
-        "text": df.loc[:, "name"].tolist(),
+        "type": "scattermapbox",
+        "text": df.loc[:, "display_name"].tolist(),
         "textposition": "top center",
         "textfont": {"size": 12, "color": "black"},
         "mode": "markers",
-        "marker": go.scattermap.Marker(
+        "marker": go.scattermapbox.Marker(
             size=6,
             # sizeref=0.5,
             # sizemin=2,
@@ -109,17 +393,18 @@ def draw_map(
         "selected": {"marker": {"opacity": 1.0, "color": "red", "size": 9}},
     }
 
+    mask = df["metingen"] > 0
     pb_nodata = {
         "lat": df.loc[~mask, "lat"],
         "lon": df.loc[~mask, "lon"],
-        "name": i18n.t("general.no_data"),
+        "name": t_("general.no_data"),
         # customdata=df.loc[~mask, "z"],
-        "type": "scattermap",
-        "text": df.loc[~mask, "name"].tolist(),
+        "type": "scattermapbox",
+        "text": df.loc[~mask, "display_name"].tolist(),
         "textposition": "top center",
         "textfont": {"size": 12, "color": "black"},
         "mode": "markers",
-        "marker": go.scattermap.Marker(
+        "marker": go.scattermapbox.Marker(
             size=7,
             opacity=0.8,
             # sizeref=0.5,
@@ -161,7 +446,8 @@ def draw_map(
         "font": {"color": "#000000", "size": 11},
         "paper_bgcolor": "white",
         "clickmode": "event+select",
-        "map": {
+        "mapbox": {
+            "accesstoken": mapbox_token,
             "bearing": 0,
             # where we want the map to be centered
             "center": center,
@@ -170,21 +456,13 @@ def draw_map(
             # default level of zoom
             "zoom": zoom,
             # default map style (some options listed, not all support labels)
-            "style": "outdoors",
-            # public styles
-            # style="carto-positron",
-            # style="open-street-map",
-            # style="stamen-terrain",
-            # style="basic",
-            # style="streets",
-            # style="light",
-            # style="dark",
-            # style="satellite",
-            # style="satellite-streets"
+            "style": ConfigDefaults.DEFAULT_MAP_STYLE,
         },
         # relayoutData=map_cfg,
         "legend": {"x": 0.01, "y": 0.99, "xanchor": "left", "yanchor": "top"},
         "uirevision": False,
+        "dragmode": "select",
+        "selectdirection": "d",
         "modebar": {
             "bgcolor": "rgba(255,255,255,0.9)",
         },
@@ -220,7 +498,19 @@ def get_plotting_zoom_level_and_center_coordinates(longitudes=None, latitudes=No
     if (latitudes is None or longitudes is None) or (len(latitudes) != len(longitudes)):
         # Otherwise, return the default values of 0 zoom and the coordinate
         # origin as center point
-        return 0, (0, 0)
+        return NL_DEFAULT_ZOOM, NL_DEFAULT_CENTER
+
+    if len(latitudes) == 0 or len(longitudes) == 0:
+        return NL_DEFAULT_ZOOM, NL_DEFAULT_CENTER
+
+    longitudes = np.asarray(longitudes, dtype=float)
+    latitudes = np.asarray(latitudes, dtype=float)
+    valid = np.isfinite(longitudes) & np.isfinite(latitudes)
+    if not valid.any():
+        return NL_DEFAULT_ZOOM, NL_DEFAULT_CENTER
+
+    longitudes = longitudes[valid]
+    latitudes = latitudes[valid]
 
     # Get the boundary-box
     b_box = {}
