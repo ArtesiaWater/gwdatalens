@@ -10,9 +10,7 @@ description = "Dashboard for groundwater time series validation."
 license = { file = "LICENSE" }
 readme = "README.md"
 authors = [{ name = "D.A. Brakenhoff" }, { name = "R.C. Caljé" }]
-maintainers = [
-    { name = "D.A. Brakenhoff", email = "d.brakenhoff@artesia-water.nl" },
-]
+maintainers = [{ name = "D.A. Brakenhoff", email = "d.brakenhoff@artesia-water.nl" }]
 requires-python = ">= 3.10"
 dependencies = [
     "numpy",
@@ -93,7 +91,6 @@ extend-include = ["*.ipynb"]
 fix = true
 
 [tool.ruff.lint]
-# See: https://docs.astral.sh/ruff/rules/
 select = [
     "C4",  # flake8-comprehensions
     "E",   # pycodestyle
@@ -103,16 +100,26 @@ select = [
     "D",   # pydocstyle
     "B",   # flake8-bugbear
     "NPY", # numpy
+    "E4",
+    "E7",
+    "E9",
+    "F",
+    "I",
+    "UP",
+    "C",
 ]
+# See: https://docs.astral.sh/ruff/rules/
 ignore = [
-    "D100", # Missing docstring in public module
-    "D101", # Missing docstring in public class
-    "D102", # Missing docstring in public method
-    "D103", # Missing docstring in public function
-    "D104", # Missing docstring in public package
-    "D105", # Missing docstring in magic method
-    "D401", # First line should be in imperative mood
-    "B006", # Do not use mutable data structures as default arguments
+    "C901",
+    "D100",  # Missing docstring in public module
+    "D101",  # Missing docstring in public class
+    "D102",  # Missing docstring in public method
+    "D103",  # Missing docstring in public function
+    "D104",  # Missing docstring in public package
+    "D105",  # Missing docstring in magic method
+    "D401",  # First line should be in imperative mood
+    "B006",  # Do not use mutable data structures as default arguments
+    "UP008",
 ]
 
 [tool.ruff.lint.pydocstyle]

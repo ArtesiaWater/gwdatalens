@@ -1,4 +1,3 @@
-from typing import List
 
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -31,7 +30,7 @@ def render() -> dcc.Tab:
     )
 
 
-def render_content(data: DataManager, selected_data: List):
+def render_content(data: DataManager, selected_data: list):
     """Renders the content for the model tab.
 
     Parameters

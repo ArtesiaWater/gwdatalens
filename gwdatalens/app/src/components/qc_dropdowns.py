@@ -1,4 +1,3 @@
-from typing import List, Optional
 
 from dash import dcc, html
 from traval import rulelib
@@ -11,7 +10,7 @@ from gwdatalens.app.src.data.qc_custom_rules import CUSTOM_RULE_NAMES
 
 
 def render_selection_series_dropdown(
-    data: DataManager, selected_data: Optional[List[int]]
+    data: DataManager, selected_data: list[int] | None
 ) -> html.Div:
     """Renders a dropdown component for selecting a time series.
 
@@ -47,7 +46,7 @@ def render_selection_series_dropdown(
                 value=wid,
                 clearable=True,
                 searchable=True,
-                placeholder=t_("general.select_series"),
+                placeholder=t_("general.select_series_qc"),
                 id=ids.QC_DROPDOWN_SELECTION,
                 disabled=False,
             )
@@ -56,7 +55,7 @@ def render_selection_series_dropdown(
 
 
 def render_additional_series_dropdown(
-    data: DataManager, selected_data: Optional[List[int]]
+    data: DataManager, selected_data: list[int] | None
 ) -> html.Div:
     """Render a dropdown component for selecting additional series.
 
@@ -95,7 +94,7 @@ def render_additional_series_dropdown(
                 options=options,
                 clearable=True,
                 searchable=True,
-                placeholder=t_("general.select_series2"),
+                placeholder=t_("general.select_series_qc_extra"),
                 id=ids.QC_DROPDOWN_ADDITIONAL,
                 disabled=selected_data is None,
                 multi=True,

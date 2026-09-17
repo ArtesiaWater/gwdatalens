@@ -164,44 +164,44 @@ def two_step_solve(name):
 
 # %%
 weird_data = [
-    "GMW42B000155-001",  # flipped series?
-    "GMW42E000993-001",  # flipped series?
-    "GMW42E000994-001",  # flipped series?
-    "GMW42B000154-001",  # flipped series?
-    "GMW42B000153-001",  # flipped series?
-    "GMW42E000992-001",  # flipped series?
-    "GMW49D000060-004",  # missende invloed onttrekkingen
-    "GMW48F000075-001",  # missende invloed onttrekking, moeilijke reeks
-    "GMW49D000120-005",  # missende invloed onttrekking?
-    "GMW43C000348-001",  # vreemde reeks
-    "GMW48E000128-004",  # getijde?
-    "GMW42H000186-001",  # te kort
-    "GMW48E000128-002",  # getijde?
-    "GMW48E000128-002",  # getijde?
-    "GMW48E000128-002",  # hele vreemde reeks...
-    "GMW54F000093-002",  # hele vreemde reeks...
-    "GMW42B000114-001",  # missende invloed, maar wat?
-    "GMW49D000120-004",  # missende invloed onttrekkingen
-    "GMW49D000114-005",  # missende invloed onttrekkingen
-    "GMW43C000380-002",  # te weinig data
-    "GMW48F000075-002",  # missende invloed onttrekking, moeilijke reeks
-    "GMW48B000061-001",  # getijde?
-    "GMW49D000060-003",  # missende invloed onttrekking, moeilijke reeks
-    "GMW49D000114-004",  # missende invloed onttrekking, moeilijke reeks
-    "GMW54E000285-001",  # vreemde reeks
-    "GMW49D000114-002",  # missende invloed onttrekking, moeilijke reeks
-    "GMW49D000120-003",  # missende  invloed onttrekking, moeilijke reeks
-    "GMW48E000128-003",  # getijde?
-    "GMW55A000340-001",  # vreemde reeks
-    "GMW48E000218-003",  # getijde?
-    "GMW42G000063-002",  # moeilijke reeks?
-    "GMW49A000255-001",  # te kort
-    "GMW48B000061-003",  # getijde?
-    "GMW48B000061-002",  # getijde?
-    "GMW48E000128-001",  # getijde?
-    "GMW49C000107-002",  # getijde?
-    "GMW42G000063-003",  # getijde?
-    "GMW49C000107-001",  # moeilijke reeks?
+    # "GMW42B000155-001",  # flipped series?
+    # "GMW42E000993-001",  # flipped series?
+    # "GMW42E000994-001",  # flipped series?
+    # "GMW42B000154-001",  # flipped series?
+    # "GMW42B000153-001",  # flipped series?
+    # "GMW42E000992-001",  # flipped series?
+    # "GMW49D000060-004",  # missende invloed onttrekkingen
+    # "GMW48F000075-001",  # missende invloed onttrekking, moeilijke reeks
+    # "GMW49D000120-005",  # missende invloed onttrekking?
+    # "GMW43C000348-001",  # vreemde reeks
+    # "GMW48E000128-004",  # getijde?
+    # "GMW42H000186-001",  # te kort
+    # "GMW48E000128-002",  # getijde?
+    # "GMW48E000128-002",  # getijde?
+    # "GMW48E000128-002",  # hele vreemde reeks...
+    # "GMW54F000093-002",  # hele vreemde reeks...
+    # "GMW42B000114-001",  # missende invloed, maar wat?
+    # "GMW49D000120-004",  # missende invloed onttrekkingen
+    # "GMW49D000114-005",  # missende invloed onttrekkingen
+    # "GMW43C000380-002",  # te weinig data
+    # "GMW48F000075-002",  # missende invloed onttrekking, moeilijke reeks
+    # "GMW48B000061-001",  # getijde?
+    # "GMW49D000060-003",  # missende invloed onttrekking, moeilijke reeks
+    # "GMW49D000114-004",  # missende invloed onttrekking, moeilijke reeks
+    # "GMW54E000285-001",  # vreemde reeks
+    # "GMW49D000114-002",  # missende invloed onttrekking, moeilijke reeks
+    # "GMW49D000120-003",  # missende  invloed onttrekking, moeilijke reeks
+    # "GMW48E000128-003",  # getijde?
+    # "GMW55A000340-001",  # vreemde reeks
+    # "GMW48E000218-003",  # getijde?
+    # "GMW42G000063-002",  # moeilijke reeks?
+    # "GMW49A000255-001",  # te kort
+    # "GMW48B000061-003",  # getijde?
+    # "GMW48B000061-002",  # getijde?
+    # "GMW48E000128-001",  # getijde?
+    # "GMW49C000107-002",  # getijde?
+    # "GMW42G000063-003",  # getijde?
+    # "GMW49C000107-001",  # moeilijke reeks?
 ]
 
 for name in weird_data:

@@ -73,6 +73,14 @@ class ConfigManager:
                 "connector": "dict",
                 "update_knmi": False,  # update knmi time series on startup
             },
+            "bro_connector": {
+                "use_api": False,
+                "api_endpoint": "/api/gld/observation/measurements/",
+                "api_url": "",
+                "auth_mode": "auto",
+                "username": "",
+                "password": "",
+            },
         }
         logger.debug("Loaded default configuration")
 
@@ -95,6 +103,9 @@ class ConfigManager:
             # Merge pastastore config
             if "pastastore" in file_config:
                 self._config["pastastore"].update(file_config["pastastore"])
+
+            if "bro_connector" in file_config:
+                self._config["bro_connector"].update(file_config["bro_connector"])
 
             logger.info("Loaded configuration from %s", config_file)
         except Exception as e:
@@ -174,6 +185,20 @@ class ConfigManager:
                 "CALLBACK_LOG_TRIGGER",
                 lambda x: x.lower() in ("true", "1", "yes"),
             ),
+            # BRO connector API settings
+            f"{env_prefix}BRO_CONNECTOR_USE_API": (
+                "bro_connector.use_api",
+                lambda x: x.lower() in ("true", "1", "yes"),
+            ),
+            f"{env_prefix}BRO_CONNECTOR_API_URL": ("bro_connector.api_url", str),
+            f"{env_prefix}BRO_CONNECTOR_API_ENDPOINT": (
+                "bro_connector.api_endpoint",
+                str,
+            ),
+            f"{env_prefix}BRO_CONNECTOR_AUTH_MODE": (
+                "bro_connector.auth_mode",
+                lambda x: x.strip().lower(),
+            ),
             # Database environment variables
             f"{env_prefix}DB_HOST": ("database.host", str),
             f"{env_prefix}DB_PORT": ("database.port", int),
@@ -192,6 +217,10 @@ class ConfigManager:
                         section, key = config_key.split(".", 1)
                         if section == "database":
                             self._database_config[key] = value
+                        elif section in self._config and isinstance(
+                            self._config[section], dict
+                        ):
+                            self._config[section][key] = value
                     else:
                         self._config[config_key] = value
 
@@ -248,7 +277,27 @@ class ConfigManager:
         Any
             Configuration value
         """
-        return self._config.get(key, default)
+        value = self._config.get(key)
+        if value is not None:
+            return value
+
+        # Backward compatibility alias:
+        # map keys like BRO_CONNECTOR_API_URL -> [bro_connector].api_url
+        normalized_key = key.lower()
+        for section, section_values in self._config.items():
+            if not isinstance(section_values, dict):
+                continue
+
+            section_prefix = f"{section.lower()}_"
+            if not normalized_key.startswith(section_prefix):
+                continue
+
+            nested_key = normalized_key.removeprefix(section_prefix)
+            nested_value = section_values.get(nested_key)
+            if nested_value is not None:
+                return nested_value
+
+        return default
 
     def get_database_config(self) -> dict[str, Any]:
         """Get database configuration.
